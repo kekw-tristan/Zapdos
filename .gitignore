@@ -1,0 +1,84 @@
+# === Compiled Object files ===
+*.slo
+*.lo
+*.o
+*.obj
+
+# === Precompiled Headers ===
+*.gch
+*.pch
+
+# === Compiled Dynamic libraries ===
+*.so
+*.dylib
+*.dll
+
+# === Compiled Static libraries ===
+*.lai
+*.la
+*.a
+*.lib
+
+# === Executables ===
+*.exe
+*.out
+*.app
+
+# === Build Directories ===
+bin/
+bin-int/
+build/
+Build/
+
+# === Visual Studio Files ===
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.VC.opendb
+*.suo
+*.user
+*.userosscache
+*.log
+*.tlog
+*.lastbuildstate
+ipch/
+.vs/
+*.ncb
+*.ilk
+*.pdb
+
+# === CMake and Premake ===
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+*.make
+obj/
+
+# === Generated Project Files ===
+*.vcxproj*
+*.sln
+
+# === Misc ===
+*.log
+*.tmp
+*.DS_Store
+Thumbs.db
+
+# === Premake Generated ===
+*.make
+*.workspace
+*.project
+*.txt
+*.ninja
+
+# === Backup files ===
+*~
+*.bak
+*.swp
+*.swn
+*.swo
+
+# === Clangd Index ===
+.cache/
+.clangd/
