@@ -1,8 +1,17 @@
 #include <iostream>
 
-#include "directx12.h"
+#include "system.h"
 
 int main()
 {
-    std::cout << "lol" << std::endl;
+	cSystem system; 
+
+	system.Initialize();
+
+	while (true)
+	{
+		system.Run();
+	}
+
+	system.Finalize(); 
 }
