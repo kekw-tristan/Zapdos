@@ -8,10 +8,9 @@ int main()
 
 	system.Initialize();
 
-	while (true)
-	{
-		system.Run();
-	}
+	system.Run();
 
 	system.Finalize(); 
+
+	return 0; 
 }

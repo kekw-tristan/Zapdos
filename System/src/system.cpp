@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "window.h"
+#include "directx12.h"
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -11,19 +12,20 @@ void cSystem::Initialize()
 	std::cout << "Initialize" << "\n";
 
 	pWindow = new cWindow();
-	pWindow2 = new cWindow();
-			
-	pWindow->Initialize();
-	pWindow2->Initialize();
+	pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720);
 
-	FreeConsole(); 
+	pDirectX12 = new cDirectX12();
+	pDirectX12->Initialize(); 
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cSystem::Run()
 {
-	pWindow->MessageHandling();
+	while (pWindow->GetIsRunning())
+	{
+		pWindow->MessageHandling();
+	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -31,6 +33,9 @@ void cSystem::Run()
 void cSystem::Finalize()
 {
 	std::cout << "Finalize" << "\n";
+
 	delete pWindow;
-	delete pWindow2;
+	delete pDirectX12; 
 }
+
+// --------------------------------------------------------------------------------------------------------------------------

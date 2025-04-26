@@ -3,6 +3,7 @@
 #include <windows.h>
 
 class cWindow;
+class cDirectX12;
 
 class cSystem
 {
@@ -19,6 +20,6 @@ class cSystem
 
 	private:
 
-		cWindow* pWindow; 
-		cWindow* pWindow2; 
+		cWindow*	pWindow; 
+		cDirectX12* pDirectX12; 
 };

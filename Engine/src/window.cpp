@@ -2,25 +2,28 @@
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cWindow::Initialize()
+void cWindow::Initialize(const wchar_t* _pTitle, const wchar_t* _pClassName, int _width, int _height)
 {
+	m_height	= _height;
+	m_width = _width;
+
 	hInstance = GetModuleHandle(nullptr);
 
 	WNDCLASSEX wndc = {};
 
 	wndc.cbSize = sizeof(wndc);
 	wndc.hInstance = hInstance; 
-	wndc.lpszClassName = L"gameWindow";
+	wndc.lpszClassName = _pClassName;
 	wndc.lpfnWndProc = cWindow::WindowProcStatic;
 
 	RegisterClassEx(&wndc);
 
 	hwnd = CreateWindowEx(
 		0,
-		L"gameWindow",
-		L"Zapdos",
+		_pClassName,
+		_pTitle,
 		WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+		CW_USEDEFAULT, CW_USEDEFAULT, m_width, m_height,
 		NULL, NULL, hInstance, this
 	);
 
@@ -40,6 +43,32 @@ void cWindow::MessageHandling()
 
 	TranslateMessage(&msg);
 	DispatchMessage(&msg);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+bool cWindow::GetIsRunning()
+{
+	return isRunning;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+int cWindow::GetWidth()
+{
+	return m_width;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+int cWindow::GetHeight()
+{
+	return m_height;
+}
+
+HWND cWindow::GetHWND()
+{
+	return hwnd;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -78,13 +107,13 @@ LRESULT cWindow::WindowProc(UINT _uMsg, WPARAM _wParam, LPARAM _lParam)
 		case WM_DESTROY:
 		{
 			isRunning = false;
-			PostQuitMessage(0);
-			return 0; 
+			break; 
 		}
 
 		case WM_CLOSE:
 		{
 			DestroyWindow(hwnd); 
+			break;
 		}
 	}
 
