@@ -183,6 +183,7 @@ void cDirectX12::InitializeSwapChain()
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
+// creates descriptor heaps for rtv and dsv
 
 void cDirectX12::InitializeDescriptorHeaps()
 {
@@ -210,6 +211,32 @@ void cDirectX12::InitializeDescriptorHeaps()
         IID_PPV_ARGS(m_pDsvHeap.GetAddressOf())
     ));
 
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::InitializeRenderTargetView()
+{
+        
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+// returns the cpu descriptor handle pointing to the rtv for the
+// currently active backbuffer in the swapchain
+
+D3D12_CPU_DESCRIPTOR_HANDLE cDirectX12::GetCurrentBackbufferView() const
+{
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_pRtvHeap->GetCPUDescriptorHandleForHeapStart();
+    handle.ptr += static_cast<SIZE_T>(m_currentBackBuffer) * static_cast<SIZE_T>(m_rtvDescriptorSize);
+    return handle;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+// returns the cpu descriptor hand pointing to the start of the dsv
+
+D3D12_CPU_DESCRIPTOR_HANDLE cDirectX12::GetDepthStencilView() const
+{
+    return m_pDsvHeap->GetCPUDescriptorHandleForHeapStart();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

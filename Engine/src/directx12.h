@@ -32,6 +32,12 @@ class cDirectX12
 		void InitializeCommandQueueAndList();
 		void InitializeSwapChain();
 		void InitializeDescriptorHeaps();
+		void InitializeRenderTargetView();
+	
+	private:
+
+		D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentBackbufferView() const; 
+		D3D12_CPU_DESCRIPTOR_HANDLE GetDepthStencilView() const; 
 	
 	private:
 
@@ -64,5 +70,6 @@ class cDirectX12
 		int m_dsvDescriptorSize;
 		int m_cbvSrvDescriptorSize;
 
+		int m_currentBackBuffer;
 		
 };
