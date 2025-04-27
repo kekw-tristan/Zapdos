@@ -15,7 +15,7 @@ void cSystem::Initialize()
 	pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720);
 
 	pDirectX12 = new cDirectX12();
-	pDirectX12->Initialize(); 
+	pDirectX12->Initialize(pWindow); 
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

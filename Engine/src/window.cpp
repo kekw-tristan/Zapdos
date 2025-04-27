@@ -1,5 +1,7 @@
 #include "window.h"
 
+#include <iostream>
+
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cWindow::Initialize(const wchar_t* _pTitle, const wchar_t* _pClassName, int _width, int _height)
@@ -83,6 +85,7 @@ LRESULT cWindow::WindowProcStatic(HWND _hwnd, UINT _uMsg, WPARAM _wParam, LPARAM
 		pWindow = reinterpret_cast<cWindow*>(pCreate->lpCreateParams);
 		SetWindowLongPtr(_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pWindow));
 
+		std::cout << "hwnd set\n";
 		pWindow->hwnd = _hwnd; 
 	}
 	else
