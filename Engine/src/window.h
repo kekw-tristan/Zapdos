@@ -2,6 +2,8 @@
 
 #include <Windows.h>
 
+class cTimer;
+
 class cWindow
 {
 	public:
@@ -11,7 +13,7 @@ class cWindow
 
 	public:
 
-		void Initialize(const wchar_t* _pTitle, const wchar_t* _className, int _width, int _height); 
+		void Initialize(const wchar_t* _pTitle, const wchar_t* _className, int _width, int _height, cTimer* _pTimer);
 		void MessageHandling();
 
 	public:
@@ -29,11 +31,13 @@ class cWindow
 
 	private:
 
-		HWND		hwnd; 
-		HINSTANCE	hInstance;
+		HWND		m_hwnd; 
+		HINSTANCE	m_hInstance;
 
-		bool isRunning; 
+		bool m_isRunning; 
 
 		int m_width;
 		int m_height;
+
+		cTimer* m_pTimer;
 };

@@ -2,30 +2,42 @@
 
 #include <iostream>
 
+
 #include "window.h"
 #include "directx12.h"
+#include "timer.h"
+#include "input.h"
+
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cSystem::Initialize()
 {
 	std::cout << "Initialize" << "\n";
+	m_pTimer = new cTimer();
+	m_pTimer->Start();
+	
+	m_pWindow = new cWindow();
+	m_pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720, m_pTimer);
 
-	pWindow = new cWindow();
-	pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720);
-
-	pDirectX12 = new cDirectX12();
-	pDirectX12->Initialize(pWindow); 
+	m_pDirectX12 = new cDirectX12();
+	m_pDirectX12->Initialize(m_pWindow, m_pTimer);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cSystem::Run()
 {
-	while (pWindow->GetIsRunning())
+	while (m_pWindow->GetIsRunning())
 	{
-		pWindow->MessageHandling();
-	}
+		
+
+		m_pWindow->MessageHandling();
+
+
+		m_pDirectX12->CalculateFrameStats();
+	}	
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -34,8 +46,8 @@ void cSystem::Finalize()
 {
 	std::cout << "Finalize" << "\n";
 
-	delete pWindow;
-	delete pDirectX12; 
+	delete m_pWindow;
+	delete m_pDirectX12;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

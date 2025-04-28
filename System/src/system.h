@@ -4,6 +4,7 @@
 
 class cWindow;
 class cDirectX12;
+class cTimer; 
 
 class cSystem
 {
@@ -20,6 +21,7 @@ class cSystem
 
 	private:
 
-		cWindow*	pWindow; 
-		cDirectX12* pDirectX12; 
+		cWindow*	m_pWindow; 
+		cDirectX12* m_pDirectX12; 
+		cTimer*		m_pTimer;
 };

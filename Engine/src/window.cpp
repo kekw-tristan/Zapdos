@@ -1,38 +1,50 @@
 #include "window.h"
 
 #include <iostream>
+#include <windowsx.h>
+
+#include "input.h"
+#include "timer.h"
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cWindow::Initialize(const wchar_t* _pTitle, const wchar_t* _pClassName, int _width, int _height)
+void cWindow::Initialize(const wchar_t* _pTitle, const wchar_t* _pClassName, int _width, int _height, cTimer* _pTimer)
 {
-	m_height	= _height;
-	m_width = _width;
+	m_height = _height;
+	m_width  = _width;
 
-	hInstance = GetModuleHandle(nullptr);
+	m_pTimer = _pTimer;
+
+	m_hInstance = GetModuleHandle(nullptr);
 
 	WNDCLASSEX wndc = {};
 
 	wndc.cbSize = sizeof(wndc);
-	wndc.hInstance = hInstance; 
+	wndc.hInstance = m_hInstance;
 	wndc.lpszClassName = _pClassName;
 	wndc.lpfnWndProc = cWindow::WindowProcStatic;
 
 	RegisterClassEx(&wndc);
 
-	hwnd = CreateWindowEx(
+	RECT windowRect = { 0, 0, m_width, m_height };
+	AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
+
+	int actualWidth = windowRect.right - windowRect.left;
+	int actualHeight = windowRect.bottom - windowRect.top;
+
+	m_hwnd = CreateWindowEx(
 		0,
 		_pClassName,
 		_pTitle,
 		WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT, m_width, m_height,
-		NULL, NULL, hInstance, this
+		CW_USEDEFAULT, CW_USEDEFAULT, actualWidth, actualHeight,
+		NULL, NULL, m_hInstance, this
 	);
 
-	ShowWindow(hwnd, SW_SHOW);
-	UpdateWindow(hwnd);
+	ShowWindow(m_hwnd, SW_SHOW);
+	UpdateWindow(m_hwnd);
 
-	isRunning = true; 
+	m_isRunning = true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -41,17 +53,18 @@ void cWindow::MessageHandling()
 {
 	MSG msg = {};
 
-	GetMessage(&msg, nullptr, 0, 0);
-
-	TranslateMessage(&msg);
-	DispatchMessage(&msg);
+	if (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
+	{
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 bool cWindow::GetIsRunning()
 {
-	return isRunning;
+	return m_isRunning;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -70,7 +83,7 @@ int cWindow::GetHeight()
 
 HWND cWindow::GetHWND()
 {
-	return hwnd;
+	return m_hwnd;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -86,7 +99,7 @@ LRESULT cWindow::WindowProcStatic(HWND _hwnd, UINT _uMsg, WPARAM _wParam, LPARAM
 		SetWindowLongPtr(_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pWindow));
 
 		std::cout << "hwnd set\n";
-		pWindow->hwnd = _hwnd; 
+		pWindow->m_hwnd = _hwnd;
 	}
 	else
 	{
@@ -108,19 +121,48 @@ LRESULT cWindow::WindowProc(UINT _uMsg, WPARAM _wParam, LPARAM _lParam)
 	switch (_uMsg)
 	{
 		case WM_DESTROY:
-		{
-			isRunning = false;
+			m_isRunning = false;
 			break; 
-		}
 
 		case WM_CLOSE:
-		{
-			DestroyWindow(hwnd); 
+			DestroyWindow(m_hwnd);
 			break;
-		}
+
+		case WM_ACTIVATE:
+			if (LOWORD(_wParam) == WA_INACTIVE)
+			{
+				m_pTimer->Stop();
+			}
+			else
+			{
+				m_pTimer->Start();
+			}
+			break;
+
+		case WM_KEYDOWN:
+			cInput::OnKeyDown(_wParam);
+			break;
+
+		case WM_KEYUP:
+			cInput::OnKeyUp(_wParam);
+			break;
+
+		case WM_MOUSEMOVE:
+			cInput::OnMouseMove(GET_X_LPARAM(_lParam), GET_Y_LPARAM(_lParam));
+			break;
+
+		case WM_LBUTTONDOWN:
+		case WM_RBUTTONDOWN:
+			cInput::OnMouseButtonDown(_wParam);
+			break;
+
+		case WM_LBUTTONUP:
+		case WM_RBUTTONUP:
+			cInput::OnMouseButtonUp(_wParam);
+			break;
 	}
 
-	return DefWindowProc(hwnd, _uMsg, _wParam, _lParam);
+	return DefWindowProc(m_hwnd, _uMsg, _wParam, _lParam);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

@@ -1,38 +1,33 @@
-#pragma once
+#include <chrono>
 
-class cTimer
-{
-	public:
+using Clock     = std::chrono::steady_clock;
+using TimePoint = std::chrono::time_point<Clock>;
 
-		cTimer(); 
+class cTimer {
+    public:
+        
+        cTimer();
 
-	public:
+    public:
 
-		float GetGameTime() const;
-		float GetDelatTime()const; 
+        void Start();
+        void Stop();
+        void Tick();
+        
+        double GetTotalTime() const;
+        double GetDeltaTime() const;
+        
+        void Reset();
 
-	public:
+    private:
 
-		void Reset();
-		void Start();
-		void Stop(); 
-		void Tick(); 
+        TimePoint m_startTime;  
+        TimePoint m_previousTime;
 
-	private:
+        double m_deltaTime;
 
-		double m_secondsPerCount;
-		double m_deltaTime;
+        bool m_isRunning;
+        bool m_isPaused;                
 
-	private:
-
-		__int64 m_baseTime;
-		__int64 m_pausedTime;
-		__int64 m_stopTime;
-		__int64 m_previousTime;
-		__int64 m_currentTime;
-
-	private:
-
-		bool m_isStopped;
-
+        std::chrono::duration<double> m_pausedDuration;  
 };

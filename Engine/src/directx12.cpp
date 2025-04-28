@@ -5,6 +5,7 @@
 #include <comdef.h>
 
 #include "window.h"
+#include "timer.h"
 
 // possible things to add:
 // sissor rectangles(pixels outside the rectangle area are culled [useful for gui optimization])
@@ -38,7 +39,7 @@ inline void ThrowIfFailed(HRESULT hr, std::string _message)
 // --------------------------------------------------------------------------------------------------------------------------
 // initializes all the directx12 components
 
-void cDirectX12::Initialize(cWindow* _pWindow)
+void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 {
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
@@ -55,6 +56,7 @@ void cDirectX12::Initialize(cWindow* _pWindow)
     m_depthStencilFormat    = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
     m_pWindow = _pWindow; 
+    m_pTimer = _pTimer;
 
     std::cout << "Initialize DirectX12\n";
     
@@ -84,6 +86,14 @@ void cDirectX12::Initialize(cWindow* _pWindow)
 
     std::cout << "Initialize viewport\n";
     InitializeViewPort();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+// calculates the aspectratio of the window 
+
+float cDirectX12::GetAspectRatio() const
+{
+    return m_pWindow->GetWidth()  / m_pWindow->GetHeight();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -387,6 +397,29 @@ D3D12_CPU_DESCRIPTOR_HANDLE cDirectX12::GetCurrentBackbufferView() const
 D3D12_CPU_DESCRIPTOR_HANDLE cDirectX12::GetDepthStencilView() const
 {
     return m_pDsvHeap->GetCPUDescriptorHandleForHeapStart();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+// computes fps and time to render one frame
+
+void cDirectX12::CalculateFrameStats()
+{
+    static int frameCnt = 0;
+    static float timeElapsed = 0.f; 
+
+    frameCnt++; 
+
+    if ((m_pTimer->GetTotalTime() - timeElapsed) >= 1.f)
+    {
+        int fps = frameCnt;
+        float mspf = 1000.f / fps;
+
+        std::cout << "fps: " << fps << ", mspf: " << mspf << "\n";
+
+        frameCnt = 0;
+        timeElapsed += 1.f;
+    }
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

@@ -12,6 +12,7 @@ using namespace Microsoft::WRL;
 int constexpr c_swapChainBufferCount = 2;
 
 class cWindow;
+class cTimer;
 
 class cDirectX12
 {
@@ -20,9 +21,16 @@ class cDirectX12
 		cDirectX12()	= default;
 		~cDirectX12()	= default;
 
+		cDirectX12(const cDirectX12&) = delete;
+		cDirectX12& operator=(const cDirectX12&) = delete;
+
 	public:
 
-		void Initialize(cWindow* _pWindow);
+		void Initialize(cWindow* _pWindow, cTimer* _pTimer);
+
+	public:
+
+		float GetAspectRatio() const;
 
 	private:
 
@@ -41,9 +49,14 @@ class cDirectX12
 		D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentBackbufferView() const; 
 		D3D12_CPU_DESCRIPTOR_HANDLE GetDepthStencilView() const; 
 
+	public:
+
+		void CalculateFrameStats(); 
+
 	private:
 
 		cWindow* m_pWindow;
+		cTimer*	 m_pTimer;
 
 	private:
 
@@ -57,8 +70,6 @@ class cDirectX12
 		ComPtr<ID3D12CommandAllocator>		m_pDirectCmdListAlloc;
 		ComPtr<ID3D12GraphicsCommandList>	m_pCommandList;
 		
-		
-
 		ComPtr<ID3D12DescriptorHeap> m_pRtvHeap;
 		ComPtr<ID3D12DescriptorHeap> m_pDsvHeap; 
 
