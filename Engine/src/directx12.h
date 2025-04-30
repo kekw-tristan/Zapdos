@@ -30,6 +30,7 @@ class cDirectX12
 
 	public:
 
+		void Draw() ; 
 		float GetAspectRatio() const;
 
 	private:
@@ -49,9 +50,16 @@ class cDirectX12
 		D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentBackbufferView() const; 
 		D3D12_CPU_DESCRIPTOR_HANDLE GetDepthStencilView() const; 
 
-	public:
+		ComPtr<ID3D12Resource> GetCurrentBackBuffer() const;
 
+		void FlushCommandQueue();
+	public:
+		
 		void CalculateFrameStats(); 
+
+	private:
+
+		//void OnResize();
 
 	private:
 
@@ -73,6 +81,8 @@ class cDirectX12
 		ComPtr<ID3D12DescriptorHeap> m_pRtvHeap;
 		ComPtr<ID3D12DescriptorHeap> m_pDsvHeap; 
 
+		D3D12_VIEWPORT m_viewPort;
+
 		ComPtr<ID3D12Resource> m_pSwapChainBuffer[c_swapChainBufferCount];
 		ComPtr<ID3D12Resource> m_pDepthStencilBuffer;
 
@@ -86,5 +96,8 @@ class cDirectX12
 		int m_cbvSrvDescriptorSize;
 
 		int m_currentBackBuffer;
+
+		UINT m_currentFence;
+
 		
 };

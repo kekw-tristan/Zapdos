@@ -3,6 +3,9 @@
 #include <iostream>
 #include <string>
 #include <comdef.h>
+#include <Windows.h>
+#include <d3dx12.h>
+
 
 #include "window.h"
 #include "timer.h"
@@ -86,6 +89,67 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 
     std::cout << "Initialize viewport\n";
     InitializeViewPort();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::Draw() 
+{
+
+    ThrowIfFailed(m_pDirectCmdListAlloc->Reset());
+    ThrowIfFailed(m_pCommandList->Reset(
+        m_pDirectCmdListAlloc.Get(),
+        nullptr
+    ));
+
+    m_pCommandList->ResourceBarrier(
+        1,
+        &CD3DX12_RESOURCE_BARRIER::Transition(
+            GetCurrentBackBuffer().Get(),
+            D3D12_RESOURCE_STATE_PRESENT,
+            D3D12_RESOURCE_STATE_RENDER_TARGET
+        ));
+
+    m_pCommandList->RSSetViewports(1, &m_viewPort);
+
+    float colorRGBA[4] = { 1.f, 0.f, 0.f, 1.f };
+
+    m_pCommandList->ClearRenderTargetView(
+        GetCurrentBackbufferView(),
+        colorRGBA,
+        0, nullptr
+    );
+
+    m_pCommandList->ClearDepthStencilView(
+        GetDepthStencilView(),
+        D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+        1.f, 0, 0, nullptr
+    );
+
+    m_pCommandList->OMSetRenderTargets(
+        1,
+        &GetCurrentBackbufferView(),
+        true,
+        &GetDepthStencilView()
+    );
+
+    m_pCommandList->ResourceBarrier(
+        1, &CD3DX12_RESOURCE_BARRIER::Transition(
+            GetCurrentBackBuffer().Get(),
+            D3D12_RESOURCE_STATE_RENDER_TARGET,
+            D3D12_RESOURCE_STATE_PRESENT
+    ));
+
+    ThrowIfFailed(m_pCommandList->Close());
+
+    ID3D12CommandList* cmdLists[] = { m_pCommandList.Get() };
+
+    m_pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+    ThrowIfFailed(m_pSwapChain->Present(0, 0));
+
+    m_currentBackBuffer = (m_currentBackBuffer + 1) % c_swapChainBufferCount;
+
+    FlushCommandQueue();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -368,16 +432,16 @@ void cDirectX12::InitializeDepthStencilView()
 
 void cDirectX12::InitializeViewPort()
 {
-    D3D12_VIEWPORT vp;
+    D3D12_VIEWPORT m_viewPort;
 
-    vp.TopLeftX = 0.f;
-    vp.TopLeftY = 0.f;
-    vp.Width    = static_cast<float>(m_pWindow->GetWidth());
-    vp.Height   = static_cast<float>(m_pWindow->GetHeight());
-    vp.MinDepth = 0.f;
-    vp.MaxDepth = 1.f;
+    m_viewPort.TopLeftX = 0.f;
+    m_viewPort.TopLeftY = 0.f;
+    m_viewPort.Width    = static_cast<float>(m_pWindow->GetWidth());
+    m_viewPort.Height   = static_cast<float>(m_pWindow->GetHeight());
+    m_viewPort.MinDepth = 0.f;
+    m_viewPort.MaxDepth = 1.f;
 
-    m_pCommandList->RSSetViewports(1, &vp);
+    m_pCommandList->RSSetViewports(1, &m_viewPort);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -397,6 +461,34 @@ D3D12_CPU_DESCRIPTOR_HANDLE cDirectX12::GetCurrentBackbufferView() const
 D3D12_CPU_DESCRIPTOR_HANDLE cDirectX12::GetDepthStencilView() const
 {
     return m_pDsvHeap->GetCPUDescriptorHandleForHeapStart();
+}
+
+ComPtr<ID3D12Resource> cDirectX12::GetCurrentBackBuffer() const
+{
+    int backbufferIndex = m_pSwapChain->GetCurrentBackBufferIndex();
+
+    ComPtr<ID3D12Resource> pBackBuffer;
+    ThrowIfFailed(m_pSwapChain->GetBuffer(backbufferIndex, IID_PPV_ARGS(&pBackBuffer)));
+    return pBackBuffer;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::FlushCommandQueue()
+{
+    m_currentFence++;
+
+    ThrowIfFailed(m_pCommandQueue->Signal(m_pFence.Get(), m_currentFence));
+
+    if (m_pFence->GetCompletedValue() < m_currentFence)
+    {
+        HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+
+        ThrowIfFailed(m_pFence->SetEventOnCompletion(m_currentFence, eventHandle));
+
+        WaitForSingleObject(eventHandle, INFINITE);
+        CloseHandle(eventHandle);
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -422,4 +514,24 @@ void cDirectX12::CalculateFrameStats()
 
 }
 
+// --------------------------------------------------------------------------------------------------------------------------
+// handles the resize
+// resizes swapchain buffers and recreates render target view and depth stencil view
+/*
+void cDirectX12::OnResize()
+{
+    m_pSwapChain->ResizeBuffers(
+        c_swapChainBufferCount,
+        m_pWindow->GetWidth(),
+        m_pWindow->GetHeight(),
+        m_backBufferFormat,
+        DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+
+    
+    InitializeRenderTargetView();
+
+    m_pDepthStencilBuffer->Release();
+    InitializeDepthStencilView();
+}
+*/
 // --------------------------------------------------------------------------------------------------------------------------

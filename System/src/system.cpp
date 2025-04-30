@@ -33,9 +33,10 @@ void cSystem::Run()
 		
 
 		m_pWindow->MessageHandling();
-
+		m_pTimer->Tick();
 
 		m_pDirectX12->CalculateFrameStats();
+		m_pDirectX12->Draw();
 	}	
 
 }
@@ -48,6 +49,7 @@ void cSystem::Finalize()
 
 	delete m_pWindow;
 	delete m_pDirectX12;
+	delete m_pTimer;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
