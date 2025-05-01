@@ -24,6 +24,15 @@ class cWindow
 		int GetHeight();
 
 		HWND GetHWND();
+
+		bool GetIsResizing();
+		
+		bool GetHasResized();
+		void SetHasResized(bool _hasResized);
+
+		bool GetIsWindowPaused();
+		
+
 	private:
 
 		static LRESULT CALLBACK WindowProcStatic(HWND _hwnd, UINT _uMsg, WPARAM _wParam, LPARAM _lParam);
@@ -40,4 +49,8 @@ class cWindow
 		int m_height;
 
 		cTimer* m_pTimer;
+
+		bool m_isResizing;
+		bool m_hasResized; 
+		bool m_isWindowPaused;
 };

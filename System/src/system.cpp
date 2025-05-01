@@ -2,7 +2,6 @@
 
 #include <iostream>
 
-
 #include "window.h"
 #include "directx12.h"
 #include "timer.h"
@@ -30,6 +29,16 @@ void cSystem::Run()
 {
 	while (m_pWindow->GetIsRunning())
 	{
+		// check if paused		
+		if (m_pWindow->GetIsWindowPaused())
+			continue;
+
+
+		if (m_pWindow->GetHasResized())
+		{
+			m_pDirectX12->OnResize();
+			m_pWindow->SetHasResized(false);
+		}
 		
 
 		m_pWindow->MessageHandling();

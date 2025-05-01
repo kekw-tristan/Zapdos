@@ -81,9 +81,39 @@ int cWindow::GetHeight()
 	return m_height;
 }
 
+// --------------------------------------------------------------------------------------------------------------------------
+
 HWND cWindow::GetHWND()
 {
 	return m_hwnd;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+bool cWindow::GetIsResizing()
+{
+	return m_isResizing;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+bool cWindow::GetHasResized()
+{
+	return m_hasResized;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cWindow::SetHasResized(bool _hasResized)
+{
+	m_hasResized = _hasResized;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+bool cWindow::GetIsWindowPaused()
+{
+	return m_isWindowPaused;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -131,12 +161,33 @@ LRESULT cWindow::WindowProc(UINT _uMsg, WPARAM _wParam, LPARAM _lParam)
 		case WM_ACTIVATE:
 			if (LOWORD(_wParam) == WA_INACTIVE)
 			{
+				m_isWindowPaused = true;
 				m_pTimer->Stop();
 			}
 			else
 			{
+				m_isWindowPaused = false; 
 				m_pTimer->Start();
 			}
+			break;
+
+		case WM_ENTERSIZEMOVE:
+			m_isWindowPaused	= true;
+			m_isResizing		= true;
+			m_pTimer->Stop();
+			break;
+
+		case WM_EXITSIZEMOVE:
+			m_isWindowPaused	= false;
+			m_isResizing		= false;
+			m_pTimer->Start();
+			break;
+
+		case WM_SIZE:
+			m_hasResized = true;
+
+			m_width		= LOWORD(_lParam);  
+			m_height	= HIWORD(_lParam);
 			break;
 
 		case WM_KEYDOWN:

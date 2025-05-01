@@ -92,16 +92,18 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
+// clears backbuffer, depthstencil and presents the frame to the screen
 
-void cDirectX12::Draw() 
+void cDirectX12::Draw()
 {
-
+    // Reset the command allocator and command list for reuse.
     ThrowIfFailed(m_pDirectCmdListAlloc->Reset());
     ThrowIfFailed(m_pCommandList->Reset(
         m_pDirectCmdListAlloc.Get(),
-        nullptr
+        nullptr // No initial PSO (Pipeline State Object) for now.
     ));
 
+    // Transition the back buffer from PRESENT to RENDER_TARGET state.
     m_pCommandList->ResourceBarrier(
         1,
         &CD3DX12_RESOURCE_BARRIER::Transition(
@@ -110,22 +112,27 @@ void cDirectX12::Draw()
             D3D12_RESOURCE_STATE_RENDER_TARGET
         ));
 
+    // Set the viewport for rendering.
     m_pCommandList->RSSetViewports(1, &m_viewPort);
 
+    // Define clear color (red).
     float colorRGBA[4] = { 1.f, 0.f, 0.f, 1.f };
 
+    // Clear the current render target with the specified color.
     m_pCommandList->ClearRenderTargetView(
         GetCurrentBackbufferView(),
         colorRGBA,
         0, nullptr
     );
 
+    // Clear the depth/stencil buffer to default values.
     m_pCommandList->ClearDepthStencilView(
         GetDepthStencilView(),
         D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
         1.f, 0, 0, nullptr
     );
 
+    // Bind the render target and depth/stencil buffer for output-merging stage.
     m_pCommandList->OMSetRenderTargets(
         1,
         &GetCurrentBackbufferView(),
@@ -133,22 +140,28 @@ void cDirectX12::Draw()
         &GetDepthStencilView()
     );
 
+    // Transition the back buffer back to PRESENT state for display.
     m_pCommandList->ResourceBarrier(
         1, &CD3DX12_RESOURCE_BARRIER::Transition(
             GetCurrentBackBuffer().Get(),
             D3D12_RESOURCE_STATE_RENDER_TARGET,
             D3D12_RESOURCE_STATE_PRESENT
-    ));
+        ));
 
+    // Close the command list to prepare for execution.
     ThrowIfFailed(m_pCommandList->Close());
 
+    // Execute the recorded command list.
     ID3D12CommandList* cmdLists[] = { m_pCommandList.Get() };
-
     m_pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+    // Present the rendered frame to the screen.
     ThrowIfFailed(m_pSwapChain->Present(0, 0));
 
+    // Move to the next back buffer in the swap chain.
     m_currentBackBuffer = (m_currentBackBuffer + 1) % c_swapChainBufferCount;
 
+    // Ensure all GPU commands are finished before continuing.
     FlushCommandQueue();
 }
 
@@ -190,7 +203,6 @@ void cDirectX12::InitializeDeviceAndFactory()
             D3D_FEATURE_LEVEL_11_0,
             IID_PPV_ARGS(&m_pDevice)
         ));
-        
     }
 }
 
@@ -278,29 +290,32 @@ void cDirectX12::InitializeCommandQueueAndList()
 
 void cDirectX12::InitializeSwapChain()
 {
+    // Setup a DXGI_SWAP_CHAIN_DESC1 structure with swap chain properties.
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 
-    swapChainDesc.BufferCount       = c_swapChainBufferCount; 
-    swapChainDesc.Width             = m_pWindow->GetWidth();
-    swapChainDesc.Height            = m_pWindow->GetHeight();
-    swapChainDesc.Format            = DXGI_FORMAT_R8G8B8A8_UNORM;
-    swapChainDesc.BufferUsage       = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapChainDesc.SwapEffect        = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    swapChainDesc.SampleDesc.Count  = 1; 
-    swapChainDesc.AlphaMode         = DXGI_ALPHA_MODE_UNSPECIFIED; 
-    swapChainDesc.Flags             = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;  
-     
+    swapChainDesc.BufferCount       = c_swapChainBufferCount;                   // Total number of buffers in the swap chain.
+    swapChainDesc.Width             = m_pWindow->GetWidth();                    // Match the width of the client window.
+    swapChainDesc.Height            = m_pWindow->GetHeight();                   // Match the height of the client window.
+    swapChainDesc.Format            = DXGI_FORMAT_R8G8B8A8_UNORM;               // Use 32-bit RGBA format.
+    swapChainDesc.BufferUsage       = DXGI_USAGE_RENDER_TARGET_OUTPUT;          // Buffers are used as render targets.
+    swapChainDesc.SwapEffect        = DXGI_SWAP_EFFECT_FLIP_DISCARD;            // Recommended swap effect for modern hardware.
+    swapChainDesc.SampleDesc.Count  = 1;                                        // No anti-aliasing (MSAA disabled).
+    swapChainDesc.AlphaMode         = DXGI_ALPHA_MODE_UNSPECIFIED;              // No alpha blending control.
+    swapChainDesc.Flags             = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;   // Allow alt+enter fullscreen switching.
+
     ComPtr<IDXGISwapChain1> swapChain;
 
+    // Create a swap chain tied to the application's window.
     ThrowIfFailed(m_pDxgiFactory->CreateSwapChainForHwnd(
-        m_pCommandQueue.Get(),
-        m_pWindow->GetHWND(),
-        &swapChainDesc,  
-        nullptr,         
-        nullptr,         
-        &swapChain        
+        m_pCommandQueue.Get(),             // Command queue used for presentation.
+        m_pWindow->GetHWND(),              // Handle to the output window.
+        &swapChainDesc,                    // Description of the swap chain.
+        nullptr,                           // No fullscreen descriptor.
+        nullptr,                           // No output restriction.
+        &swapChain                         // Output parameter for the created swap chain.
     ));
 
+    // Convert the created swap chain to IDXGISwapChain4 for access to newer DXGI features.
     ThrowIfFailed(swapChain.As(&m_pSwapChain));
 }
 
@@ -309,30 +324,32 @@ void cDirectX12::InitializeSwapChain()
 
 void cDirectX12::InitializeDescriptorHeaps()
 {
-    D3D12_DESCRIPTOR_HEAP_DESC rtvHD; 
+    // Describe the RTV (Render Target View) descriptor heap.
+    D3D12_DESCRIPTOR_HEAP_DESC rtvHD;
 
-    rtvHD.NumDescriptors    = c_swapChainBufferCount;
-    rtvHD.Type              = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    rtvHD.Flags             = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    rtvHD.NodeMask          = 0;
+    rtvHD.NumDescriptors    = c_swapChainBufferCount;           // One descriptor per swap chain buffer.
+    rtvHD.Type              = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;   // Heap type is RTV.
+    rtvHD.Flags             = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;  // No shader access needed for RTV.
+    rtvHD.NodeMask          = 0;                                // For single GPU operation.
 
+    // Create the RTV descriptor heap.
     ThrowIfFailed(m_pDevice->CreateDescriptorHeap(
         &rtvHD,
         IID_PPV_ARGS(m_pRtvHeap.GetAddressOf())
     ));
 
+    // Describe the DSV (Depth Stencil View) descriptor heap.
     D3D12_DESCRIPTOR_HEAP_DESC dsvHD;
+    dsvHD.NumDescriptors    = 1;                                // Only one DSV needed.
+    dsvHD.Type              = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;   // Heap type is DSV.
+    dsvHD.Flags             = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;  // No shader access needed for DSV.
+    dsvHD.NodeMask          = 0;                                // For single GPU operation.
 
-    dsvHD.NumDescriptors    = 1;
-    dsvHD.Type              = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-    dsvHD.Flags             = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-    dsvHD.NodeMask          = 0;
-
+    // Create the DSV descriptor heap.
     ThrowIfFailed(m_pDevice->CreateDescriptorHeap(
         &dsvHD,
         IID_PPV_ARGS(m_pDsvHeap.GetAddressOf())
     ));
-
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -517,7 +534,7 @@ void cDirectX12::CalculateFrameStats()
 // --------------------------------------------------------------------------------------------------------------------------
 // handles the resize
 // resizes swapchain buffers and recreates render target view and depth stencil view
-/*
+
 void cDirectX12::OnResize()
 {
     m_pSwapChain->ResizeBuffers(
@@ -527,11 +544,12 @@ void cDirectX12::OnResize()
         m_backBufferFormat,
         DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
 
-    
+    std::cout << m_pWindow->GetWidth() << ", " << m_pWindow->GetHeight() << "\n";
+
     InitializeRenderTargetView();
 
     m_pDepthStencilBuffer->Release();
     InitializeDepthStencilView();
 }
-*/
+
 // --------------------------------------------------------------------------------------------------------------------------

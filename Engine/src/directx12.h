@@ -56,10 +56,7 @@ class cDirectX12
 	public:
 		
 		void CalculateFrameStats(); 
-
-	private:
-
-		//void OnResize();
+		void OnResize();
 
 	private:
 
