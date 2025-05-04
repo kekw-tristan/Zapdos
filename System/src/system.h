@@ -21,6 +21,10 @@ class cSystem
 
 	private:
 
+		void InitializeVertecies();
+
+	private:
+
 		cWindow*	m_pWindow; 
 		cDirectX12* m_pDirectX12; 
 		cTimer*		m_pTimer;

@@ -6,7 +6,7 @@
 #include <Windows.h>
 #include <d3dx12.h>
 
-
+#include "directx12Util.h"
 #include "window.h"
 #include "timer.h"
 #include "vertex.h"
@@ -90,6 +90,31 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 
     std::cout << "Initialize viewport\n";
     InitializeViewPort();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::InitializeVerticies(sVertex _verticies[], int _numberOfVertecies)
+{
+    const UINT64 vbByteSize = _numberOfVertecies * sizeof(sVertex);
+
+    ComPtr<ID3D12Resource> pVertexBufferGPU = nullptr;
+    ComPtr<ID3D12Resource> pVertexBufferUploader = nullptr;
+
+    pVertexBufferGPU = cDirectX12Util::CreateDefaultBuffer(m_pDevice.Get(), m_pCommandList.Get(), _verticies, vbByteSize, pVertexBufferUploader);
+
+    D3D12_VERTEX_BUFFER_VIEW vbv;
+
+    vbv.BufferLocation = pVertexBufferGPU->GetGPUVirtualAddress();
+    vbv.StrideInBytes = sizeof(sVertex);
+    vbv.SizeInBytes = _numberOfVertecies * sizeof(sVertex);
+
+    D3D12_VERTEX_BUFFER_VIEW vertexBuffers[1] = { vbv };
+    m_pCommandList->IASetVertexBuffers(0, 1, vertexBuffers);
+
+    m_pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_pCommandList->DrawInstanced(_numberOfVertecies, 1, 0, 0);
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -491,20 +516,29 @@ ComPtr<ID3D12Resource> cDirectX12::GetCurrentBackBuffer() const
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
+// Flushes the command queue to ensure that all previously submitted GPU commands are completed.
 
 void cDirectX12::FlushCommandQueue()
 {
+    // Increment the fence value to mark the current set of GPU commands.
     m_currentFence++;
 
+    // Signal the fence with the current fence value. This tells the GPU to set the fence to this value when it has finished processing all commands up to this point.
     ThrowIfFailed(m_pCommandQueue->Signal(m_pFence.Get(), m_currentFence));
 
+    // If the GPU has not yet reached the current fence value, wait for it.
     if (m_pFence->GetCompletedValue() < m_currentFence)
     {
+        // Create an event handle for GPU synchronization.
         HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
 
+        // Instruct the fence to trigger the event when it reaches the current fence value.
         ThrowIfFailed(m_pFence->SetEventOnCompletion(m_currentFence, eventHandle));
 
+        // Wait for the GPU to complete execution up to the current fence value.
         WaitForSingleObject(eventHandle, INFINITE);
+
+        // Clean up the event handle.
         CloseHandle(eventHandle);
     }
 }

@@ -8,6 +8,8 @@ using namespace Microsoft::WRL;
 
 int constexpr c_swapChainBufferCount = 2;
 
+struct sVertex;
+
 class cWindow;
 class cTimer;
 
@@ -24,9 +26,10 @@ class cDirectX12
 	public:
 
 		void Initialize(cWindow* _pWindow, cTimer* _pTimer);
-
+		
 	public:
 
+		void InitializeVerticies(sVertex _verticies[], int _numberOfVertecies);
 		void Draw(); 
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;

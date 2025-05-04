@@ -1,4 +1,4 @@
-#include "util.h"
+#include "directx12Util.h"
 
 #include <string>
 #include <iostream>
@@ -19,7 +19,7 @@ inline void ThrowIfFailed(HRESULT hr)
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-ComPtr<ID3D12Resource> cUtil::CreateDefaultBuffer(ID3D12Device* _pDevice, ID3D12GraphicsCommandList* _pCmdList, const void* _pInitData, UINT64 _byteSize, ComPtr<ID3D12Resource> _pUploadBuffer)
+ComPtr<ID3D12Resource> cDirectX12Util::CreateDefaultBuffer(ID3D12Device* _pDevice, ID3D12GraphicsCommandList* _pCmdList, const void* _pInitData, UINT64 _byteSize, ComPtr<ID3D12Resource> _pUploadBuffer)
 {
     ComPtr<ID3D12Resource> pDefaultBuffer;
 

@@ -102,7 +102,8 @@ project "System"
         "GUI",
         "d3d12",
         "dxgi",
-        "d3dcompiler"
+        "d3dcompiler",
+        "dxguid"
     }
 
     filter "configurations:Debug"
