@@ -29,6 +29,8 @@ void cSystem::Run()
 {
 	while (m_pWindow->GetIsRunning())
 	{
+		m_pWindow->MessageHandling();
+
 		// check if paused		
 		if (m_pWindow->GetIsWindowPaused())
 			continue;
@@ -41,7 +43,7 @@ void cSystem::Run()
 		}
 		
 
-		m_pWindow->MessageHandling();
+	
 		m_pTimer->Tick();
 
 		m_pDirectX12->CalculateFrameStats();

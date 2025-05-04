@@ -4,9 +4,6 @@
 #include <dxgi1_6.h>
 #include <wrl.h>
 
-#pragma comment(lib, "d3d12.lib")
-#pragma comment(lib, "dxgi.lib")
-
 using namespace Microsoft::WRL;
 
 int constexpr c_swapChainBufferCount = 2;
@@ -30,8 +27,10 @@ class cDirectX12
 
 	public:
 
-		void Draw() ; 
+		void Draw(); 
 		float GetAspectRatio() const;
+		void CalculateFrameStats() const;
+		void OnResize();
 
 	private:
 
@@ -53,10 +52,7 @@ class cDirectX12
 		ComPtr<ID3D12Resource> GetCurrentBackBuffer() const;
 
 		void FlushCommandQueue();
-	public:
-		
-		void CalculateFrameStats(); 
-		void OnResize();
+
 
 	private:
 
@@ -95,6 +91,4 @@ class cDirectX12
 		int m_currentBackBuffer;
 
 		UINT m_currentFence;
-
-		
 };

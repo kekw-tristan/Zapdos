@@ -1,16 +1,19 @@
 workspace "GameProject"
     architecture "x64"
-    configurations { "Debug", "Release" }
     startproject "System"
+
+    configurations { "Debug", "Release" }
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
--- Globale Includes
+-- Global Include directories
 IncludeDir = {}
 IncludeDir["DirectXTK12"] = "External/DirectXTK12/Inc"
-IncludeDir["D3DX"] = "External/d3dx"  -- Füge d3dx als Include hinzu
+IncludeDir["D3DX"]        = "External/d3dx"
 
--- Engine
+-- =============================
+-- Engine Project
+-- =============================
 project "Engine"
     location "Engine"
     kind "StaticLib"
@@ -29,7 +32,7 @@ project "Engine"
     includedirs {
         "%{prj.name}/src",
         IncludeDir["DirectXTK12"],
-        IncludeDir["D3DX"]  -- Füge den d3dx Include hier hinzu
+        IncludeDir["D3DX"]
     }
 
     filter "configurations:Debug"
@@ -38,7 +41,9 @@ project "Engine"
     filter "configurations:Release"
         optimize "On"
 
--- GUI
+-- =============================
+-- GUI Project
+-- =============================
 project "GUI"
     location "GUI"
     kind "StaticLib"
@@ -57,7 +62,7 @@ project "GUI"
     includedirs {
         "%{prj.name}/src",
         IncludeDir["DirectXTK12"],
-        IncludeDir["D3DX"]  -- Füge den d3dx Include hier hinzu
+        IncludeDir["D3DX"]
     }
 
     filter "configurations:Debug"
@@ -66,7 +71,9 @@ project "GUI"
     filter "configurations:Release"
         optimize "On"
 
--- System (main app)
+-- =============================
+-- System Project (Main Executable)
+-- =============================
 project "System"
     location "System"
     kind "ConsoleApp"
@@ -87,16 +94,12 @@ project "System"
         "Engine/src",
         "GUI/src",
         IncludeDir["DirectXTK12"],
-        IncludeDir["D3DX"]  -- Füge den d3dx Include hier hinzu
+        IncludeDir["D3DX"]
     }
 
     links {
         "Engine",
-        "GUI"
-    }
-
-    -- Windows system libs required for DirectX 12
-    links {
+        "GUI",
         "d3d12",
         "dxgi",
         "d3dcompiler"

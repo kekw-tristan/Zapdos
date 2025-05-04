@@ -9,6 +9,7 @@
 
 #include "window.h"
 #include "timer.h"
+#include "vertex.h"
 
 // possible things to add:
 // sissor rectangles(pixels outside the rectangle area are culled [useful for gui optimization])
@@ -156,7 +157,7 @@ void cDirectX12::Draw()
     m_pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
     // Present the rendered frame to the screen.
-    ThrowIfFailed(m_pSwapChain->Present(0, 0));
+    ThrowIfFailed(m_pSwapChain->Present(1, 0));
 
     // Move to the next back buffer in the swap chain.
     m_currentBackBuffer = (m_currentBackBuffer + 1) % c_swapChainBufferCount;
@@ -511,7 +512,7 @@ void cDirectX12::FlushCommandQueue()
 // --------------------------------------------------------------------------------------------------------------------------
 // computes fps and time to render one frame
 
-void cDirectX12::CalculateFrameStats()
+void cDirectX12::CalculateFrameStats() const
 {
     static int frameCnt = 0;
     static float timeElapsed = 0.f; 
