@@ -70,4 +70,6 @@ ComPtr<ID3D12Resource> cUtil::CreateDefaultBuffer(ID3D12Device* _pDevice, ID3D12
             D3D12_RESOURCE_STATE_COPY_DEST,
             D3D12_RESOURCE_STATE_GENERIC_READ
     ));
+
+    return pDefaultBuffer;
 }
