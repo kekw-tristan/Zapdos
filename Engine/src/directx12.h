@@ -29,11 +29,15 @@ class cDirectX12
 		
 	public:
 
-		void InitializeVerticies(sVertex _verticies[], int _numberOfVertecies);
 		void Draw(); 
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
 		void OnResize();
+
+	public:
+
+		ComPtr<ID3D12Device> GetDevice() const;
+		ComPtr<ID3D12GraphicsCommandList> GetCommandList() const;
 
 	private:
 

@@ -21,7 +21,7 @@ class cSystem
 
 	private:
 
-		void InitializeVertecies();
+		void InitializeVertices();
 
 	private:
 

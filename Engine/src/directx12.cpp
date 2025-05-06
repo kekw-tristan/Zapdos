@@ -93,31 +93,6 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
-
-void cDirectX12::InitializeVerticies(sVertex _verticies[], int _numberOfVertecies)
-{
-    const UINT64 vbByteSize = _numberOfVertecies * sizeof(sVertex);
-
-    ComPtr<ID3D12Resource> pVertexBufferGPU = nullptr;
-    ComPtr<ID3D12Resource> pVertexBufferUploader = nullptr;
-
-    pVertexBufferGPU = cDirectX12Util::CreateDefaultBuffer(m_pDevice.Get(), m_pCommandList.Get(), _verticies, vbByteSize, pVertexBufferUploader);
-
-    D3D12_VERTEX_BUFFER_VIEW vbv;
-
-    vbv.BufferLocation = pVertexBufferGPU->GetGPUVirtualAddress();
-    vbv.StrideInBytes = sizeof(sVertex);
-    vbv.SizeInBytes = _numberOfVertecies * sizeof(sVertex);
-
-    D3D12_VERTEX_BUFFER_VIEW vertexBuffers[1] = { vbv };
-    m_pCommandList->IASetVertexBuffers(0, 1, vertexBuffers);
-
-    m_pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    m_pCommandList->DrawInstanced(_numberOfVertecies, 1, 0, 0);
-
-}
-
-// --------------------------------------------------------------------------------------------------------------------------
 // clears backbuffer, depthstencil and presents the frame to the screen
 
 void cDirectX12::Draw()
@@ -585,6 +560,20 @@ void cDirectX12::OnResize()
 
     m_pDepthStencilBuffer->Release();
     InitializeDepthStencilView();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+ComPtr<ID3D12Device> cDirectX12::GetDevice() const
+{
+    return m_pDevice;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+ComPtr<ID3D12GraphicsCommandList> cDirectX12::GetCommandList() const
+{
+    return m_pCommandList;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
