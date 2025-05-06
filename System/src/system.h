@@ -22,6 +22,7 @@ class cSystem
 	private:
 
 		void InitializeVertices();
+		void InitializeShader();
 
 	private:
 
