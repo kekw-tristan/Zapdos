@@ -28,7 +28,9 @@ class cDirectX12
 		void Initialize(cWindow* _pWindow, cTimer* _pTimer);
 		
 	public:
-
+		void InitializeVertices();
+		void InitializeShader();
+		void InitializeConstantBuffer();
 		void Draw(); 
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
@@ -98,4 +100,16 @@ class cDirectX12
 		int m_currentBackBuffer;
 
 		UINT m_currentFence;
+
+	private:
+
+		struct sObjectConstants
+		{
+			DirectX::XMFLOAT4X4 worldViewProj;
+			sObjectConstants() { DirectX::XMStoreFloat4x4(&worldViewProj, DirectX::XMMatrixIdentity()); }
+		};
+
+		ComPtr<ID3D12Resource> m_pUploadCBuffer;
+		UINT m_elementByteSize;
+		UINT m_numElements;
 };

@@ -73,3 +73,12 @@ ComPtr<ID3D12Resource> cDirectX12Util::CreateDefaultBuffer(ID3D12Device* _pDevic
 
     return pDefaultBuffer;
 }
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+UINT cDirectX12Util::CalculateBufferByteSize(UINT _bytesize)
+{
+    return (_bytesize + 255) & ~255;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
