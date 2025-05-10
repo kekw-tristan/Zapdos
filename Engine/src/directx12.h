@@ -2,8 +2,10 @@
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include <DirectXMath.h>
 #include <wrl.h>
 
+using namespace DirectX;
 using namespace Microsoft::WRL;
 
 int constexpr c_swapChainBufferCount = 2;
@@ -12,6 +14,9 @@ struct sVertex;
 
 class cWindow;
 class cTimer;
+	
+template<typename T>
+class cUploadBuffer;
 
 class cDirectX12
 {
@@ -26,11 +31,13 @@ class cDirectX12
 	public:
 
 		void Initialize(cWindow* _pWindow, cTimer* _pTimer);
+		void Finalize();
 		
 	public:
 		void InitializeVertices();
 		void InitializeShader();
 		void InitializeConstantBuffer();
+		void Update(XMMATRIX _rWorldViewProj);
 		void Draw(); 
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
@@ -52,6 +59,7 @@ class cDirectX12
 		void InitializeRenderTargetView();
 		void InitializeDepthStencilView(); 
 		void InitializeViewPort();
+		void InitializeRootSignature();
 	
 	private:
 
@@ -109,7 +117,12 @@ class cDirectX12
 			sObjectConstants() { DirectX::XMStoreFloat4x4(&worldViewProj, DirectX::XMMatrixIdentity()); }
 		};
 
+
 		ComPtr<ID3D12Resource> m_pUploadCBuffer;
 		UINT m_elementByteSize;
 		UINT m_numElements;
+
+		ComPtr<ID3D12DescriptorHeap> m_pCbvHeap;
+
+		cUploadBuffer<sObjectConstants>* m_pObjectCB;
 };

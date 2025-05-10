@@ -10,6 +10,7 @@
 #include "directx12Util.h"
 #include "window.h"
 #include "timer.h"
+#include "uploadBuffer.h"
 #include "vertex.h"
 
 // possible things to add:
@@ -59,9 +60,10 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     }
     m_backBufferFormat      = DXGI_FORMAT_R8G8B8A8_UNORM;
     m_depthStencilFormat    = DXGI_FORMAT_D24_UNORM_S8_UINT;
-
+    
     m_pWindow = _pWindow; 
     m_pTimer = _pTimer;
+
 
     std::cout << "Initialize DirectX12\n";
     
@@ -91,6 +93,15 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 
     std::cout << "Initialize viewport\n";
     InitializeViewPort();
+
+    m_pObjectCB = new cUploadBuffer<sObjectConstants>(m_pDevice.Get(), 1, true);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::Finalize()
+{
+    delete m_pObjectCB;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -197,6 +208,47 @@ void cDirectX12::InitializeConstantBuffer()
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::Update(XMMATRIX _rWorldViewProj)
+{
+    sObjectConstants objConstants;
+
+    // needs to be transposed for hlsl (gpu column major)
+    XMStoreFloat4x4(&objConstants.worldViewProj, XMMatrixTranspose(_rWorldViewProj));
+    m_pObjectCB->CopyData(0, objConstants);
+
+
+    D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
+
+    cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    cbvHeapDesc.NodeMask = 0;
+
+    m_pDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_pDsvHeap));
+
+    UINT objCBByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));
+
+    D3D12_GPU_VIRTUAL_ADDRESS cbAddress = m_pObjectCB->GetResource()->GetGPUVirtualAddress();
+
+    // can be made ith
+    int boxCBufferIndex = 0;
+    cbAddress += boxCBufferIndex * objCBByteSize;
+
+    D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
+
+    cbvDesc.BufferLocation = cbAddress;
+    cbvDesc.SizeInBytes = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));
+
+    m_pDevice->CreateConstantBufferView(
+        &cbvDesc,
+        m_pCbvHeap->GetCPUDescriptorHandleForHeapStart()
+    );
+
+
+
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
 // clears backbuffer, depthstencil and presents the frame to the screen
 
 void cDirectX12::Draw()
@@ -275,7 +327,7 @@ void cDirectX12::Draw()
 
 float cDirectX12::GetAspectRatio() const
 {
-    return m_pWindow->GetWidth()  / m_pWindow->GetHeight();
+    return static_cast<float>(m_pWindow->GetWidth())  / static_cast<float>(m_pWindow->GetHeight());
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -564,6 +616,45 @@ void cDirectX12::InitializeViewPort()
     m_viewPort.MaxDepth = 1.f;
 
     m_pCommandList->RSSetViewports(1, &m_viewPort);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::InitializeRootSignature()
+{
+    CD3DX12_ROOT_PARAMETER slotRootParameter[1];
+
+    CD3DX12_DESCRIPTOR_RANGE cbvTable;
+    cbvTable.Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+        1, // number of descriptors in table
+        0  // base shader registers are bound to for this root parameter
+    );
+
+    slotRootParameter[0].InitAsDescriptorTable(
+        1,
+        &cbvTable
+    );
+
+    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
+        1,
+        slotRootParameter,
+        0,
+        nullptr,
+        D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+    );
+
+
+    ComPtr<ID3DBlob> serializedRootSig = nullptr;
+    ComPtr<ID3DBlob> errorBlob = nullptr;
+
+    ThrowIfFailed(D3D12SerializeRootSignature(
+        &rootSigDesc,
+        D3D_ROOT_SIGNATURE_VERSION_1,
+        &serializedRootSig,
+        &errorBlob
+    ));
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
