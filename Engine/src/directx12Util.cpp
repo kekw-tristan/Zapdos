@@ -1,8 +1,10 @@
 #include "directx12Util.h"
 
+#include <filesystem>
 #include <string>
 #include <iostream>
 #include <d3dx12.h>
+#include <d3dcompiler.h>
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -19,7 +21,8 @@ inline void ThrowIfFailed(HRESULT hr)
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-ComPtr<ID3D12Resource> cDirectX12Util::CreateDefaultBuffer(ID3D12Device* _pDevice, ID3D12GraphicsCommandList* _pCmdList, const void* _pInitData, UINT64 _byteSize, ComPtr<ID3D12Resource> _pUploadBuffer)
+ComPtr<ID3D12Resource> cDirectX12Util::CreateDefaultBuffer(ID3D12Device* _pDevice, ID3D12GraphicsCommandList* _pCmdList,
+    const void* _pInitData, UINT64 _byteSize, ComPtr<ID3D12Resource> _pUploadBuffer)
 {
     ComPtr<ID3D12Resource> pDefaultBuffer;
 
@@ -79,6 +82,51 @@ ComPtr<ID3D12Resource> cDirectX12Util::CreateDefaultBuffer(ID3D12Device* _pDevic
 UINT cDirectX12Util::CalculateBufferByteSize(UINT _bytesize)
 {
     return (_bytesize + 255) & ~255;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+ComPtr<ID3DBlob> cDirectX12Util::CompileShader(const std::wstring& _rFilename, 
+    const D3D_SHADER_MACRO* _pDefines, const std::string& _rEntrypoint, const std::string& _rTarget)
+{
+    UINT compileFlags = 0;
+
+    #if defined(DEBUG) || defined(_DEBUG)
+        compileFlags = D3DCOMPILE_DEBUG |
+        D3DCOMPILE_SKIP_OPTIMIZATION;
+    #endif
+
+    ComPtr<ID3DBlob> pByteCode = nullptr;
+    ComPtr<ID3DBlob> pErrors = nullptr;
+
+    if (!std::filesystem::exists(_rFilename)) 
+    {
+        std::cout << "Absolute path: " << std::filesystem::absolute(_rFilename) << "\n";
+        throw std::runtime_error("Shader file not found: " + std::string(_rFilename.begin(), _rFilename.end()));
+    }
+
+    HRESULT hr = D3DCompileFromFile(
+        _rFilename.c_str(),
+        _pDefines,
+        D3D_COMPILE_STANDARD_FILE_INCLUDE,
+        _rEntrypoint.c_str(),
+        _rTarget.c_str(),
+        compileFlags,
+        0,
+        &pByteCode,
+        &pErrors
+    );
+
+    if (pErrors != nullptr)
+    {
+        std::string errorMsg = (char*)pErrors->GetBufferPointer();
+        std::cout << "Shader Compilation Error: " << errorMsg << std::endl;
+        OutputDebugStringA((char*)pErrors->GetBufferPointer());
+    }
+       
+    ThrowIfFailed(hr);
+
+    return pByteCode;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

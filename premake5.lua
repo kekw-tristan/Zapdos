@@ -27,8 +27,10 @@ project "Engine"
     files {
         "%{prj.name}/src/**.h",
         "%{prj.name}/src/**.cpp",
-        -- "%{prj.name}/src/**.hlsl"
+        "%{prj.name}/src/**.hlsl"
     }
+
+    
 
     includedirs {
         "%{prj.name}/src",
@@ -36,12 +38,19 @@ project "Engine"
         IncludeDir["D3DX"]
     }
 
+    links {
+        "d3dcompiler"  
+    }
+
+    -- shaders are compiled during runtime
+    filter "files:**.hlsl"
+      buildaction "None"
+
     filter "configurations:Debug"
         symbols "On"
 
     filter "configurations:Release"
         optimize "On"
-
 -- =============================
 -- GUI Project
 -- =============================

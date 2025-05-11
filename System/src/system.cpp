@@ -16,7 +16,6 @@
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
-constexpr float c_pi = 3.14159265358979323846f;
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -31,6 +30,8 @@ void cSystem::Initialize()
 
 	m_pDirectX12 = new cDirectX12();
 	m_pDirectX12->Initialize(m_pWindow, m_pTimer);
+
+
 
 }
 
@@ -89,13 +90,12 @@ void cSystem::Update()
 	XMVECTOR up = XMVectorSet(0.f, 1.f, 0.f, 0.f);
 
 	XMMATRIX view = XMMatrixLookAtLH(pos, at, up);
+
 	XMStoreFloat4x4(&m_view, view);
 
-	XMMATRIX world = XMLoadFloat4x4(&m_world);
-	XMMATRIX proj = XMLoadFloat4x4(&m_proj);
 
-	XMMATRIX worldViewProj = world * view * proj;
 	
+	m_pDirectX12->Update(view);
 	
 }
 

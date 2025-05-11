@@ -1,17 +1,22 @@
 #include "directx12.h"
 
+#include <array>
 #include <iostream>
 #include <string>
 #include <comdef.h>
-#include <Windows.h>
+#include <windows.h>
 #include <d3dx12.h>
 #include <DirectXColors.h>
+#include <d3dcompiler.h>
 
 #include "directx12Util.h"
 #include "window.h"
 #include "timer.h"
 #include "uploadBuffer.h"
 #include "vertex.h"
+#include "meshGeometry.h"
+
+constexpr float c_pi = 3.1415927f;
 
 // possible things to add:
 // sissor rectangles(pixels outside the rectangle area are culled [useful for gui optimization])
@@ -64,7 +69,6 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     m_pWindow = _pWindow; 
     m_pTimer = _pTimer;
 
-
     std::cout << "Initialize DirectX12\n";
     
     std::cout << "Initialize device and factory\n";
@@ -93,8 +97,21 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 
     std::cout << "Initialize viewport\n";
     InitializeViewPort();
+    
+    std::cout << "Initialize Root Signature\n";
+    InitializeRootSignature();
 
-    m_pObjectCB = new cUploadBuffer<sObjectConstants>(m_pDevice.Get(), 1, true);
+    std::cout << "Initialize shader\n";
+    InitializeShader();
+
+    std::cout << "Initialize vertices\n";
+    InitializeVertices();
+
+    std::cout << "Initialize pipeline state object\n";
+    InitializePipelineStateObject();
+
+    InitializeConstantBuffer();
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -102,6 +119,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 void cDirectX12::Finalize()
 {
     delete m_pObjectCB;
+    delete m_pBoxGeometry;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -110,122 +128,136 @@ void cDirectX12::InitializeVertices()
 {
 	// vertices	
 
-	sVertex vertices[] =
+    std::array<sVertex, 8> vertices =
 	{
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::White)   },
-		{ XMFLOAT3(-1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Black)   },
-		{ XMFLOAT3(+1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Red)     },
-		{ XMFLOAT3(+1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::Green)   },
-		{ XMFLOAT3(-1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Blue)    },
-		{ XMFLOAT3(-1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Yellow)  },
-		{ XMFLOAT3(+1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Cyan)    },
-		{ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Magenta) }
+		sVertex{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::White)   },
+        sVertex{ XMFLOAT3(-1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Black)   },
+        sVertex{ XMFLOAT3(+1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Red)     },
+        sVertex{ XMFLOAT3(+1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::Green)   },
+        sVertex{ XMFLOAT3(-1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Blue)    },
+        sVertex{ XMFLOAT3(-1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Yellow)  },
+        sVertex{ XMFLOAT3(+1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Cyan)    },
+        sVertex{ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Magenta) }
 	};
 
-	
-	const UINT64 vbByteSize = 8 * sizeof(sVertex);
+    std::array<std::uint16_t, 36> indices =
+    {
+        // front face
+        0, 1, 2,
+        0, 2, 3,
+        // back face
+        4, 6, 5,
+        4, 7, 6,
+        // left face
+        4, 5, 1,
+        4, 1, 0,
+        // right face
+        3, 2, 6,
+        3, 6, 7,
+        // top face
+        1, 5, 6,
+        1, 6, 2,
+        // bottom face
+        4, 0, 3,
+        4, 3, 7
+    };
 
-	ComPtr<ID3D12Resource> pVertexBufferGPU = nullptr;
-	ComPtr<ID3D12Resource> pVertexBufferUploader = nullptr;
+	const UINT64 vbByteSize = static_cast<UINT>(vertices.size() * sizeof(sVertex));
+    const UINT ibByteSize = static_cast<UINT>(indices.size() * sizeof(std::uint16_t));
 
-	pVertexBufferGPU = cDirectX12Util::CreateDefaultBuffer(m_pDevice.Get(), m_pCommandList.Get(), vertices, vbByteSize, pVertexBufferUploader);
+    m_pBoxGeometry = new sMeshGeometry();
 
-	D3D12_VERTEX_BUFFER_VIEW vbv;
+    ThrowIfFailed(D3DCreateBlob(vbByteSize,&m_pBoxGeometry->vertexBufferCPU));
+    CopyMemory(m_pBoxGeometry->vertexBufferCPU->GetBufferPointer(),vertices.data(), vbByteSize);
+    ThrowIfFailed(D3DCreateBlob(ibByteSize,&m_pBoxGeometry->indexBufferCPU));
+    CopyMemory(m_pBoxGeometry->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
-	vbv.BufferLocation = pVertexBufferGPU->GetGPUVirtualAddress();
-	vbv.StrideInBytes = sizeof(sVertex);
-	vbv.SizeInBytes = 8 * sizeof(sVertex);
+    m_pBoxGeometry->vertexBufferGPU = cDirectX12Util::CreateDefaultBuffer(m_pDevice.Get(),m_pCommandList.Get(),vertices.data(), vbByteSize, m_pBoxGeometry->vertexBufferUploader);
+    m_pBoxGeometry->indexBufferGPU =cDirectX12Util::CreateDefaultBuffer(m_pDevice.Get(), m_pCommandList.Get(), indices.data(), ibByteSize,m_pBoxGeometry->indexBufferUploader);
+    m_pBoxGeometry->vertexByteStride = sizeof(sVertex);
+    m_pBoxGeometry->vertexBufferByteSize = vbByteSize;
+    m_pBoxGeometry->indexFormat = DXGI_FORMAT_R16_UINT;
+    m_pBoxGeometry->indexBufferByteSize = ibByteSize;
 
-	D3D12_VERTEX_BUFFER_VIEW vertexBuffers[1] = { vbv };
-	m_pCommandList->IASetVertexBuffers(0, 1, vertexBuffers);
+    sSubmeshGeometry submesh;
+    submesh.indexCount = (UINT)indices.size();
+    submesh.startIndexLocation = 0;
+    submesh.startVertexLocation = 0;
+    m_pBoxGeometry->drawArguments["box"] = submesh;
 
-	// indices
+    // Set the world matrix to identity (no transformation).
+    XMMATRIX worldMatrix = XMMatrixIdentity();
 
-	std::uint16_t indices[] = {
-		// front face
-		0, 1, 2,
-		0, 2, 3,
-		// back face
-		4, 6, 5,
-		4, 7, 6,
-		// left face
-		4, 5, 1,
-		4, 1, 0,
-		// right face
-		3, 2, 6,
-		3, 6, 7,
-		// top face
-		1, 5, 6,
-		1, 6, 2,
-		// bottom face
-		4, 0, 3,
-		4, 3, 7
-	};
+    // Apply translation to set the object's position (e.g., position (x, y, z)).
+    float x = 0.0f; // X position
+    float y = 0.0f; // Y position
+    float z = 5.0f; // Z position
+    worldMatrix = XMMatrixTranslation(x, y, z); // Translate the object to the given position
 
-	const UINT ibByteSize = 36 * sizeof(std::uint16_t);
+    // Convert the XMMATRIX to XMFLOAT4X4 for storage
+    XMStoreFloat4x4(&m_world, worldMatrix);
 
-	ComPtr<ID3D12Resource> pIndexBufferGPU = nullptr;
-	ComPtr<ID3D12Resource> pIndexBufferUploader = nullptr;
-
-
-	pIndexBufferGPU = cDirectX12Util::CreateDefaultBuffer(m_pDevice.Get(),m_pCommandList.Get(), indices, ibByteSize, pIndexBufferUploader);
-
-	D3D12_INDEX_BUFFER_VIEW ibv;
-
-	ibv.BufferLocation = pIndexBufferGPU->GetGPUVirtualAddress();
-	ibv.Format = DXGI_FORMAT_R16_UINT;
-	ibv.SizeInBytes = ibByteSize;
-
-    m_pCommandList->IASetIndexBuffer(&ibv);
+     
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cDirectX12::InitializeShader()
 {
-	D3D12_INPUT_ELEMENT_DESC desc[] =
-	{
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+    m_pVsByteCode = cDirectX12Util::CompileShader(L"..\\Engine\\src\\shader.hlsl", nullptr, "VS", "vs_5_0");
+    m_pPsByteCode = cDirectX12Util::CompileShader(L"..\\Engine\\src\\shader.hlsl", nullptr, "PS", "ps_5_0");
+    
+    m_InputLayouts =
+    {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT,  0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+    };
 
-	};
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cDirectX12::InitializeConstantBuffer()
 {
-    m_elementByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));
+    // Step 1: Initialize the object constant buffer (already done, assuming cUploadBuffer is a template that creates and manages the buffer)
+    m_pObjectCB = new cUploadBuffer<sObjectConstants>(m_pDevice.Get(), 1, true);  // Assuming 1 object in the buffer
 
-    m_pDevice->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-        D3D12_HEAP_FLAG_NONE,
-        &CD3DX12_RESOURCE_DESC::Buffer(m_elementByteSize * m_numElements),
-        D3D12_RESOURCE_STATE_GENERIC_READ,
-        nullptr,
-        IID_PPV_ARGS(&m_pUploadCBuffer)
-        );
+    // Step 2: Calculate the buffer size for an object constant
+    UINT objCBByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));  // Assuming sizeof(sObjectConstants) is the correct size
+
+    // Step 3: Get the GPU virtual address of the constant buffer
+    D3D12_GPU_VIRTUAL_ADDRESS cbAddress = m_pObjectCB->GetResource()->GetGPUVirtualAddress();
+
+    // Step 4: Calculate the offset for the ith object in the buffer (i = 0 in this case)
+    int boxCBufIndex = 0;
+    cbAddress += boxCBufIndex * objCBByteSize;  // Get the address for the specific constant buffer slot (i = 0 in this case)
+
+    // Step 5: Set up the constant buffer view (CBV)
+    D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+    cbvDesc.BufferLocation = cbAddress;  // GPU virtual address of the constant buffer
+    cbvDesc.SizeInBytes = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));  // The buffer size, aligned to 256 bytes
+
+    // Step 6: Create the constant buffer view using the descriptor
+    m_pDevice->CreateConstantBufferView(&cbvDesc, m_pCbvHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cDirectX12::Update(XMMATRIX _rWorldViewProj)
+void cDirectX12::Update(XMMATRIX _view)
 {
+
+    XMMATRIX world = XMLoadFloat4x4(&m_world);
+    XMMATRIX proj = XMLoadFloat4x4(&m_proj);
+
     sObjectConstants objConstants;
 
     // needs to be transposed for hlsl (gpu column major)
-    XMStoreFloat4x4(&objConstants.worldViewProj, XMMatrixTranspose(_rWorldViewProj));
+    XMMATRIX worldViewProjMatrix = XMMatrixMultiply(world, _view); // Combine with view matrix
+    worldViewProjMatrix = XMMatrixMultiply(worldViewProjMatrix, proj); 
     m_pObjectCB->CopyData(0, objConstants);
-
-
-    D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
-
-    cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    cbvHeapDesc.NodeMask = 0;
-
-    m_pDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_pDsvHeap));
-
+   
+/*
     UINT objCBByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));
 
     D3D12_GPU_VIRTUAL_ADDRESS cbAddress = m_pObjectCB->GetResource()->GetGPUVirtualAddress();
@@ -243,9 +275,7 @@ void cDirectX12::Update(XMMATRIX _rWorldViewProj)
         &cbvDesc,
         m_pCbvHeap->GetCPUDescriptorHandleForHeapStart()
     );
-
-
-
+*/
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -257,8 +287,11 @@ void cDirectX12::Draw()
     ThrowIfFailed(m_pDirectCmdListAlloc->Reset());
     ThrowIfFailed(m_pCommandList->Reset(
         m_pDirectCmdListAlloc.Get(),
-        nullptr // No initial PSO (Pipeline State Object) for now.
+        m_pPso.Get()
     ));
+
+    // Set the viewport for rendering.
+    m_pCommandList->RSSetViewports(1, &m_viewPort);
 
     // Transition the back buffer from PRESENT to RENDER_TARGET state.
     m_pCommandList->ResourceBarrier(
@@ -269,10 +302,7 @@ void cDirectX12::Draw()
             D3D12_RESOURCE_STATE_RENDER_TARGET
         ));
 
-    // Set the viewport for rendering.
-    m_pCommandList->RSSetViewports(1, &m_viewPort);
-
-    // Define clear color (red).
+    // Define clear color (red) for the render target.
     float colorRGBA[4] = { 1.f, 0.f, 0.f, 1.f };
 
     // Clear the current render target with the specified color.
@@ -282,6 +312,15 @@ void cDirectX12::Draw()
         0, nullptr
     );
 
+    // Transition depth buffer to depth-write state.
+    m_pCommandList->ResourceBarrier(
+        1,
+        &CD3DX12_RESOURCE_BARRIER::Transition(
+            m_pDepthStencilBuffer.Get(),
+            D3D12_RESOURCE_STATE_COMMON,
+            D3D12_RESOURCE_STATE_DEPTH_WRITE
+        ));
+
     // Clear the depth/stencil buffer to default values.
     m_pCommandList->ClearDepthStencilView(
         GetDepthStencilView(),
@@ -289,12 +328,38 @@ void cDirectX12::Draw()
         1.f, 0, 0, nullptr
     );
 
-    // Bind the render target and depth/stencil buffer for output-merging stage.
+    // Bind the render target and depth/stencil buffer for the output-merging stage.
     m_pCommandList->OMSetRenderTargets(
         1,
         &GetCurrentBackbufferView(),
         true,
         &GetDepthStencilView()
+    );
+
+    // Set descriptor heap for constant buffer view (CBV) or other resources.
+    ID3D12DescriptorHeap* descriptorHeaps[] = { m_pCbvHeap.Get() };
+    m_pCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+
+    // Set the graphics root signature for the pipeline state.
+    m_pCommandList->SetGraphicsRootSignature(m_pRootSignature.Get());
+
+    // Set the vertex buffer and primitive topology (triangle list).
+    m_pCommandList->IASetVertexBuffers(0, 1, &m_pBoxGeometry->GetVertexBufferView());
+    m_pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Set the constant buffer (or other descriptor tables) from the heap.
+    m_pCommandList->SetGraphicsRootDescriptorTable(0, m_pCbvHeap->GetGPUDescriptorHandleForHeapStart());
+
+    // Set the index buffer.
+    m_pCommandList->IASetIndexBuffer(&m_pBoxGeometry->GetIndexBufferView());
+
+    // Draw the indexed geometry.
+    m_pCommandList->DrawIndexedInstanced(
+        m_pBoxGeometry->drawArguments["box"].indexCount,  // index count
+        1,  // instance count
+        0,  // start index location
+        0,  // base vertex location
+        0   // start instance location
     );
 
     // Transition the back buffer back to PRESENT state for display.
@@ -313,7 +378,7 @@ void cDirectX12::Draw()
     m_pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
     // Present the rendered frame to the screen.
-    ThrowIfFailed(m_pSwapChain->Present(1, 0));
+    ThrowIfFailed(m_pSwapChain->Present(0, 0));
 
     // Move to the next back buffer in the swap chain.
     m_currentBackBuffer = (m_currentBackBuffer + 1) % c_swapChainBufferCount;
@@ -337,7 +402,7 @@ float cDirectX12::GetAspectRatio() const
 void cDirectX12::InitializeDeviceAndFactory()
 {
     // Create DXGI Factory
-    ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&m_pDxgiFactory)), "factory");
+    ThrowIfFailed(CreateDXGIFactory2(0, IID_PPV_ARGS(&m_pDxgiFactory)), "factory");
 
     // Create Device
     HRESULT hr = D3D12CreateDevice(
@@ -392,19 +457,53 @@ void cDirectX12::Check4XMSAAQualitySupport()
 {
     D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLevels = {};
 
-    msQualityLevels.Format              = m_backBufferFormat; 
-    msQualityLevels.SampleCount         = 4;
-    msQualityLevels.Flags               = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
-    msQualityLevels.NumQualityLevels    = 0;
-    
+    msQualityLevels.Format = m_backBufferFormat;
+    msQualityLevels.SampleCount = 4;
+    msQualityLevels.Flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
+    msQualityLevels.NumQualityLevels = 0;
+
+    HRESULT hr = m_pDevice->CheckFeatureSupport(
+        D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
+        &msQualityLevels,
+        sizeof(msQualityLevels)
+    );
+
+    if (FAILED(hr))
+    {
+        std::cerr << "Failed to query MSAA quality support." << std::endl;
+        return; // Early exit in case of failure
+    }
+
+    // Ensure the quality level is valid
+    if (msQualityLevels.NumQualityLevels > 0)
+    {
+        m_4xMsaaQuality = msQualityLevels.NumQualityLevels - 1;  // Use the highest available quality
+        std::cout << "4x MSAA supported, quality level: " << m_4xMsaaQuality << "\n";
+    }
+    else
+    {
+        m_4xMsaaQuality = 0; // No MSAA support
+        std::cout << "4x MSAA not supported, quality level set to 0." << std::endl;
+    }
+
+
+    msQualityLevels.SampleCount = 2;  // Check for 2x MSAA support
+    msQualityLevels.NumQualityLevels = 0;
     ThrowIfFailed(m_pDevice->CheckFeatureSupport(
         D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
         &msQualityLevels,
         sizeof(msQualityLevels)
     ));
+    std::cout << "2x MSAA supported, quality level: " << msQualityLevels.NumQualityLevels << std::endl;
 
-    m_4xMsaaQuality = msQualityLevels.NumQualityLevels;
-    std::cout << "4xMsaa quality level: " << m_4xMsaaQuality << "\n";
+    msQualityLevels.SampleCount = 8;  // Check for 8x MSAA support
+    msQualityLevels.NumQualityLevels = 0;
+    ThrowIfFailed(m_pDevice->CheckFeatureSupport(
+        D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
+        &msQualityLevels,
+        sizeof(msQualityLevels)
+    ));
+    std::cout << "8x MSAA quality level: " << msQualityLevels.NumQualityLevels << std::endl;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -456,7 +555,8 @@ void cDirectX12::InitializeSwapChain()
     swapChainDesc.Format            = DXGI_FORMAT_R8G8B8A8_UNORM;               // Use 32-bit RGBA format.
     swapChainDesc.BufferUsage       = DXGI_USAGE_RENDER_TARGET_OUTPUT;          // Buffers are used as render targets.
     swapChainDesc.SwapEffect        = DXGI_SWAP_EFFECT_FLIP_DISCARD;            // Recommended swap effect for modern hardware.
-    swapChainDesc.SampleDesc.Count  = 1;                                        // No anti-aliasing (MSAA disabled).
+    swapChainDesc.SampleDesc.Count  = m_4xMsaaQuality ? 4 : 1;
+    swapChainDesc.SampleDesc.Quality = m_4xMsaaQuality ? (m_4xMsaaQuality - 1) : 0;                                      
     swapChainDesc.AlphaMode         = DXGI_ALPHA_MODE_UNSPECIFIED;              // No alpha blending control.
     swapChainDesc.Flags             = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;   // Allow alt+enter fullscreen switching.
 
@@ -622,6 +722,15 @@ void cDirectX12::InitializeViewPort()
 
 void cDirectX12::InitializeRootSignature()
 {
+    D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
+
+    cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    cbvHeapDesc.NumDescriptors = 1;
+    cbvHeapDesc.NodeMask = 0;
+
+    m_pDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_pCbvHeap));
+
     CD3DX12_ROOT_PARAMETER slotRootParameter[1];
 
     CD3DX12_DESCRIPTOR_RANGE cbvTable;
@@ -632,8 +741,8 @@ void cDirectX12::InitializeRootSignature()
     );
 
     slotRootParameter[0].InitAsDescriptorTable(
-        1,
-        &cbvTable
+        1,              // number of ranges
+        &cbvTable       // pointer to array of ranges
     );
 
     CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
@@ -655,6 +764,50 @@ void cDirectX12::InitializeRootSignature()
         &errorBlob
     ));
 
+    ThrowIfFailed(m_pDevice->CreateRootSignature(
+        0,
+        serializedRootSig->GetBufferPointer(),
+        serializedRootSig->GetBufferSize(),
+        IID_PPV_ARGS(&m_pRootSignature)
+    ));
+
+    m_pCommandList->SetGraphicsRootSignature(m_pRootSignature.Get());
+    ID3D12DescriptorHeap* descriptorHeaps[] = { m_pCbvHeap.Get() };
+    m_pCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+
+    CD3DX12_GPU_DESCRIPTOR_HANDLE cbv(m_pCbvHeap->GetGPUDescriptorHandleForHeapStart());
+    //cbv.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
+    m_pCommandList->SetGraphicsRootDescriptorTable(0, cbv);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::InitializeRasterierState()
+{
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::InitializePipelineStateObject()
+{
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
+
+    psoDesc.InputLayout = { m_InputLayouts.data(), static_cast<UINT>(m_InputLayouts.size()) };
+    psoDesc.pRootSignature = m_pRootSignature.Get();
+    psoDesc.VS = { reinterpret_cast<BYTE*>(m_pVsByteCode->GetBufferPointer()), m_pVsByteCode->GetBufferSize() };
+    psoDesc.PS = { reinterpret_cast<BYTE*>(m_pPsByteCode->GetBufferPointer()), m_pPsByteCode->GetBufferSize() };
+    psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+    psoDesc.SampleMask = UINT_MAX;
+    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    psoDesc.NumRenderTargets = 1;
+    psoDesc.RTVFormats[0] = m_backBufferFormat;
+    psoDesc.SampleDesc.Count = m_4xMsaaQuality ? 4 : 1;
+    psoDesc.SampleDesc.Quality = m_4xMsaaQuality ? (m_4xMsaaQuality - 1) : 0;
+    psoDesc.DSVFormat = m_depthStencilFormat;
+
+    ThrowIfFailed(m_pDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pPso)));
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -755,6 +908,9 @@ void cDirectX12::OnResize()
 
     m_pDepthStencilBuffer->Release();
     InitializeDepthStencilView();
+    
+    XMMATRIX proj = XMMatrixPerspectiveFovLH(0.25f * c_pi, GetAspectRatio(), 1.f, 100.f);
+    XMStoreFloat4x4(&m_proj, proj);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

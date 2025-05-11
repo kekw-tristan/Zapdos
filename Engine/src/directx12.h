@@ -3,6 +3,7 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
+#include <vector>
 #include <wrl.h>
 
 using namespace DirectX;
@@ -11,6 +12,7 @@ using namespace Microsoft::WRL;
 int constexpr c_swapChainBufferCount = 2;
 
 struct sVertex;
+struct sMeshGeometry;
 
 class cWindow;
 class cTimer;
@@ -36,8 +38,7 @@ class cDirectX12
 	public:
 		void InitializeVertices();
 		void InitializeShader();
-		void InitializeConstantBuffer();
-		void Update(XMMATRIX _rWorldViewProj);
+		void Update(XMMATRIX _view);
 		void Draw(); 
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
@@ -60,6 +61,9 @@ class cDirectX12
 		void InitializeDepthStencilView(); 
 		void InitializeViewPort();
 		void InitializeRootSignature();
+		void InitializeRasterierState();
+		void InitializePipelineStateObject();
+		void InitializeConstantBuffer();
 	
 	private:
 
@@ -125,4 +129,19 @@ class cDirectX12
 		ComPtr<ID3D12DescriptorHeap> m_pCbvHeap;
 
 		cUploadBuffer<sObjectConstants>* m_pObjectCB;
+		sMeshGeometry* m_pBoxGeometry;
+
+		ComPtr<ID3D12RootSignature> m_pRootSignature;
+		std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayouts;
+		
+		ComPtr<ID3DBlob> m_pVsByteCode;
+		ComPtr<ID3DBlob> m_pPsByteCode;
+
+		ComPtr<ID3D12PipelineState> m_pPso;
+	
+		XMFLOAT4X4 m_proj;
+		XMFLOAT4X4 m_view;
+		XMFLOAT4X4 m_world;
+
+
 };
