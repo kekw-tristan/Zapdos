@@ -31,7 +31,9 @@ void cSystem::Initialize()
 	m_pDirectX12 = new cDirectX12();
 	m_pDirectX12->Initialize(m_pWindow, m_pTimer);
 
-
+	m_radius = 10.0f;    // Reasonable camera distance
+	m_theta = 1.5f;      // Some rotation around Y
+	m_phi = 1.0f;
 
 }
 
@@ -83,22 +85,29 @@ void cSystem::Update()
 {
 	HandleInput();
 
+	// Convert spherical to Cartesian coordinates
 	float x = m_radius * sinf(m_phi) * cosf(m_theta);
 	float y = m_radius * sinf(m_phi) * sinf(m_theta);
-	float z = m_radius * cosf(m_phi); 
+	float z = m_radius * cosf(m_phi);
 
-	// XMVECTOR pos = XMVectorSet(x, y, z, 1.f);
-	XMVECTOR pos = XMVectorSet(-5, 5, -5, 1);
-	XMVECTOR at = XMVectorZero();
-	XMVECTOR up = XMVectorSet(0.f, 1.f, 0.f, 0.f);
+	// Debug output
+	std::cout << "theta: " << m_theta
+		<< ", phi: " << m_phi
+		<< ", radius: " << m_radius << std::endl;
+	std::cout << "Camera Pos: " << x << ":" << y << ":" << z << std::endl;
 
+	XMVECTOR pos = XMVectorSet(x, y, z, 1.0f);
+	XMVECTOR at = XMVectorZero(); // Look at origin
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f); // Up direction
+
+	// Create and store the view matrix
 	XMMATRIX view = XMMatrixLookAtLH(pos, at, up);
-
 	XMStoreFloat4x4(&m_view, view);
 
+	// Update DirectX12 engine
 	m_pDirectX12->Update(view);
-	
 }
+
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -114,15 +123,19 @@ void cSystem::HandleInput()
 
 		m_phi = std::clamp(m_phi, 0.1f, c_pi - 0.1f);
 	}
-
 	else if (cInput::IsMouseButtonDown(MK_RBUTTON))
 	{
-		float dx = 0.005f * XMConvertToRadians(0.25f * static_cast<float>(cInput::GetMouseX() - m_lastMouseX));
-		float dy = 0.005f * XMConvertToRadians(0.25f * static_cast<float>(cInput::GetMouseY() - m_lastMouseY));
+		float dy = 0.25f * static_cast<float>(cInput::GetMouseY() - m_lastMouseY);
 
-		m_radius = std::clamp(m_radius, 3.f, 15.f);
+		m_radius += 0.01f * dy;
+
+		// Final clamp: enforce positive, reasonable zoom
+		m_radius = std::clamp(m_radius, 3.0f, 15.0f);
 	}
 
 	m_lastMouseX = cInput::GetMouseX();
 	m_lastMouseY = cInput::GetMouseY();
 }
+
+
+
