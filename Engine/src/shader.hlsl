@@ -33,6 +33,5 @@ struct sPixelIn
 
 float4 PS(sVertexOut _pixel) : SV_Target
 {
-    // return _pixel.color; // Simply return the color passed from vertex shader
-     return float4(_pixel.pos.x, _pixel.pos.y, 0.f, 1.f);
+   return _pixel.color; 
 }

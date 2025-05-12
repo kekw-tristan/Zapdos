@@ -57,7 +57,9 @@ void cSystem::Run()
 		m_pTimer->Tick();
 
 		m_pDirectX12->CalculateFrameStats();
+		Update();
 		m_pDirectX12->Draw();
+
 	}	
 
 }
@@ -86,7 +88,7 @@ void cSystem::Update()
 	float z = m_radius * cosf(m_phi); 
 
 	// XMVECTOR pos = XMVectorSet(x, y, z, 1.f);
-	XMVECTOR pos = XMVectorSet(0, 0, -5, 1);
+	XMVECTOR pos = XMVectorSet(-5, 5, -5, 1);
 	XMVECTOR at = XMVectorZero();
 	XMVECTOR up = XMVectorSet(0.f, 1.f, 0.f, 0.f);
 
@@ -94,8 +96,6 @@ void cSystem::Update()
 
 	XMStoreFloat4x4(&m_view, view);
 
-
-	
 	m_pDirectX12->Update(view);
 	
 }

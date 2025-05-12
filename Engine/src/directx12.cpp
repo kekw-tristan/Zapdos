@@ -274,7 +274,7 @@ void cDirectX12::InitializeVertices()
     float z = 0.0f;
 
     // Define scale
-    float scale = 5.0f;
+    float scale = 1.0f;
 
     // Create scaling and translation matrices
     XMMATRIX scaleMatrix = XMMatrixScaling(scale, scale, scale);
@@ -336,39 +336,26 @@ void cDirectX12::InitializeConstantBuffer()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cDirectX12::Update(XMMATRIX _view)
+void cDirectX12::Update(XMMATRIX view)
 {
-
+    // Load matrices
     XMMATRIX world = XMLoadFloat4x4(&m_world);
     XMMATRIX proj = XMLoadFloat4x4(&m_proj);
 
-    XMMATRIX worldViewProjMatrix = XMMatrixMultiply(world, _view);
-    worldViewProjMatrix = XMMatrixMultiply(worldViewProjMatrix, proj);
+    // Combine matrices into WorldViewProjection
+    XMMATRIX worldViewProj = XMMatrixMultiply(world, view);
+    worldViewProj = XMMatrixMultiply(worldViewProj, proj);
 
+    // Transpose for HLSL (row-major expected)
+    XMMATRIX worldViewProjT = XMMatrixTranspose(worldViewProj);
+
+    // Pack into constant buffer struct
     sObjectConstants objConstants;
-    XMStoreFloat4x4(&objConstants.worldViewProj, XMMatrixTranspose(worldViewProjMatrix));
+    XMStoreFloat4x4(&objConstants.worldViewProj, worldViewProjT);
 
+    // Upload to mapped constant buffer (frame index 0 for now)
     m_pObjectCB->CopyData(0, objConstants);
-   
-/*
-    UINT objCBByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));
 
-    D3D12_GPU_VIRTUAL_ADDRESS cbAddress = m_pObjectCB->GetResource()->GetGPUVirtualAddress();
-
-    // can be made ith
-    int boxCBufferIndex = 0;
-    cbAddress += boxCBufferIndex * objCBByteSize;
-
-    D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-
-    cbvDesc.BufferLocation = cbAddress;
-    cbvDesc.SizeInBytes = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));
-
-    m_pDevice->CreateConstantBufferView(
-        &cbvDesc,
-        m_pCbvHeap->GetCPUDescriptorHandleForHeapStart()
-    );
-*/
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -779,8 +766,6 @@ void cDirectX12::InitializeDepthStencilView()
 
 void cDirectX12::InitializeViewPort()
 {
-    D3D12_VIEWPORT m_viewPort;
-
     m_viewPort.TopLeftX = 0.f;
     m_viewPort.TopLeftY = 0.f;
     m_viewPort.Width    = static_cast<float>(m_pWindow->GetWidth());
@@ -973,7 +958,7 @@ void cDirectX12::CalculateFrameStats() const
 
 void cDirectX12::OnResize()
 {
-    XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi ,GetAspectRatio(), 1.0f, 1000.0f);
+    XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi ,GetAspectRatio(), 0.1f, 1000.0f);
     XMStoreFloat4x4(&m_proj, P);
 }
 
