@@ -8,6 +8,8 @@
 #include <d3dx12.h>
 #include <DirectXColors.h>
 #include <d3dcompiler.h>
+#include <shlobj.h>
+#include <filesystem>
 
 #include "directx12Util.h"
 #include "window.h"
@@ -47,11 +49,45 @@ inline void ThrowIfFailed(HRESULT hr, std::string _message)
     }
 }
 
+
+static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
+{
+    LPWSTR programFilesPath = nullptr;
+    SHGetKnownFolderPath(FOLDERID_ProgramFiles, KF_FLAG_DEFAULT, NULL, &programFilesPath);
+
+    std::filesystem::path pixInstallationPath = programFilesPath;
+    pixInstallationPath /= "Microsoft PIX";
+
+    std::wstring newestVersionFound;
+
+    for (auto const& directory_entry : std::filesystem::directory_iterator(pixInstallationPath))
+    {
+        if (directory_entry.is_directory())
+        {
+            if (newestVersionFound.empty() || newestVersionFound < directory_entry.path().filename().c_str())
+            {
+                newestVersionFound = directory_entry.path().filename().c_str();
+            }
+        }
+    }
+
+    if (newestVersionFound.empty())
+    {
+        // TODO: Error, no PIX installation found
+        std::cout << "no pix installation found" << std::endl;
+    }
+
+    return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
+}
+
 // --------------------------------------------------------------------------------------------------------------------------
 // initializes all the directx12 components
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 {
+  
+
+
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -63,6 +99,12 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     {
         std::cerr << "D3D12 Debug Layer not available." << std::endl;
     }
+    
+    if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
+    {
+        LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
+    }
+
     m_backBufferFormat      = DXGI_FORMAT_R8G8B8A8_UNORM;
     m_depthStencilFormat    = DXGI_FORMAT_D24_UNORM_S8_UINT;
     
@@ -89,6 +131,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     std::cout << "Initialize escriptor heaps\n";
     InitializeDescriptorHeaps();
 
+
     std::cout << "Initialize render target view\n";
     InitializeRenderTargetView();
 
@@ -100,6 +143,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     
     std::cout << "Initialize Root Signature\n";
     InitializeRootSignature();
+    InitializeConstantBuffer();
 
     std::cout << "Initialize shader\n";
     InitializeShader();
@@ -110,8 +154,10 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     std::cout << "Initialize pipeline state object\n";
     InitializePipelineStateObject();
 
-    InitializeConstantBuffer();
-
+    m_pCommandList->Close();
+    ID3D12CommandList* cmdLists[] = { m_pCommandList.Get() };
+    m_pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+    FlushCommandQueue();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -161,19 +207,53 @@ void cDirectX12::InitializeVertices()
         4, 0, 3,
         4, 3, 7
     };
-
-	const UINT64 vbByteSize = static_cast<UINT>(vertices.size() * sizeof(sVertex));
+    const UINT64 vbByteSize = static_cast<UINT>(vertices.size() * sizeof(sVertex));
     const UINT ibByteSize = static_cast<UINT>(indices.size() * sizeof(std::uint16_t));
 
     m_pBoxGeometry = new sMeshGeometry();
 
-    ThrowIfFailed(D3DCreateBlob(vbByteSize,&m_pBoxGeometry->vertexBufferCPU));
-    CopyMemory(m_pBoxGeometry->vertexBufferCPU->GetBufferPointer(),vertices.data(), vbByteSize);
-    ThrowIfFailed(D3DCreateBlob(ibByteSize,&m_pBoxGeometry->indexBufferCPU));
+    // Create CPU buffers (no need for SetName here)
+    ThrowIfFailed(D3DCreateBlob(vbByteSize, &m_pBoxGeometry->vertexBufferCPU));
+    CopyMemory(m_pBoxGeometry->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+    ThrowIfFailed(D3DCreateBlob(ibByteSize, &m_pBoxGeometry->indexBufferCPU));
     CopyMemory(m_pBoxGeometry->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
-    m_pBoxGeometry->vertexBufferGPU = cDirectX12Util::CreateDefaultBuffer(m_pDevice.Get(),m_pCommandList.Get(),vertices.data(), vbByteSize, m_pBoxGeometry->vertexBufferUploader);
-    m_pBoxGeometry->indexBufferGPU =cDirectX12Util::CreateDefaultBuffer(m_pDevice.Get(), m_pCommandList.Get(), indices.data(), ibByteSize,m_pBoxGeometry->indexBufferUploader);
+    // Create and name GPU buffers
+    m_pBoxGeometry->vertexBufferGPU = cDirectX12Util::CreateDefaultBuffer(
+        m_pDevice.Get(),
+        m_pCommandList.Get(),
+        vertices.data(),
+        vbByteSize,
+        m_pBoxGeometry->vertexBufferUploader
+    );
+    m_pBoxGeometry->vertexBufferGPU->SetName(L"Box_VertexBuffer_GPU");
+
+    m_pBoxGeometry->indexBufferGPU = cDirectX12Util::CreateDefaultBuffer(
+        m_pDevice.Get(),
+        m_pCommandList.Get(),
+        indices.data(),
+        ibByteSize,
+        m_pBoxGeometry->indexBufferUploader
+    );
+    m_pBoxGeometry->indexBufferGPU->SetName(L"Box_IndexBuffer_GPU");
+
+    // Ensure the upload buffers are initialized before setting names
+    if (m_pBoxGeometry->vertexBufferUploader != nullptr) {
+        m_pBoxGeometry->vertexBufferUploader->SetName(L"Box_VertexBuffer_Uploader");
+    }
+    else {
+        std::cerr << "Error: vertexBufferUploader is nullptr." << std::endl;
+    }
+
+    if (m_pBoxGeometry->indexBufferUploader != nullptr) {
+        m_pBoxGeometry->indexBufferUploader->SetName(L"Box_IndexBuffer_Uploader");
+    }
+    else {
+        std::cerr << "Error: indexBufferUploader is nullptr." << std::endl;
+    }
+
+    // Set up draw arguments and other properties
     m_pBoxGeometry->vertexByteStride = sizeof(sVertex);
     m_pBoxGeometry->vertexBufferByteSize = vbByteSize;
     m_pBoxGeometry->indexFormat = DXGI_FORMAT_R16_UINT;
@@ -185,19 +265,28 @@ void cDirectX12::InitializeVertices()
     submesh.startVertexLocation = 0;
     m_pBoxGeometry->drawArguments["box"] = submesh;
 
-    // Set the world matrix to identity (no transformation).
+    // Set world matrix transformation
     XMMATRIX worldMatrix = XMMatrixIdentity();
 
-    // Apply translation to set the object's position (e.g., position (x, y, z)).
-    float x = 0.0f; // X position
-    float y = 0.0f; // Y position
-    float z = 5.0f; // Z position
-    worldMatrix = XMMatrixTranslation(x, y, z); // Translate the object to the given position
+    // Define position
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+
+    // Define scale
+    float scale = 5.0f;
+
+    // Create scaling and translation matrices
+    XMMATRIX scaleMatrix = XMMatrixScaling(scale, scale, scale);
+    XMMATRIX translationMatrix = XMMatrixTranslation(x, y, z);
+
+    // Combine transformations: scale first, then translate
+    worldMatrix = scaleMatrix * translationMatrix;
 
     // Convert the XMMATRIX to XMFLOAT4X4 for storage
     XMStoreFloat4x4(&m_world, worldMatrix);
 
-     
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -213,6 +302,8 @@ void cDirectX12::InitializeShader()
         { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT,  0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
 
+    
+    std::cout << "vertexshader size: " << m_pVsByteCode->GetBufferSize() << std::endl;
 
 }
 
@@ -240,6 +331,7 @@ void cDirectX12::InitializeConstantBuffer()
 
     // Step 6: Create the constant buffer view using the descriptor
     m_pDevice->CreateConstantBufferView(&cbvDesc, m_pCbvHeap->GetCPUDescriptorHandleForHeapStart());
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -250,11 +342,12 @@ void cDirectX12::Update(XMMATRIX _view)
     XMMATRIX world = XMLoadFloat4x4(&m_world);
     XMMATRIX proj = XMLoadFloat4x4(&m_proj);
 
-    sObjectConstants objConstants;
+    XMMATRIX worldViewProjMatrix = XMMatrixMultiply(world, _view);
+    worldViewProjMatrix = XMMatrixMultiply(worldViewProjMatrix, proj);
 
-    // needs to be transposed for hlsl (gpu column major)
-    XMMATRIX worldViewProjMatrix = XMMatrixMultiply(world, _view); // Combine with view matrix
-    worldViewProjMatrix = XMMatrixMultiply(worldViewProjMatrix, proj); 
+    sObjectConstants objConstants;
+    XMStoreFloat4x4(&objConstants.worldViewProj, XMMatrixTranspose(worldViewProjMatrix));
+
     m_pObjectCB->CopyData(0, objConstants);
    
 /*
@@ -283,109 +376,90 @@ void cDirectX12::Update(XMMATRIX _view)
 
 void cDirectX12::Draw()
 {
-    // Reset the command allocator and command list for reuse.
+    // === Reset allocator & command list BEFORE recording ===
     ThrowIfFailed(m_pDirectCmdListAlloc->Reset());
-    ThrowIfFailed(m_pCommandList->Reset(
-        m_pDirectCmdListAlloc.Get(),
-        m_pPso.Get()
-    ));
+    ThrowIfFailed(m_pCommandList->Reset(m_pDirectCmdListAlloc.Get(), m_pPso.Get())); // Bind PSO
 
-    // Set the viewport for rendering.
+    // === Set viewport and scissor ===
     m_pCommandList->RSSetViewports(1, &m_viewPort);
 
-    // Transition the back buffer from PRESENT to RENDER_TARGET state.
+    D3D12_RECT m_scissorRect = { 0, 0, m_pWindow->GetWidth(), m_pWindow->GetHeight() };
+    m_pCommandList->RSSetScissorRects(1, &m_scissorRect);
+
+    // === Transition back buffer from PRESENT to RENDER_TARGET ===
     m_pCommandList->ResourceBarrier(
-        1,
-        &CD3DX12_RESOURCE_BARRIER::Transition(
+        1, &CD3DX12_RESOURCE_BARRIER::Transition(
             GetCurrentBackBuffer().Get(),
             D3D12_RESOURCE_STATE_PRESENT,
             D3D12_RESOURCE_STATE_RENDER_TARGET
-        ));
-
-    // Define clear color (red) for the render target.
-    float colorRGBA[4] = { 1.f, 0.f, 0.f, 1.f };
-
-    // Clear the current render target with the specified color.
-    m_pCommandList->ClearRenderTargetView(
-        GetCurrentBackbufferView(),
-        colorRGBA,
-        0, nullptr
+        )
     );
 
-    // Transition depth buffer to depth-write state.
-    m_pCommandList->ResourceBarrier(
-        1,
-        &CD3DX12_RESOURCE_BARRIER::Transition(
-            m_pDepthStencilBuffer.Get(),
-            D3D12_RESOURCE_STATE_COMMON,
-            D3D12_RESOURCE_STATE_DEPTH_WRITE
-        ));
+    // === Clear render target ===
+    float clearColor[] = { 1.f, 0.f, 1.f, 1.f }; // Magenta
+    m_pCommandList->ClearRenderTargetView(GetCurrentBackbufferView(), clearColor, 0, nullptr);
 
-    // Clear the depth/stencil buffer to default values.
+    
+
+    // === Clear depth/stencil buffer ===
     m_pCommandList->ClearDepthStencilView(
         GetDepthStencilView(),
         D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-        1.f, 0, 0, nullptr
+        1.0f, 0,
+        0, nullptr
     );
 
-    // Bind the render target and depth/stencil buffer for the output-merging stage.
-    m_pCommandList->OMSetRenderTargets(
-        1,
-        &GetCurrentBackbufferView(),
-        true,
-        &GetDepthStencilView()
-    );
+    // === Set render targets ===
+    m_pCommandList->OMSetRenderTargets(1, &GetCurrentBackbufferView(), TRUE, &GetDepthStencilView());
 
-    // Set descriptor heap for constant buffer view (CBV) or other resources.
+    // === Bind descriptor heap ===
     ID3D12DescriptorHeap* descriptorHeaps[] = { m_pCbvHeap.Get() };
     m_pCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
-    // Set the graphics root signature for the pipeline state.
+    // === Set root signature ===
     m_pCommandList->SetGraphicsRootSignature(m_pRootSignature.Get());
 
-    // Set the vertex buffer and primitive topology (triangle list).
+    // === Input assembler: vertex/index buffers ===
     m_pCommandList->IASetVertexBuffers(0, 1, &m_pBoxGeometry->GetVertexBufferView());
+    m_pCommandList->IASetIndexBuffer(&m_pBoxGeometry->GetIndexBufferView());
     m_pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // Set the constant buffer (or other descriptor tables) from the heap.
+    std::cout << m_pBoxGeometry->drawArguments["box"].indexCount << std::endl;
+
+    // === Set constant buffer view (CBV) ===
     m_pCommandList->SetGraphicsRootDescriptorTable(0, m_pCbvHeap->GetGPUDescriptorHandleForHeapStart());
 
-    // Set the index buffer.
-    m_pCommandList->IASetIndexBuffer(&m_pBoxGeometry->GetIndexBufferView());
-
-    // Draw the indexed geometry.
+    // === Draw geometry ===
     m_pCommandList->DrawIndexedInstanced(
-        m_pBoxGeometry->drawArguments["box"].indexCount,  // index count
-        1,  // instance count
-        0,  // start index location
-        0,  // base vertex location
-        0   // start instance location
+        m_pBoxGeometry->drawArguments["box"].indexCount,
+        1, 0, 0, 0
     );
 
-    // Transition the back buffer back to PRESENT state for display.
+    // === Transition back buffer from RENDER_TARGET to PRESENT ===
     m_pCommandList->ResourceBarrier(
         1, &CD3DX12_RESOURCE_BARRIER::Transition(
             GetCurrentBackBuffer().Get(),
             D3D12_RESOURCE_STATE_RENDER_TARGET,
             D3D12_RESOURCE_STATE_PRESENT
-        ));
+        )
+    );
 
-    // Close the command list to prepare for execution.
+    // === Close and execute command list ===
     ThrowIfFailed(m_pCommandList->Close());
 
-    // Execute the recorded command list.
     ID3D12CommandList* cmdLists[] = { m_pCommandList.Get() };
     m_pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
-    // Present the rendered frame to the screen.
-    ThrowIfFailed(m_pSwapChain->Present(0, 0));
+    // === Present ===
+    ThrowIfFailed(m_pSwapChain->Present(1, 0));
 
-    // Move to the next back buffer in the swap chain.
+    // === Move to next back buffer ===
     m_currentBackBuffer = (m_currentBackBuffer + 1) % c_swapChainBufferCount;
 
-    // Ensure all GPU commands are finished before continuing.
     FlushCommandQueue();
+
 }
+
 
 // --------------------------------------------------------------------------------------------------------------------------
 // calculates the aspectratio of the window 
@@ -537,7 +611,6 @@ void cDirectX12::InitializeCommandQueueAndList()
         IID_PPV_ARGS(m_pCommandList.GetAddressOf())
     ));
 
-    m_pCommandList->Close();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -630,6 +703,8 @@ void cDirectX12::InitializeRenderTargetView()
         );
 
         rtvHandle.ptr += m_rtvDescriptorSize;
+
+        m_pSwapChainBuffer[index]->SetName(L"Backbuffer");
     }
 }
 
@@ -675,7 +750,7 @@ void cDirectX12::InitializeDepthStencilView()
         &heapProps,                                             // Heap properties
         D3D12_HEAP_FLAG_NONE,                                   // No heap flags
         &dsDesc,                                                // Resource description
-        D3D12_RESOURCE_STATE_COMMON,                            // Initial resource state
+        D3D12_RESOURCE_STATE_DEPTH_WRITE,                            // Initial resource state
         &optClear,                                              // Clear value for depth and stencil
         IID_PPV_ARGS(m_pDepthStencilBuffer.GetAddressOf())      // Output resource pointer
     ));
@@ -687,18 +762,16 @@ void cDirectX12::InitializeDepthStencilView()
         GetDepthStencilView()                                // Call a function to get the view descriptor
     );
 
-    // Set up the resource barrier to transition the resource state.
-    D3D12_RESOURCE_BARRIER barrier = {};
-
-    barrier.Type                    = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;   // Resource transition barrier type
-    barrier.Flags                   = D3D12_RESOURCE_BARRIER_FLAG_NONE;         // No additional flags
-    barrier.Transition.pResource    = m_pDepthStencilBuffer.Get();              // Resource to transition
-    barrier.Transition.StateBefore  = D3D12_RESOURCE_STATE_COMMON;              // Resource state before transition
-    barrier.Transition.StateAfter   = D3D12_RESOURCE_STATE_DEPTH_WRITE;         // State after transition
-    barrier.Transition.Subresource  = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;  // Apply to all subresources
-
-    // Execute the resource barrier command to transition the state.
-    m_pCommandList->ResourceBarrier(1, &barrier);  // Apply the barrier on the command list
+    m_pDepthStencilBuffer->SetName(L"DepthStencilBuffer");
+/*
+    m_pCommandList->ResourceBarrier(
+        1,
+        &CD3DX12_RESOURCE_BARRIER::Transition(
+            m_pDepthStencilBuffer.Get(),
+            D3D12_RESOURCE_STATE_DEPTH_WRITE,
+            D3D12_RESOURCE_STATE_DEPTH_WRITE));
+    // Apply the barrier on the command list
+    */
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -725,19 +798,20 @@ void cDirectX12::InitializeRootSignature()
     D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
 
     cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Ensure this is shader visible
     cbvHeapDesc.NumDescriptors = 1;
     cbvHeapDesc.NodeMask = 0;
 
-    m_pDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_pCbvHeap));
+    ThrowIfFailed(m_pDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_pCbvHeap)));
 
+    // Define the root parameter (here, binding descriptor table for the CBV)
     CD3DX12_ROOT_PARAMETER slotRootParameter[1];
 
     CD3DX12_DESCRIPTOR_RANGE cbvTable;
     cbvTable.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
         1, // number of descriptors in table
-        0  // base shader registers are bound to for this root parameter
+        0  // base shader register (0 for this case)
     );
 
     slotRootParameter[0].InitAsDescriptorTable(
@@ -746,13 +820,12 @@ void cDirectX12::InitializeRootSignature()
     );
 
     CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-        1,
+        1, // number of root parameters
         slotRootParameter,
         0,
         nullptr,
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
     );
-
 
     ComPtr<ID3DBlob> serializedRootSig = nullptr;
     ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -771,13 +844,18 @@ void cDirectX12::InitializeRootSignature()
         IID_PPV_ARGS(&m_pRootSignature)
     ));
 
+    // Set the root signature for the command list (this must be done before rendering)
     m_pCommandList->SetGraphicsRootSignature(m_pRootSignature.Get());
+
+    // Setting the descriptor heap for the command list (make sure the heap is set before issuing draw calls)
     ID3D12DescriptorHeap* descriptorHeaps[] = { m_pCbvHeap.Get() };
     m_pCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
+    // Set the CBV descriptor table to the root parameter at slot 0
     CD3DX12_GPU_DESCRIPTOR_HANDLE cbv(m_pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    //cbv.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
     m_pCommandList->SetGraphicsRootDescriptorTable(0, cbv);
+
+    // Note: You also need to ensure your pipeline state object (PSO) is using this root signature.
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -895,22 +973,8 @@ void cDirectX12::CalculateFrameStats() const
 
 void cDirectX12::OnResize()
 {
-    m_pSwapChain->ResizeBuffers(
-        c_swapChainBufferCount,
-        m_pWindow->GetWidth(),
-        m_pWindow->GetHeight(),
-        m_backBufferFormat,
-        DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
-
-    std::cout << m_pWindow->GetWidth() << ", " << m_pWindow->GetHeight() << "\n";
-
-    InitializeRenderTargetView();
-
-    m_pDepthStencilBuffer->Release();
-    InitializeDepthStencilView();
-    
-    XMMATRIX proj = XMMatrixPerspectiveFovLH(0.25f * c_pi, GetAspectRatio(), 1.f, 100.f);
-    XMStoreFloat4x4(&m_proj, proj);
+    XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi ,GetAspectRatio(), 1.0f, 1000.0f);
+    XMStoreFloat4x4(&m_proj, P);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

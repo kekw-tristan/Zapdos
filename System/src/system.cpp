@@ -85,7 +85,8 @@ void cSystem::Update()
 	float y = m_radius * sinf(m_phi) * sinf(m_theta);
 	float z = m_radius * cosf(m_phi); 
 
-	XMVECTOR pos = XMVectorSet(x, y, z, 1.f);
+	// XMVECTOR pos = XMVectorSet(x, y, z, 1.f);
+	XMVECTOR pos = XMVectorSet(0, 0, -5, 1);
 	XMVECTOR at = XMVectorZero();
 	XMVECTOR up = XMVectorSet(0.f, 1.f, 0.f, 0.f);
 

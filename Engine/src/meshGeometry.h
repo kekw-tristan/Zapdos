@@ -46,6 +46,7 @@ struct sMeshGeometry
 
 		vbv.BufferLocation	= vertexBufferGPU->GetGPUVirtualAddress();
 		vbv.SizeInBytes		= vertexBufferByteSize;
+		vbv.StrideInBytes	= vertexByteStride;
 
 		return vbv;
 	}

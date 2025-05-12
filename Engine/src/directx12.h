@@ -122,7 +122,6 @@ class cDirectX12
 		};
 
 
-		ComPtr<ID3D12Resource> m_pUploadCBuffer;
 		UINT m_elementByteSize;
 		UINT m_numElements;
 
