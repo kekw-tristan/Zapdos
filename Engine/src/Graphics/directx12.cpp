@@ -11,9 +11,11 @@
 #include <shlobj.h>
 #include <filesystem>
 
+#include "core/window.h"
+#include "core/timer.h"
+
 #include "directx12Util.h"
-#include "window.h"
-#include "timer.h"
+
 #include "uploadBuffer.h"
 #include "vertex.h"
 #include "meshGeometry.h"
@@ -293,8 +295,8 @@ void cDirectX12::InitializeVertices()
 
 void cDirectX12::InitializeShader()
 {
-    m_pVsByteCode = cDirectX12Util::CompileShader(L"..\\Engine\\src\\shader.hlsl", nullptr, "VS", "vs_5_0");
-    m_pPsByteCode = cDirectX12Util::CompileShader(L"..\\Engine\\src\\shader.hlsl", nullptr, "PS", "ps_5_0");
+    m_pVsByteCode = cDirectX12Util::CompileShader(L"..\\Assets\\Shader\\shader.hlsl", nullptr, "VS", "vs_5_0");
+    m_pPsByteCode = cDirectX12Util::CompileShader(L"..\\Assets\\Shader\\shader.hlsl", nullptr, "PS", "ps_5_0");
     
     m_InputLayouts =
     {
@@ -383,7 +385,7 @@ void cDirectX12::Draw()
     );
 
     // === Clear render target ===
-    float clearColor[] = { 1.f, 0.f, 1.f, 1.f }; // Magenta
+    float clearColor[] = { 0.f, 0.f, 0.f, 1.f }; // Magenta
     m_pCommandList->ClearRenderTargetView(GetCurrentBackbufferView(), clearColor, 0, nullptr);
 
     

@@ -6,12 +6,12 @@
 #include <wrl.h>
 #include <d3d12.h>
 
-#include "window.h"
-#include "directx12.h"
-#include "directx12Util.h"
-#include "timer.h"
-#include "input.h"
-#include "vertex.h"
+#include "core/window.h"
+#include "graphics/directx12.h"
+#include "graphics/directx12Util.h"
+#include "core/timer.h"
+#include "core/input.h"
+#include "graphics/vertex.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;

@@ -1,6 +1,6 @@
-workspace "GameProject"
+workspace "Zapdos"
     architecture "x64"
-    startproject "System"
+    startproject "Game"
 
     configurations { "Debug", "Release" }
 
@@ -25,53 +25,24 @@ project "Engine"
     objdir    ("bin-int/" .. outputdir .. "/%{prj.name}")
 
     files {
-        "%{prj.name}/src/**.h",
-        "%{prj.name}/src/**.cpp",
-        "%{prj.name}/src/**.hlsl"  -- Include shader files in project, but we won't compile them
+        "Engine/src/**.h",
+        "Engine/src/**.cpp"
     }
 
     includedirs {
-        "%{prj.name}/src",
+        "Engine/src",
         IncludeDir["DirectXTK12"],
         IncludeDir["D3DX"]
     }
 
     links {
-        "d3dcompiler"  -- Ensure you link d3dcompiler here as it's needed for compiling shaders at runtime
+        "d3dcompiler"
     }
 
-    -- shaders are compiled during runtime, so no compilation in build step
-    filter "files:**.hlsl"
-        buildaction "None"  -- We don't want Premake to compile shaders at build time
-
-    filter "configurations:Debug"
-        symbols "On"
-
-    filter "configurations:Release"
-        optimize "On"
-
--- ================================
--- GUI Project
--- ================================
-project "GUI"
-    location "GUI"
-    kind "StaticLib"
-    language "C++"
-    cppdialect "C++17"
-    staticruntime "on"
-
-    targetdir ("bin/" .. outputdir .. "/%{prj.name}")
-    objdir    ("bin-int/" .. outputdir .. "/%{prj.name}")
-
-    files {
-        "%{prj.name}/src/**.h",
-        "%{prj.name}/src/**.cpp"
-    }
-
-    includedirs {
-        "%{prj.name}/src",
-        IncludeDir["DirectXTK12"],
-        IncludeDir["D3DX"]
+    vpaths {
+        ["Core/*"]      = "Engine/src/core/**",
+        ["Graphics/*"]  = "Engine/src/graphics/**",
+        ["Shaders/*"]   = "Assets/Shader/**",
     }
 
     filter "configurations:Debug"
@@ -81,10 +52,10 @@ project "GUI"
         optimize "On"
 
 -- ================================
--- System Project (Main Executable)
+-- Game Project (Main Executable)
 -- ================================
-project "System"
-    location "System"
+project "Game"
+    location "Game"
     kind "ConsoleApp"
     language "C++"
     cppdialect "C++17"
@@ -94,34 +65,23 @@ project "System"
     objdir    ("bin-int/" .. outputdir .. "/%{prj.name}")
 
     files {
-        "%{prj.name}/src/**.h",
-        "%{prj.name}/src/**.cpp"
+        "Game/src/**.h",
+        "Game/src/**.cpp",
     }
 
     includedirs {
-        "System/src",
+        "Game/src",
         "Engine/src",
-        "GUI/src",
         IncludeDir["DirectXTK12"],
         IncludeDir["D3DX"]
     }
 
     links {
         "Engine",
-        "GUI",
         "d3d12",
         "dxgi",
         "d3dcompiler",
         "dxguid"
-    }
-
-    -- Post-build steps to copy shaders and resources to output directory
-    postbuildcommands {
-        -- Ensure the destination directory exists
-        'if not exist "bin\\%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}\\Engine" mkdir "bin\\%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}\\Engine"',
-        
-        -- Copy the shaders
-        'if exist "Engine\\src\\*.hlsl" xcopy /Q /Y /I "Engine\\src\\*.hlsl" "bin\\%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}\\Engine\\" > nul'
     }
 
     filter "configurations:Debug"
