@@ -8,14 +8,14 @@
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-inline void ThrowIfFailed(HRESULT hr)
+void cDirectX12Util::ThrowIfFailed(HRESULT _hr)
 {
-    if (FAILED(hr))
+    if (FAILED(_hr))
     {
 
-        std::cout << "DirectX call failed. HRESULT = " << std::to_string(hr) << "\n";
+        std::cout << "DirectX call failed. HRESULT = " << std::to_string(_hr) << "\n";
 
-        throw std::runtime_error("DirectX call failed. HRESULT = " + std::to_string(hr));
+        throw std::runtime_error("DirectX call failed. HRESULT = " + std::to_string(_hr));
     }
 }
 

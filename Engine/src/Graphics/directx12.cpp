@@ -87,9 +87,6 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 {
-  
-
-
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
