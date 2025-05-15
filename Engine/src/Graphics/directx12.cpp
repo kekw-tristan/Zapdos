@@ -788,6 +788,8 @@ void cDirectX12::InitializeRootSignature()
 
     ThrowIfFailed(m_pDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_pCbvHeap)));
 
+    // ------ code above in buffermanager
+
     // Define the root parameter (here, binding descriptor table for the CBV)
     CD3DX12_ROOT_PARAMETER slotRootParameter[1];
 

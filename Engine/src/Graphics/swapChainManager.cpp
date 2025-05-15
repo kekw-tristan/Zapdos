@@ -9,9 +9,14 @@
 // Constructor
 
 cSwapChainManager::cSwapChainManager(cDeviceManager* _pDeviceManager, cWindow* _pWindow)
-	: m_pDeviceManager(_pDeviceManager)
-    , m_pWindow(_pWindow)
-	, m_pSwapChain(nullptr)
+	: m_pDeviceManager      (_pDeviceManager)
+    , m_pWindow             (_pWindow)
+	, m_pSwapChain          (nullptr)
+    , m_pRtvHeap            (nullptr)
+    , m_pDsvHeap            (nullptr)
+    , m_viewPort            ()
+    , m_pSwapChainBuffer    ()
+    , m_pDepthStencilBuffer (nullptr)
 {
 
 }
@@ -20,13 +25,32 @@ cSwapChainManager::cSwapChainManager(cDeviceManager* _pDeviceManager, cWindow* _
 
 void cSwapChainManager::Initialize()
 {
+    InitializeSwapChain();
+    InitializeDescriptorHeaps();
+    InitializeRenderTargetView();
+    InitializeDepthStencilView();
+    InitializeViewPort();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-IDXGISwapChain4* cSwapChainManager::GetSwapChain()
+IDXGISwapChain4* cSwapChainManager::GetSwapChain() const
 {
 	return m_pSwapChain.Get();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+ID3D12DescriptorHeap* cSwapChainManager::GetRtvHeap() const
+{
+    return m_pRtvHeap.Get();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+ID3D12DescriptorHeap* cSwapChainManager::GetDsvHeap() const
+{
+    return m_pDsvHeap.Get();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -119,7 +143,7 @@ void cSwapChainManager::InitializeRenderTargetView()
         );
 
         // Move to the next descriptor in the RTV heap.
-        rtvHandle.ptr += m_pDeviceManager->GetDescriptorSizes()->rtv;
+        rtvHandle.ptr += m_pDeviceManager->GetDescriptorSizes().rtv;
 
         m_pSwapChainBuffer[index]->SetName(L"Backbuffer");
     }
@@ -182,5 +206,19 @@ void cSwapChainManager::InitializeDepthStencilView()
 
     m_pDepthStencilBuffer->SetName(L"DepthStencilBuffer");
  }
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cSwapChainManager::InitializeViewPort()
+{
+    m_viewPort.TopLeftX = 0.f;
+    m_viewPort.TopLeftY = 0.f;
+    m_viewPort.Width = static_cast<float>(m_pWindow->GetWidth());
+    m_viewPort.Height = static_cast<float>(m_pWindow->GetHeight());
+    m_viewPort.MinDepth = 0.f;
+    m_viewPort.MaxDepth = 1.f;
+
+    m_pDeviceManager->GetCommandList()->RSSetViewports(1, &m_viewPort);
+}
 
 // --------------------------------------------------------------------------------------------------------------------------

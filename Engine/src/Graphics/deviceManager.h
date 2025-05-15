@@ -8,15 +8,6 @@ using namespace Microsoft::WRL;
 
 constexpr DXGI_FORMAT c_backBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-
-struct sDescriptorSizes
-{
-	UINT cbvSrvUav;
-	UINT rtv;
-	UINT dsv;
-	UINT sampler;
-};
-
 class cDeviceManager
 {
 	public:
@@ -25,16 +16,27 @@ class cDeviceManager
 
 	public:
 
+		struct sDescriptorSizes
+		{
+			UINT cbvSrvUav;
+			UINT rtv;
+			UINT dsv;
+			UINT sampler;
+		};
+
+	public:
+
 		void Initialize();
 
 	public:
 
-		ID3D12Device*		GetDevice();
-		IDXGIFactory7*		GetDxgiFactory();
-		ID3D12CommandQueue* GetCommandQueue();
-		ID3D12Fence*		GetFence();
-		sDescriptorSizes*	GetDescriptorSizes();
-		int					Get4xMSAAQuality();
+		ID3D12Device*				GetDevice()				const;
+		IDXGIFactory7*				GetDxgiFactory()		const;
+		ID3D12CommandQueue*			GetCommandQueue()		const;
+		ID3D12Fence*				GetFence()				const;
+		ID3D12GraphicsCommandList*	GetCommandList()		const;
+		const sDescriptorSizes&		GetDescriptorSizes()	const;
+		int							Get4xMSAAQuality()		const;
 
 	
 

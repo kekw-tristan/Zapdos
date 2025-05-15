@@ -22,47 +22,55 @@ cDeviceManager::cDeviceManager()
 
 void cDeviceManager::Initialize()
 {
-   
+    InitializeDeviceAndFactory();
+    InitializeFenceAndDescriptorSize();
+    Check4XMSAAQualitySupport();
+    InitializeCommandQueueAndList();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-ID3D12Device* cDeviceManager::GetDevice()
+ID3D12Device* cDeviceManager::GetDevice() const
 {
 	return m_pDevice.Get();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-IDXGIFactory7* cDeviceManager::GetDxgiFactory()
+IDXGIFactory7* cDeviceManager::GetDxgiFactory() const
 {
 	return m_pDxgiFactory.Get();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-ID3D12CommandQueue* cDeviceManager::GetCommandQueue()
+ID3D12CommandQueue* cDeviceManager::GetCommandQueue() const
 {
 	return m_pCommandQueue.Get();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-ID3D12Fence* cDeviceManager::GetFence()
+ID3D12Fence* cDeviceManager::GetFence() const
 {
     return m_pFence.Get();
 }
 
-// --------------------------------------------------------------------------------------------------------------------------
-
-sDescriptorSizes* cDeviceManager::GetDescriptorSizes()
+ID3D12GraphicsCommandList* cDeviceManager::GetCommandList() const
 {
-    return nullptr;
+    return m_pCommandList.Get();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-int cDeviceManager::Get4xMSAAQuality()
+const cDeviceManager::sDescriptorSizes& cDeviceManager::GetDescriptorSizes() const
+{
+    return m_descriptorSizes;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+int cDeviceManager::Get4xMSAAQuality() const
 {
     return m_4xMsaaQuality;
 }

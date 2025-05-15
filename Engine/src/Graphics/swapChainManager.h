@@ -24,7 +24,9 @@ class cSwapChainManager
 		
 	public:
 
-		IDXGISwapChain4* GetSwapChain();
+		IDXGISwapChain4*		GetSwapChain()	const;
+		ID3D12DescriptorHeap*	GetRtvHeap()	const;
+		ID3D12DescriptorHeap*	GetDsvHeap()	const;
 
 	private:
 
@@ -32,6 +34,7 @@ class cSwapChainManager
 		void InitializeDescriptorHeaps();
 		void InitializeRenderTargetView();
 		void InitializeDepthStencilView();
+		void InitializeViewPort();
 
 	private:
 	
