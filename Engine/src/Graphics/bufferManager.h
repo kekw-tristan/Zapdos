@@ -18,6 +18,7 @@ class cBufferManager
 	public:
 
 		cBufferManager(cDeviceManager* _pDeviceManager, cSwapChainManager* _pSwapChainManager);
+		~cBufferManager();
 
 	public:
 
@@ -31,6 +32,11 @@ class cBufferManager
 		
 		void Initialize();
 
+	public:
+
+		ID3D12DescriptorHeap* GetCbvHeap()				const;
+		cUploadBuffer<sObjectConstants>* GetObjectCB()	const;
+
 	private:
 
 		void InitializeDescriptorHeaps();
@@ -42,6 +48,5 @@ class cBufferManager
 		cSwapChainManager*	m_pSwapChainManager;
 
 		cUploadBuffer<sObjectConstants>* m_pObjectCB;
-
 		ComPtr<ID3D12DescriptorHeap> m_pCbvHeap;
 };

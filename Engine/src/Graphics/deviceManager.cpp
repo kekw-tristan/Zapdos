@@ -26,6 +26,34 @@ void cDeviceManager::Initialize()
     InitializeFenceAndDescriptorSize();
     Check4XMSAAQualitySupport();
     InitializeCommandQueueAndList();
+
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDeviceManager::FlushCommandQueue()
+{
+    // Increment the fence value to mark the current set of GPU commands.
+    m_currentFence++;
+
+    // Signal the fence with the current fence value. This tells the GPU to set the fence to this value when it has finished processing all commands up to this point.
+    cDirectX12Util::ThrowIfFailed(m_pCommandQueue->Signal(m_pFence.Get(), m_currentFence));
+
+    // If the GPU has not yet reached the current fence value, wait for it.
+    if (m_pFence->GetCompletedValue() < m_currentFence)
+    {
+        // Create an event handle for GPU synchronization.
+        HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+
+        // Instruct the fence to trigger the event when it reaches the current fence value.
+        cDirectX12Util::ThrowIfFailed(m_pFence->SetEventOnCompletion(m_currentFence, eventHandle));
+
+        // Wait for the GPU to complete execution up to the current fence value.
+        WaitForSingleObject(eventHandle, INFINITE);
+
+        // Clean up the event handle.
+        CloseHandle(eventHandle);
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -59,6 +87,11 @@ ID3D12Fence* cDeviceManager::GetFence() const
 ID3D12GraphicsCommandList* cDeviceManager::GetCommandList() const
 {
     return m_pCommandList.Get();
+}
+
+ID3D12CommandAllocator* cDeviceManager::GetDirectCmdListAlloc() const
+{
+    return m_pDirectCmdListAlloc.Get();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

@@ -15,10 +15,31 @@ cBufferManager::cBufferManager(cDeviceManager* _pDeviceManager, cSwapChainManage
 
 // --------------------------------------------------------------------------------------------------------------------------
 
+cBufferManager::~cBufferManager()
+{
+    delete m_pObjectCB;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
 void cBufferManager::Initialize()
 {
     InitializeDescriptorHeaps();
     InitializeConstantBuffer();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+ID3D12DescriptorHeap* cBufferManager::GetCbvHeap() const
+{
+    return m_pCbvHeap.Get();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+cUploadBuffer<cBufferManager::sObjectConstants>* cBufferManager::GetObjectCB() const
+{
+    return m_pObjectCB;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

@@ -28,11 +28,17 @@ class cSwapChainManager
 		ID3D12DescriptorHeap*	GetRtvHeap()	const;
 		ID3D12DescriptorHeap*	GetDsvHeap()	const;
 
+		D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentBackBufferView() const;
+		D3D12_CPU_DESCRIPTOR_HANDLE GetDepthStencilView()	const;
+		ID3D12Resource*				GetCurrentBackBuffer()	const;
+
+		D3D12_VIEWPORT& GetViewport();
+
 	private:
 
 		void InitializeSwapChain();
 		void InitializeDescriptorHeaps();
-		void InitializeRenderTargetView();
+	//	void InitializeRenderTargetView();
 		void InitializeDepthStencilView();
 		void InitializeViewPort();
 
@@ -50,4 +56,5 @@ class cSwapChainManager
 
 		ComPtr<ID3D12Resource> m_pSwapChainBuffer[c_swapChainBufferCount];
 		ComPtr<ID3D12Resource> m_pDepthStencilBuffer;
+
 };

@@ -2,6 +2,7 @@
 
 #include "../Core/window.h"
 
+#include "d3dx12.h"
 #include "directx12Util.h"
 #include "deviceManager.h"
 
@@ -27,7 +28,7 @@ void cSwapChainManager::Initialize()
 {
     InitializeSwapChain();
     InitializeDescriptorHeaps();
-    InitializeRenderTargetView();
+    //InitializeRenderTargetView();
     InitializeDepthStencilView();
     InitializeViewPort();
 }
@@ -51,6 +52,43 @@ ID3D12DescriptorHeap* cSwapChainManager::GetRtvHeap() const
 ID3D12DescriptorHeap* cSwapChainManager::GetDsvHeap() const
 {
     return m_pDsvHeap.Get();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+D3D12_CPU_DESCRIPTOR_HANDLE cSwapChainManager::GetCurrentBackBufferView() const
+{
+    UINT currentIndex = m_pSwapChain->GetCurrentBackBufferIndex();
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_pRtvHeap->GetCPUDescriptorHandleForHeapStart();
+    handle.ptr += static_cast<SIZE_T>(currentIndex) * static_cast<SIZE_T>(m_pDeviceManager->GetDescriptorSizes().rtv);
+
+    return handle;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+D3D12_CPU_DESCRIPTOR_HANDLE cSwapChainManager::GetDepthStencilView() const
+{
+    return m_pDsvHeap->GetCPUDescriptorHandleForHeapStart();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+ID3D12Resource* cSwapChainManager::GetCurrentBackBuffer() const
+{
+    int backbufferIndex = m_pSwapChain->GetCurrentBackBufferIndex();
+
+    ID3D12Resource* pBackBuffer;
+    cDirectX12Util::ThrowIfFailed(m_pSwapChain->GetBuffer(backbufferIndex, IID_PPV_ARGS(&pBackBuffer)));
+    return pBackBuffer;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+D3D12_VIEWPORT& cSwapChainManager::GetViewport() 
+{
+    return m_viewPort;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -93,7 +131,6 @@ void cSwapChainManager::InitializeDescriptorHeaps()
 {
     // Describe the RTV (Render Target View) descriptor heap.
     D3D12_DESCRIPTOR_HEAP_DESC rtvHD;
-
     rtvHD.NumDescriptors = c_swapChainBufferCount;  // One descriptor per swap chain buffer.
     rtvHD.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;    // Heap type is RTV.
     rtvHD.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;  // No shader access needed for RTV.
@@ -104,6 +141,27 @@ void cSwapChainManager::InitializeDescriptorHeaps()
         &rtvHD,
         IID_PPV_ARGS(m_pRtvHeap.GetAddressOf())
     ));
+
+    // Now we need to create the RTVs (Render Target Views) in the heap.
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_pRtvHeap->GetCPUDescriptorHandleForHeapStart());
+    UINT rtvDescriptorSize = m_pDeviceManager->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+    // Create RTVs for each back buffer in the swap chain.
+    for (UINT i = 0; i < c_swapChainBufferCount; ++i)
+    {
+        // Get the swap chain buffer (back buffer)
+        cDirectX12Util::ThrowIfFailed(m_pSwapChain->GetBuffer(i, IID_PPV_ARGS(&m_pSwapChainBuffer[i])));
+
+        // Create the render target view for the back buffer
+        m_pDeviceManager->GetDevice()->CreateRenderTargetView(
+            m_pSwapChainBuffer[i].Get(), // The swap chain buffer resource
+            nullptr,                     // Default format
+            rtvHandle                    // The handle in the RTV heap where to place the descriptor
+        );
+
+        // Move to the next descriptor in the heap
+        rtvHandle.Offset(1, rtvDescriptorSize);
+    }
 
     // Describe the DSV (Depth Stencil View) descriptor heap.
     D3D12_DESCRIPTOR_HEAP_DESC dsvHD;
@@ -121,33 +179,6 @@ void cSwapChainManager::InitializeDescriptorHeaps()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cSwapChainManager::InitializeRenderTargetView()
-{
-    // Get the starting CPU descriptor handle for the RTV (Render Target View) heap.
-    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = m_pRtvHeap->GetCPUDescriptorHandleForHeapStart();
-
-    // Loop over each buffer in the swap chain.
-    for (int index = 0; index < c_swapChainBufferCount; index++)
-    {
-        // Retrieve the swap chain back buffer at the specified index.
-        cDirectX12Util::ThrowIfFailed(m_pSwapChain->GetBuffer(
-            index,
-            IID_PPV_ARGS(&m_pSwapChainBuffer[index])  // Store in swap chain buffer array.
-        ));
-
-        // Create a render target view (RTV) for the back buffer.
-        m_pDeviceManager->GetDevice()->CreateRenderTargetView(
-            m_pSwapChainBuffer[index].Get(),  // The back buffer resource.
-            nullptr,                          // Use default RTV description.
-            rtvHandle                         // Descriptor handle to write the RTV into.
-        );
-
-        // Move to the next descriptor in the RTV heap.
-        rtvHandle.ptr += m_pDeviceManager->GetDescriptorSizes().rtv;
-
-        m_pSwapChainBuffer[index]->SetName(L"Backbuffer");
-    }
-}
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -203,6 +234,13 @@ void cSwapChainManager::InitializeDepthStencilView()
         &optClear,                                          // Clear values (for depth and stencil).
         IID_PPV_ARGS(m_pDepthStencilBuffer.GetAddressOf())  // Output pointer for the created resource.
     ));
+
+    // Create the depth-stencil view for the resource.
+    m_pDeviceManager->GetDevice()->CreateDepthStencilView(
+        m_pDepthStencilBuffer.Get(),                         // Depth-stencil resource
+        nullptr,                                             // No specific view description (defaults)
+        GetDepthStencilView()                                // Call a function to get the view descriptor
+    );
 
     m_pDepthStencilBuffer->SetName(L"DepthStencilBuffer");
  }
