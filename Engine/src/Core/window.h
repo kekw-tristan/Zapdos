@@ -31,12 +31,17 @@ class cWindow
 		void SetHasResized(bool _hasResized);
 
 		bool GetIsWindowPaused();
+
+		bool GetIsFullscreen();
 		
 
 	private:
 
 		static LRESULT CALLBACK WindowProcStatic(HWND _hwnd, UINT _uMsg, WPARAM _wParam, LPARAM _lParam);
 		LRESULT CALLBACK WindowProc(UINT _uMsg, WPARAM _wParam, LPARAM _lParam);
+
+		void EnterFullscreen();
+		void ExitFullscreen();
 
 	private:
 
@@ -53,4 +58,9 @@ class cWindow
 		bool m_isResizing;
 		bool m_hasResized; 
 		bool m_isWindowPaused;
+		
+		bool m_isFullscreen;
+		WINDOWPLACEMENT m_prevWindowPlacement; 
+		DWORD m_windowStyle;
+
 };

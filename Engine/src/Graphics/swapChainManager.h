@@ -21,6 +21,10 @@ class cSwapChainManager
 	public:
 
 		void Initialize();
+
+	public:
+
+		void OnResize();
 		
 	public:
 

@@ -1,5 +1,7 @@
 #include "swapChainManager.h"
 
+#include <iostream>
+
 #include "../Core/window.h"
 
 #include "d3dx12.h"
@@ -29,6 +31,45 @@ void cSwapChainManager::Initialize()
     InitializeSwapChain();
     InitializeDescriptorHeaps();
     //InitializeRenderTargetView();
+    InitializeDepthStencilView();
+    InitializeViewPort();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cSwapChainManager::OnResize()
+{
+    // release render targets and depth stencil
+    for (int index = 0; index < c_swapChainBufferCount; ++index)
+    {
+        m_pSwapChainBuffer[index].Reset();
+    }
+
+    m_pDepthStencilBuffer.Reset();
+
+    // get spawchain desc
+    DXGI_SWAP_CHAIN_DESC1 scDesc = {};
+    cDirectX12Util::ThrowIfFailed(m_pSwapChain->GetDesc1(&scDesc));
+
+   
+    // resize swapchain buffers
+    cDirectX12Util::ThrowIfFailed(m_pSwapChain->ResizeBuffers(
+        c_swapChainBufferCount,
+        m_pWindow->GetWidth(),
+        m_pWindow->GetHeight(),
+        scDesc.Format,  
+        0
+    ));
+
+    // recreate render target view
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_pRtvHeap->GetCPUDescriptorHandleForHeapStart());
+    for (int index = 0; index < c_swapChainBufferCount; index++)
+    {
+        cDirectX12Util::ThrowIfFailed(m_pSwapChain->GetBuffer(index, IID_PPV_ARGS(&m_pSwapChainBuffer[index])));
+        m_pDeviceManager->GetDevice()->CreateRenderTargetView(m_pSwapChainBuffer[index].Get(), nullptr, rtvHandle);
+        rtvHandle.Offset(1, m_pDeviceManager->GetDescriptorSizes().rtv);
+    }
+
     InitializeDepthStencilView();
     InitializeViewPort();
 }
@@ -77,11 +118,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE cSwapChainManager::GetDepthStencilView() const
 
 ID3D12Resource* cSwapChainManager::GetCurrentBackBuffer() const
 {
-    int backbufferIndex = m_pSwapChain->GetCurrentBackBufferIndex();
-
-    ID3D12Resource* pBackBuffer;
-    cDirectX12Util::ThrowIfFailed(m_pSwapChain->GetBuffer(backbufferIndex, IID_PPV_ARGS(&pBackBuffer)));
-    return pBackBuffer;
+    return m_pSwapChainBuffer[m_pSwapChain->GetCurrentBackBufferIndex()].Get();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -107,7 +144,7 @@ void cSwapChainManager::InitializeSwapChain()
     swapChainDesc.SampleDesc.Count      = m_pDeviceManager->Get4xMSAAQuality() ? 4 : 1;                                             // Enable 4x MSAA if supported, otherwise no MSAA.
     swapChainDesc.SampleDesc.Quality    = m_pDeviceManager->Get4xMSAAQuality() ? (m_pDeviceManager->Get4xMSAAQuality() - 1) : 0;    // Use highest supported MSAA quality.
     swapChainDesc.AlphaMode             = DXGI_ALPHA_MODE_UNSPECIFIED;                                                              // No specific alpha mode (not used in standard swapchains).
-    swapChainDesc.Flags                 = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;                                                   // Allow fullscreen toggle with Alt+Enter.
+    swapChainDesc.Flags                 = 0;                                                                                        // Allow fullscreen toggle with Alt+Enter.
 
     ComPtr<IDXGISwapChain1> swapChain;
 
@@ -121,8 +158,12 @@ void cSwapChainManager::InitializeSwapChain()
         &swapChain                              // Output parameter for the created swap chain.
     ));
 
+    cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDxgiFactory()->MakeWindowAssociation(m_pWindow->GetHWND(), DXGI_MWA_NO_ALT_ENTER));
+
     // Convert the created swap chain to IDXGISwapChain4 for access to newer DXGI features.
     cDirectX12Util::ThrowIfFailed(swapChain.As(&m_pSwapChain));
+
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -176,8 +217,6 @@ void cSwapChainManager::InitializeDescriptorHeaps()
         IID_PPV_ARGS(m_pDsvHeap.GetAddressOf())
     ));
 }
-
-// --------------------------------------------------------------------------------------------------------------------------
 
 
 // --------------------------------------------------------------------------------------------------------------------------

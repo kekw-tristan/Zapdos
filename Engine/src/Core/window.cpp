@@ -45,6 +45,9 @@ void cWindow::Initialize(const wchar_t* _pTitle, const wchar_t* _pClassName, int
 	UpdateWindow(m_hwnd);
 
 	m_isRunning = true;
+	m_isFullscreen = false; 
+
+	m_windowStyle = GetWindowLong(m_hwnd, GWL_STYLE);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -114,6 +117,11 @@ void cWindow::SetHasResized(bool _hasResized)
 bool cWindow::GetIsWindowPaused()
 {
 	return m_isWindowPaused;
+}
+
+bool cWindow::GetIsFullscreen()
+{
+	return m_isFullscreen;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -191,6 +199,13 @@ LRESULT cWindow::WindowProc(UINT _uMsg, WPARAM _wParam, LPARAM _lParam)
 			break;
 
 		case WM_KEYDOWN:
+			if (_wParam == VK_F11)
+			{
+				if (m_isFullscreen)
+					ExitFullscreen();
+				else
+					EnterFullscreen();
+			}
 			cInput::OnKeyDown(_wParam);
 			break;
 
@@ -211,9 +226,58 @@ LRESULT cWindow::WindowProc(UINT _uMsg, WPARAM _wParam, LPARAM _lParam)
 		case WM_RBUTTONUP:
 			cInput::OnMouseButtonUp(_wParam);
 			break;
+
+		case WM_SYSCHAR:
+			// Suppress beep for system characters (like Alt+Enter)
+			// Fullscreen toggled with f11 (only borderless fullscreen)
+			if (_wParam == VK_RETURN)
+			{
+				// skips default proc so no windows sound
+				return 0; 			
+			}
+			break;
 	}
 
 	return DefWindowProc(m_hwnd, _uMsg, _wParam, _lParam);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cWindow::EnterFullscreen()
+{
+	m_isFullscreen = true;
+
+	// Save current window placement before changing
+	MONITORINFO mi = { sizeof(mi) };
+	if (GetWindowPlacement(m_hwnd, &m_prevWindowPlacement) &&
+		GetMonitorInfo(MonitorFromWindow(m_hwnd, MONITOR_DEFAULTTOPRIMARY), &mi))
+	{
+		// Change to borderless fullscreen
+		SetWindowLong(m_hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+		SetWindowPos(
+			m_hwnd, HWND_TOP,
+			mi.rcMonitor.left, mi.rcMonitor.top,
+			mi.rcMonitor.right - mi.rcMonitor.left,
+			mi.rcMonitor.bottom - mi.rcMonitor.top,
+			SWP_NOOWNERZORDER | SWP_FRAMECHANGED
+		);
+	}
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cWindow::ExitFullscreen()
+{
+	m_isFullscreen = false;
+
+	// Restore window style and placement
+	SetWindowLong(m_hwnd, GWL_STYLE, m_windowStyle);
+	SetWindowPlacement(m_hwnd, &m_prevWindowPlacement);
+	SetWindowPos(
+		m_hwnd, nullptr, 0, 0, 0, 0,
+		SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+		SWP_NOOWNERZORDER | SWP_FRAMECHANGED
+	);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

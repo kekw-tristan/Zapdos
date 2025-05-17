@@ -399,6 +399,19 @@ void cDirectX12::CalculateFrameStats() const
 
 void cDirectX12::OnResize()
 {
+    cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDirectCmdListAlloc()->Reset());
+    cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetCommandList()->Reset(m_pDeviceManager->GetDirectCmdListAlloc(), m_pPipelineManager->GetPipelineStateObject()));
+
+    m_pSwapChainManager->OnResize();
+
     XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi ,GetAspectRatio(), 0.1f, 1000.0f);
     XMStoreFloat4x4(&m_proj, P);
+
+    
+    cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetCommandList()->Close());
+
+    ID3D12CommandList* cmdLists[] = { m_pDeviceManager->GetCommandList() };
+    m_pDeviceManager->GetCommandQueue()->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+    m_pDeviceManager->FlushCommandQueue();
+
 }

@@ -26,7 +26,7 @@ void cSystem::Initialize()
 	m_pTimer->Start();
 	
 	m_pWindow = new cWindow();
-	m_pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720, m_pTimer);
+	m_pWindow->Initialize(L"Zapdos", L"gameWindow", 1920, 1080, m_pTimer);
 
 	m_pDirectX12 = new cDirectX12();
 	m_pDirectX12->Initialize(m_pWindow, m_pTimer);
