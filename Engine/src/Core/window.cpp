@@ -136,7 +136,6 @@ LRESULT cWindow::WindowProcStatic(HWND _hwnd, UINT _uMsg, WPARAM _wParam, LPARAM
 		pWindow = reinterpret_cast<cWindow*>(pCreate->lpCreateParams);
 		SetWindowLongPtr(_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pWindow));
 
-		std::cout << "hwnd set\n";
 		pWindow->m_hwnd = _hwnd;
 	}
 	else

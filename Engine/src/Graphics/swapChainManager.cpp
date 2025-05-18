@@ -71,6 +71,7 @@ void cSwapChainManager::OnResize()
     }
 
     InitializeDepthStencilView();
+
     InitializeViewPort();
 }
 
@@ -262,16 +263,6 @@ void cSwapChainManager::InitializeDepthStencilView()
         D3D12_RESOURCE_STATE_DEPTH_WRITE,                       // Initial resource state
         &optClear,                                              // Clear value for depth and stencil
         IID_PPV_ARGS(m_pDepthStencilBuffer.GetAddressOf())      // Output resource pointer
-    ));
-
-    // Create the committed depth-stencil resource on the GPU.
-    cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDevice()->CreateCommittedResource(
-        &heapProps,                                         // Memory heap properties.
-        D3D12_HEAP_FLAG_NONE,                               // No special flags.
-        &dsDesc,                                            // Resource description (texture, size, format, MSAA, etc.).
-        D3D12_RESOURCE_STATE_DEPTH_WRITE,                   // Initial state: ready for depth writing.
-        &optClear,                                          // Clear values (for depth and stencil).
-        IID_PPV_ARGS(m_pDepthStencilBuffer.GetAddressOf())  // Output pointer for the created resource.
     ));
 
     // Create the depth-stencil view for the resource.

@@ -1,6 +1,7 @@
 #include "directx12.h"
 
 #include <array>
+#include <dxgidebug.h>
 #include <iostream>
 #include <string>
 #include <comdef.h>
@@ -65,6 +66,10 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 {
+    if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
+    {
+        LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
+    }
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -77,10 +82,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
         std::cerr << "D3D12 Debug Layer not available." << std::endl;
     }
    
-    if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
-    {
-        LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
-    }
+   
     
     m_pWindow = _pWindow;
     m_pTimer = _pTimer;
@@ -111,7 +113,6 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 void cDirectX12::Finalize()
 {
     delete m_pBoxGeometry;
-
 
     delete m_pBufferManager;
     delete m_pSwapChainManager;
@@ -329,8 +330,6 @@ void cDirectX12::Draw()
     pCommandList->IASetIndexBuffer(&m_pBoxGeometry->GetIndexBufferView());
     pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    std::cout << m_pBoxGeometry->drawArguments["box"].indexCount << std::endl;
-
     // === Set constant buffer view (CBV) ===
     pCommandList->SetGraphicsRootDescriptorTable(0, pCbvHeap->GetGPUDescriptorHandleForHeapStart());
 
@@ -399,19 +398,19 @@ void cDirectX12::CalculateFrameStats() const
 
 void cDirectX12::OnResize()
 {
+
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDirectCmdListAlloc()->Reset());
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetCommandList()->Reset(m_pDeviceManager->GetDirectCmdListAlloc(), m_pPipelineManager->GetPipelineStateObject()));
 
     m_pSwapChainManager->OnResize();
 
-    XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi ,GetAspectRatio(), 0.1f, 1000.0f);
+    XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi, GetAspectRatio(), 0.1f, 1000.0f);
     XMStoreFloat4x4(&m_proj, P);
 
-    
+
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetCommandList()->Close());
 
     ID3D12CommandList* cmdLists[] = { m_pDeviceManager->GetCommandList() };
     m_pDeviceManager->GetCommandQueue()->ExecuteCommandLists(_countof(cmdLists), cmdLists);
     m_pDeviceManager->FlushCommandQueue();
-
 }

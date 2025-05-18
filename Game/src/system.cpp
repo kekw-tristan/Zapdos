@@ -16,7 +16,6 @@
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
-
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cSystem::Initialize()
@@ -26,7 +25,7 @@ void cSystem::Initialize()
 	m_pTimer->Start();
 	
 	m_pWindow = new cWindow();
-	m_pWindow->Initialize(L"Zapdos", L"gameWindow", 1920, 1080, m_pTimer);
+	m_pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720, m_pTimer);
 
 	m_pDirectX12 = new cDirectX12();
 	m_pDirectX12->Initialize(m_pWindow, m_pTimer);
@@ -90,15 +89,9 @@ void cSystem::Update()
 	float y = m_radius * sinf(m_phi) * sinf(m_theta);
 	float z = m_radius * cosf(m_phi);
 
-	// Debug output
-	std::cout << "theta: " << m_theta
-		<< ", phi: " << m_phi
-		<< ", radius: " << m_radius << std::endl;
-	std::cout << "Camera Pos: " << x << ":" << y << ":" << z << std::endl;
-
 	XMVECTOR pos = XMVectorSet(x, y, z, 1.0f);
-	XMVECTOR at = XMVectorZero(); // Look at origin
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f); // Up direction
+	XMVECTOR at = XMVectorZero(); 
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f); 
 
 	// Create and store the view matrix
 	XMMATRIX view = XMMatrixLookAtLH(pos, at, up);
