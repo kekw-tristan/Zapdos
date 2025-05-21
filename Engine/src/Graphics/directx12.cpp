@@ -257,7 +257,7 @@ void cDirectX12::Update(XMMATRIX view)
     XMMATRIX worldViewProjT = XMMatrixTranspose(worldViewProj);
 
     // Pack into constant buffer struct
-    cBufferManager::sObjectConstants objConstants;
+    sObjectConstants objConstants;
     XMStoreFloat4x4(&objConstants.worldViewProj, worldViewProjT);
 
     // Upload to mapped constant buffer (frame index 0 for now)
@@ -269,17 +269,14 @@ void cDirectX12::Update(XMMATRIX view)
 
 void cDirectX12::Draw()
 {
-    ID3D12CommandAllocator* pDirectCmdListAlloc = m_pDeviceManager->GetDirectCmdListAlloc();
-    ID3D12GraphicsCommandList* pCommandList = m_pDeviceManager->GetCommandList();
-    ID3D12CommandQueue* pCommandQueue = m_pDeviceManager->GetCommandQueue();
-
-    ID3D12PipelineState* pPso = m_pPipelineManager->GetPipelineStateObject();
-    ID3D12RootSignature* pRootSignature = m_pPipelineManager->GetRootSignature();
-
-    IDXGISwapChain4* pSwapChain = m_pSwapChainManager->GetSwapChain();
-    D3D12_VIEWPORT& rViewport = m_pSwapChainManager->GetViewport();
-
-    ID3D12DescriptorHeap* pCbvHeap = m_pBufferManager->GetCbvHeap();
+    ID3D12CommandAllocator*     pDirectCmdListAlloc = m_pDeviceManager->GetDirectCmdListAlloc();
+    ID3D12GraphicsCommandList*  pCommandList        = m_pDeviceManager->GetCommandList();
+    ID3D12CommandQueue*         pCommandQueue       = m_pDeviceManager->GetCommandQueue();
+    ID3D12PipelineState*        pPso                = m_pPipelineManager->GetPipelineStateObject();
+    ID3D12RootSignature*        pRootSignature      = m_pPipelineManager->GetRootSignature();
+    IDXGISwapChain4*            pSwapChain          = m_pSwapChainManager->GetSwapChain();
+    D3D12_VIEWPORT&             rViewport           = m_pSwapChainManager->GetViewport();
+    ID3D12DescriptorHeap*       pCbvHeap            = m_pBufferManager->GetCbvHeap();
     
 
     // === Reset allocator & command list BEFORE recording ===
@@ -398,6 +395,7 @@ void cDirectX12::CalculateFrameStats() const
 
 void cDirectX12::OnResize()
 {
+    m_pDeviceManager->FlushCommandQueue();
 
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDirectCmdListAlloc()->Reset());
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetCommandList()->Reset(m_pDeviceManager->GetDirectCmdListAlloc(), m_pPipelineManager->GetPipelineStateObject()));
@@ -414,3 +412,4 @@ void cDirectX12::OnResize()
     m_pDeviceManager->GetCommandQueue()->ExecuteCommandLists(_countof(cmdLists), cmdLists);
     m_pDeviceManager->FlushCommandQueue();
 }
+

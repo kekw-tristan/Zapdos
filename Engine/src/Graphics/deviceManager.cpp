@@ -8,12 +8,15 @@
 // Constructor
 
 cDeviceManager::cDeviceManager()
-		:	m_pDevice		(nullptr)
-		,	m_pDxgiFactory	(nullptr)
-		,	m_pCommandQueue	(nullptr)
-		,	m_pFence		(nullptr)
-		,	m_pFenceEvent	(nullptr)
-		,	m_fenceValue	(0)
+		:	m_pDevice		    (nullptr)
+		,	m_pDxgiFactory	    (nullptr)
+		,	m_pCommandQueue	    (nullptr)
+		,	m_pFence		    (nullptr)
+		,	m_pFenceEvent	    (nullptr)
+		,	m_fenceValue	    (0)
+        ,   m_4xMsaaQuality     (0)
+        ,   m_currentFence      (0)
+        ,   m_descriptorSizes   ()
 {
 }
 
@@ -47,6 +50,13 @@ void cDeviceManager::FlushCommandQueue()
 
         // Instruct the fence to trigger the event when it reaches the current fence value.
         cDirectX12Util::ThrowIfFailed(m_pFence->SetEventOnCompletion(m_currentFence, eventHandle));
+        
+        if (eventHandle == nullptr)
+        {
+            // Handle the error — for example, log it and/or throw
+            throw std::runtime_error("Failed to create event handle.");
+        }
+
 
         // Wait for the GPU to complete execution up to the current fence value.
         WaitForSingleObject(eventHandle, INFINITE);

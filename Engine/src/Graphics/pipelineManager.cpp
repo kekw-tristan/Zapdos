@@ -38,7 +38,7 @@ ID3D12RootSignature* cPipelineManager::GetRootSignature() const
 void cPipelineManager::InitializeRootSignature()
 {
     // Define the root parameter array     
-    CD3DX12_ROOT_PARAMETER slotRootParameter[1];
+    CD3DX12_ROOT_PARAMETER slotRootParameter[1] = {};
 
 
     // Define a descriptor range for a Constant Buffer View (CBV)

@@ -13,20 +13,18 @@ class cSwapChainManager;
 template<typename T>
 class cUploadBuffer;
 
+struct sObjectConstants
+{
+	DirectX::XMFLOAT4X4 worldViewProj;
+	sObjectConstants() { DirectX::XMStoreFloat4x4(&worldViewProj, DirectX::XMMatrixIdentity()); }
+};
+
 class cBufferManager
 {
 	public:
 
 		cBufferManager(cDeviceManager* _pDeviceManager, cSwapChainManager* _pSwapChainManager);
 		~cBufferManager();
-
-	public:
-
-		struct sObjectConstants
-		{
-			DirectX::XMFLOAT4X4 worldViewProj;
-			sObjectConstants() { DirectX::XMStoreFloat4x4(&worldViewProj, DirectX::XMMatrixIdentity()); }
-		};
 
 	public:
 		

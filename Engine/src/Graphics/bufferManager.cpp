@@ -37,7 +37,7 @@ ID3D12DescriptorHeap* cBufferManager::GetCbvHeap() const
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-cUploadBuffer<cBufferManager::sObjectConstants>* cBufferManager::GetObjectCB() const
+cUploadBuffer<sObjectConstants>* cBufferManager::GetObjectCB() const
 {
     return m_pObjectCB;
 }
@@ -46,7 +46,7 @@ cUploadBuffer<cBufferManager::sObjectConstants>* cBufferManager::GetObjectCB() c
 
 void cBufferManager::InitializeDescriptorHeaps()
 {
-    D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
+    D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
 
     cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Ensure this is shader visible

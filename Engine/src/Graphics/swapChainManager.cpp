@@ -172,7 +172,7 @@ void cSwapChainManager::InitializeSwapChain()
 void cSwapChainManager::InitializeDescriptorHeaps()
 {
     // Describe the RTV (Render Target View) descriptor heap.
-    D3D12_DESCRIPTOR_HEAP_DESC rtvHD;
+    D3D12_DESCRIPTOR_HEAP_DESC rtvHD = {};
     rtvHD.NumDescriptors = c_swapChainBufferCount;  // One descriptor per swap chain buffer.
     rtvHD.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;    // Heap type is RTV.
     rtvHD.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;  // No shader access needed for RTV.
@@ -206,7 +206,7 @@ void cSwapChainManager::InitializeDescriptorHeaps()
     }
 
     // Describe the DSV (Depth Stencil View) descriptor heap.
-    D3D12_DESCRIPTOR_HEAP_DESC dsvHD;
+    D3D12_DESCRIPTOR_HEAP_DESC dsvHD = {};
     dsvHD.NumDescriptors = 1;                       // Only one DSV needed.
     dsvHD.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;    // Heap type is DSV.
     dsvHD.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;  // No shader access needed for DSV.
