@@ -11,20 +11,19 @@ class cUploadBuffer;
 struct sObjectConstants;
 //struct sPassConstants;
 
-struct cFrameResource
+struct sFrameResource
 {
+	public:
+
+		sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount);
+		~sFrameResource();
 
 	public:
 
-		cFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount);
-		~cFrameResource();
+		ComPtr<ID3D12CommandAllocator> pCmdListAlloc;
 
-	public:
-
-		ComPtr<ID3D12CommandAllocator> m_pCmdListAlloc;
-
-		cUploadBuffer<sObjectConstants>*	m_ObjectCB;
-		//cUploadBuffer<sPassConstants>*		m_pPassCB;
+		cUploadBuffer<sObjectConstants>*	pObjectCB;
+		//cUploadBuffer<sPassConstants>*	pPassCB;
 		
-		UINT64 m_fence;
+		UINT64 fence;
 };

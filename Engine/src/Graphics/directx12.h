@@ -11,6 +11,7 @@ using namespace Microsoft::WRL;
 
 struct sVertex;
 struct sMeshGeometry;
+struct sFrameResource; 
 
 class cWindow;
 class cTimer;
@@ -20,8 +21,12 @@ class cDeviceManager;
 class cBufferManager;
 class cPipelineManager;
 
+class cRenderItem; 
+
 template<typename T>
 class cUploadBuffer;
+
+constexpr int c_NumberOfFrameResources = 3; 
 
 class cDirectX12
 {
@@ -48,6 +53,13 @@ class cDirectX12
 
 	private:
 
+		void InitializeFrameResources();
+		void WaitForCurrentFrameResourceIfInUse(); 
+		void WaitForAllFrameResources(); 
+
+
+	private:
+
 		cWindow* m_pWindow;
 		cTimer*	 m_pTimer;
 
@@ -64,4 +76,8 @@ class cDirectX12
 		cBufferManager* m_pBufferManager;
 		cPipelineManager* m_pPipelineManager;
 
+		std::vector<sFrameResource*>	m_frameResources;
+		std::vector<cRenderItem*>		m_renderItems;
+		sFrameResource* m_pCurrentFrameResource;
+		int m_currentFrameResourceIndex; 
 };

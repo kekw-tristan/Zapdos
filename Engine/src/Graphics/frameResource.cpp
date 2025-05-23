@@ -1,11 +1,30 @@
 #include "frameResource.h"
 
-#include <d3d12.h>
+#include "bufferManager.h"
+#include "directx12Util.h"
+#include "uploadBuffer.h"
 
-cFrameResource::cFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount)
+// --------------------------------------------------------------------------------------------------------------------------
+
+sFrameResource::sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount)
+	: fence(0)
+	, pCmdListAlloc(nullptr)
+	, pObjectCB(nullptr)
 {
+	cDirectX12Util::ThrowIfFailed(_pDevice->CreateCommandAllocator(
+		D3D12_COMMAND_LIST_TYPE_DIRECT,
+		IID_PPV_ARGS(pCmdListAlloc.GetAddressOf())
+	));
+
+	// Todo: same has to be done for pass constants
+	pObjectCB = new cUploadBuffer<sObjectConstants>(_pDevice, _objectCount, true);
 }
 
-cFrameResource::~cFrameResource()
+// --------------------------------------------------------------------------------------------------------------------------
+
+sFrameResource::~sFrameResource()
 {
+	delete pObjectCB;
 }
+
+// --------------------------------------------------------------------------------------------------------------------------

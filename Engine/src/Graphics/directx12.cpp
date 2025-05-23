@@ -16,6 +16,7 @@
 #include "core/timer.h"
 
 #include "directx12Util.h"
+#include "frameResource.h"
 #include "swapChainManager.h"
 #include "deviceManager.h"
 #include "pipelineManager.h"
@@ -82,14 +83,11 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
         std::cerr << "D3D12 Debug Layer not available." << std::endl;
     }
    
-   
-    
     m_pWindow = _pWindow;
     m_pTimer = _pTimer;
 
     m_pDeviceManager = new cDeviceManager();
     m_pDeviceManager->Initialize();
-
 
     m_pSwapChainManager = new cSwapChainManager(m_pDeviceManager, m_pWindow);
     m_pSwapChainManager->Initialize();
@@ -112,6 +110,11 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 
 void cDirectX12::Finalize()
 {
+    for (auto* frameResource : m_frameResources)
+    {
+        delete frameResource;
+    }
+    
     delete m_pBoxGeometry;
 
     delete m_pBufferManager;
@@ -413,3 +416,34 @@ void cDirectX12::OnResize()
     m_pDeviceManager->FlushCommandQueue();
 }
 
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::InitializeFrameResources()
+{
+    for (int index = 0; index < c_NumberOfFrameResources; index++)
+    {
+        m_frameResources[index] = new sFrameResource(m_pDeviceManager->GetDevice(), 0, m_renderItems.size());
+    }
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::WaitForCurrentFrameResourceIfInUse()
+{
+    m_pCurrentFrameResource = m_frameResources[m_currentFrameResourceIndex];
+    UINT64 gpuCompletedFence = m_pDeviceManager->GetFence()->GetCompletedValue();
+
+    if (m_pCurrentFrameResource->fence != 0 &&
+        gpuCompletedFence < m_pCurrentFrameResource->fence)
+    {
+
+    }
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::WaitForAllFrameResources()
+{
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
