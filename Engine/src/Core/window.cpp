@@ -244,7 +244,8 @@ LRESULT cWindow::WindowProc(UINT _uMsg, WPARAM _wParam, LPARAM _lParam)
 
 void cWindow::EnterFullscreen()
 {
-	m_isFullscreen = true;
+	m_isFullscreen	= true;
+	m_hasResized	= true;
 
 	// Save current window placement before changing
 	MONITORINFO mi = { sizeof(mi) };
@@ -261,13 +262,20 @@ void cWindow::EnterFullscreen()
 			SWP_NOOWNERZORDER | SWP_FRAMECHANGED
 		);
 	}
+
+	RECT rect;
+	GetClientRect(m_hwnd, &rect);
+	m_width = rect.right - rect.left;
+	m_height = rect.bottom - rect.top;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cWindow::ExitFullscreen()
 {
-	m_isFullscreen = false;
+	m_isFullscreen	= false;
+	m_hasResized	= true;
+
 
 	// Restore window style and placement
 	SetWindowLong(m_hwnd, GWL_STYLE, m_windowStyle);
@@ -277,6 +285,11 @@ void cWindow::ExitFullscreen()
 		SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
 		SWP_NOOWNERZORDER | SWP_FRAMECHANGED
 	);
+
+	RECT rect;
+	GetClientRect(m_hwnd, &rect);
+	m_width = rect.right - rect.left;
+	m_height = rect.bottom - rect.top;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

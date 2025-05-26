@@ -42,8 +42,11 @@ class cDeviceManager
 		ID3D12CommandAllocator*		GetDirectCmdListAlloc() const;
 		const sDescriptorSizes&		GetDescriptorSizes()	const;
 		int							Get4xMSAAQuality()		const;
+		UINT64						GetFenceValue()			const;
 
-	
+	public:
+
+		void SetFenceValue(UINT64 _fenceValue); 
 
 	private:
 
@@ -61,7 +64,6 @@ class cDeviceManager
 		ComPtr<ID3D12GraphicsCommandList>	m_pCommandList;
 		ComPtr<ID3D12Fence>					m_pFence;
 
-		HANDLE m_pFenceEvent;
 		UINT64 m_fenceValue;
 
 		sDescriptorSizes m_descriptorSizes;

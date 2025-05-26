@@ -12,7 +12,6 @@ cDeviceManager::cDeviceManager()
 		,	m_pDxgiFactory	    (nullptr)
 		,	m_pCommandQueue	    (nullptr)
 		,	m_pFence		    (nullptr)
-		,	m_pFenceEvent	    (nullptr)
 		,	m_fenceValue	    (0)
         ,   m_4xMsaaQuality     (0)
         ,   m_currentFence      (0)
@@ -94,10 +93,14 @@ ID3D12Fence* cDeviceManager::GetFence() const
     return m_pFence.Get();
 }
 
+// --------------------------------------------------------------------------------------------------------------------------
+
 ID3D12GraphicsCommandList* cDeviceManager::GetCommandList() const
 {
     return m_pCommandList.Get();
 }
+
+// --------------------------------------------------------------------------------------------------------------------------
 
 ID3D12CommandAllocator* cDeviceManager::GetDirectCmdListAlloc() const
 {
@@ -116,6 +119,20 @@ const cDeviceManager::sDescriptorSizes& cDeviceManager::GetDescriptorSizes() con
 int cDeviceManager::Get4xMSAAQuality() const
 {
     return m_4xMsaaQuality;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+UINT64 cDeviceManager::GetFenceValue() const
+{
+    return m_fenceValue; 
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDeviceManager::SetFenceValue(UINT64 _fenceValue)
+{
+    m_fenceValue = _fenceValue; 
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

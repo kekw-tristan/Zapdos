@@ -49,11 +49,7 @@ void cSystem::Run()
 			continue;
 
 
-		if (m_pWindow->GetHasResized())
-		{
-			m_pDirectX12->OnResize();
-			m_pWindow->SetHasResized(false);
-		}
+	
 		
 		m_pTimer->Tick();
 

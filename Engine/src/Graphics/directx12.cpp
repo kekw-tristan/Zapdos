@@ -14,6 +14,7 @@
 
 #include "core/window.h"
 #include "core/timer.h"
+#include "Core/input.h"
 
 #include "directx12Util.h"
 #include "frameResource.h"
@@ -98,6 +99,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     m_pPipelineManager = new cPipelineManager(m_pDeviceManager);
     m_pPipelineManager->Initialize(); 
     
+    InitializeFrameResources();
     InitializeVertices();
 
     m_pDeviceManager->GetCommandList()->Close();
@@ -110,6 +112,8 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 
 void cDirectX12::Finalize()
 {
+    WaitForGPU();
+
     for (auto* frameResource : m_frameResources)
     {
         delete frameResource;
@@ -194,17 +198,21 @@ void cDirectX12::InitializeVertices()
     m_pBoxGeometry->indexBufferGPU->SetName(L"Box_IndexBuffer_GPU");
 
     // Ensure the upload buffers are initialized before setting names
-    if (m_pBoxGeometry->vertexBufferUploader != nullptr) {
+    if (m_pBoxGeometry->vertexBufferUploader != nullptr) 
+    {
         m_pBoxGeometry->vertexBufferUploader->SetName(L"Box_VertexBuffer_Uploader");
     }
-    else {
+    else 
+    {
         std::cerr << "Error: vertexBufferUploader is nullptr." << std::endl;
     }
 
-    if (m_pBoxGeometry->indexBufferUploader != nullptr) {
+    if (m_pBoxGeometry->indexBufferUploader != nullptr) 
+    {
         m_pBoxGeometry->indexBufferUploader->SetName(L"Box_IndexBuffer_Uploader");
     }
-    else {
+    else 
+    {
         std::cerr << "Error: indexBufferUploader is nullptr." << std::endl;
     }
 
@@ -248,6 +256,23 @@ void cDirectX12::InitializeVertices()
 
 void cDirectX12::Update(XMMATRIX view)
 {
+    m_currentFrameResourceIndex = (m_currentFrameResourceIndex + 1) % c_NumberOfFrameResources;
+    m_pCurrentFrameResource = m_frameResources[m_currentFrameResourceIndex];
+    WaitForCurrentFrameResourceIfInUse();
+    
+    ID3D12PipelineState* pPso = m_pPipelineManager->GetPipelineStateObject();
+    ID3D12CommandAllocator* pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
+    ID3D12GraphicsCommandList* pCommandList = m_pDeviceManager->GetCommandList();
+
+    cDirectX12Util::ThrowIfFailed(pDirectCmdListAlloc->Reset());
+    cDirectX12Util::ThrowIfFailed(pCommandList->Reset(pDirectCmdListAlloc, pPso)); 
+
+    if (m_pWindow->GetHasResized())
+    {
+        OnResize();
+        m_pWindow->SetHasResized(false);
+    }
+
     // Load matrices
     XMMATRIX world = XMLoadFloat4x4(&m_world);
     XMMATRIX proj = XMLoadFloat4x4(&m_proj);
@@ -272,7 +297,7 @@ void cDirectX12::Update(XMMATRIX view)
 
 void cDirectX12::Draw()
 {
-    ID3D12CommandAllocator*     pDirectCmdListAlloc = m_pDeviceManager->GetDirectCmdListAlloc();
+    ID3D12CommandAllocator* pDirectCmdListAlloc     = m_pCurrentFrameResource->pCmdListAlloc.Get();
     ID3D12GraphicsCommandList*  pCommandList        = m_pDeviceManager->GetCommandList();
     ID3D12CommandQueue*         pCommandQueue       = m_pDeviceManager->GetCommandQueue();
     ID3D12PipelineState*        pPso                = m_pPipelineManager->GetPipelineStateObject();
@@ -280,11 +305,11 @@ void cDirectX12::Draw()
     IDXGISwapChain4*            pSwapChain          = m_pSwapChainManager->GetSwapChain();
     D3D12_VIEWPORT&             rViewport           = m_pSwapChainManager->GetViewport();
     ID3D12DescriptorHeap*       pCbvHeap            = m_pBufferManager->GetCbvHeap();
+    ID3D12Fence* pFence = m_pDeviceManager->GetFence();
     
 
     // === Reset allocator & command list BEFORE recording ===
-    cDirectX12Util::ThrowIfFailed(pDirectCmdListAlloc->Reset());
-    cDirectX12Util::ThrowIfFailed(pCommandList->Reset(pDirectCmdListAlloc, pPso)); // Bind PSO
+   
 
     // === Set viewport and scissor ===
     pCommandList->RSSetViewports(1, &rViewport);
@@ -351,13 +376,19 @@ void cDirectX12::Draw()
     // === Close and execute command list ===
     cDirectX12Util::ThrowIfFailed(pCommandList->Close());
 
-    ID3D12CommandList* cmdLists[] = { pCommandList};
+    // Execute commands
+    ID3D12CommandList* cmdLists[] = { pCommandList };
     pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
-    // === Present ===
+    // Signal the fence
+    UINT64 currentFence = m_pDeviceManager->GetFenceValue() + 1;
+    pCommandQueue->Signal(pFence, currentFence);
+    m_pDeviceManager->SetFenceValue(currentFence);
+    m_pCurrentFrameResource->fence = currentFence;
+
+    // THEN present
     cDirectX12Util::ThrowIfFailed(pSwapChain->Present(1, 0));
 
-    m_pDeviceManager->FlushCommandQueue();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -398,22 +429,12 @@ void cDirectX12::CalculateFrameStats() const
 
 void cDirectX12::OnResize()
 {
-    m_pDeviceManager->FlushCommandQueue();
-
-    cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDirectCmdListAlloc()->Reset());
-    cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetCommandList()->Reset(m_pDeviceManager->GetDirectCmdListAlloc(), m_pPipelineManager->GetPipelineStateObject()));
+    WaitForGPU();
 
     m_pSwapChainManager->OnResize();
 
     XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi, GetAspectRatio(), 0.1f, 1000.0f);
     XMStoreFloat4x4(&m_proj, P);
-
-
-    cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetCommandList()->Close());
-
-    ID3D12CommandList* cmdLists[] = { m_pDeviceManager->GetCommandList() };
-    m_pDeviceManager->GetCommandQueue()->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-    m_pDeviceManager->FlushCommandQueue();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -422,7 +443,7 @@ void cDirectX12::InitializeFrameResources()
 {
     for (int index = 0; index < c_NumberOfFrameResources; index++)
     {
-        m_frameResources[index] = new sFrameResource(m_pDeviceManager->GetDevice(), 0, m_renderItems.size());
+        m_frameResources.push_back(new sFrameResource(m_pDeviceManager->GetDevice(), 0, m_renderItems.size()));
     }
 }
 
@@ -430,20 +451,53 @@ void cDirectX12::InitializeFrameResources()
 
 void cDirectX12::WaitForCurrentFrameResourceIfInUse()
 {
-    m_pCurrentFrameResource = m_frameResources[m_currentFrameResourceIndex];
     UINT64 gpuCompletedFence = m_pDeviceManager->GetFence()->GetCompletedValue();
 
+    // Only wait if the current frame resource has a fence set and GPU hasn't reached it yet
     if (m_pCurrentFrameResource->fence != 0 &&
         gpuCompletedFence < m_pCurrentFrameResource->fence)
     {
+        HANDLE eventHandle = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+        if (eventHandle == nullptr)
+        {
+            throw std::runtime_error("Failed to create event handle.");
+        }
 
+        cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetFence()->SetEventOnCompletion(m_pCurrentFrameResource->fence, eventHandle));
+        WaitForSingleObject(eventHandle, INFINITE);
+        CloseHandle(eventHandle);
     }
+
+    std::cout << "GPU completed fence: " << gpuCompletedFence << "\n";
+    std::cout << "Frame resource fence: " << m_pCurrentFrameResource->fence << "\n";
+
+    // else: GPU already completed this frame resource, no wait needed
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cDirectX12::WaitForAllFrameResources()
+void cDirectX12::WaitForGPU()
 {
+    UINT64 fenceValue = m_pDeviceManager->GetFenceValue() + 1;
+
+    ID3D12CommandQueue* pCommandQueue = m_pDeviceManager->GetCommandQueue();
+    ID3D12Fence* pFence = m_pDeviceManager->GetFence();
+
+    // Signal the fence
+    cDirectX12Util::ThrowIfFailed(pCommandQueue->Signal(pFence, fenceValue));
+    m_pDeviceManager->SetFenceValue(fenceValue);
+
+    // Wait until GPU reaches this point
+    if (pFence->GetCompletedValue() < fenceValue)
+    {
+        HANDLE eventHandle = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
+        if (eventHandle == nullptr)
+            throw std::runtime_error("Failed to create event handle.");
+
+        pFence->SetEventOnCompletion(fenceValue, eventHandle);
+        WaitForSingleObject(eventHandle, INFINITE);
+        CloseHandle(eventHandle);
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

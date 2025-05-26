@@ -55,8 +55,7 @@ class cDirectX12
 
 		void InitializeFrameResources();
 		void WaitForCurrentFrameResourceIfInUse(); 
-		void WaitForAllFrameResources(); 
-
+		void WaitForGPU();
 
 	private:
 

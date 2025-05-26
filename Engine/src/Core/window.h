@@ -40,6 +40,8 @@ class cWindow
 		static LRESULT CALLBACK WindowProcStatic(HWND _hwnd, UINT _uMsg, WPARAM _wParam, LPARAM _lParam);
 		LRESULT CALLBACK WindowProc(UINT _uMsg, WPARAM _wParam, LPARAM _lParam);
 
+	public:
+
 		void EnterFullscreen();
 		void ExitFullscreen();
 
