@@ -9,7 +9,7 @@ template <typename T>
 class cUploadBuffer;
 
 struct sObjectConstants;
-//struct sPassConstants;
+struct sPassConstants;
 
 struct sFrameResource
 {
@@ -23,7 +23,7 @@ struct sFrameResource
 		ComPtr<ID3D12CommandAllocator> pCmdListAlloc;
 
 		cUploadBuffer<sObjectConstants>*	pObjectCB;
-		//cUploadBuffer<sPassConstants>*	pPassCB;
+		cUploadBuffer<sPassConstants>*		pPassCB;
 		
 		UINT64 fence;
 };

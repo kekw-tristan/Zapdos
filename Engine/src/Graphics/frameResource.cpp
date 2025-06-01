@@ -10,14 +10,15 @@ sFrameResource::sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _ob
 	: fence(0)
 	, pCmdListAlloc(nullptr)
 	, pObjectCB(nullptr)
+	, pPassCB(nullptr)
 {
 	cDirectX12Util::ThrowIfFailed(_pDevice->CreateCommandAllocator(
 		D3D12_COMMAND_LIST_TYPE_DIRECT,
 		IID_PPV_ARGS(pCmdListAlloc.GetAddressOf())
 	));
 
-	// Todo: same has to be done for pass constants
-	pObjectCB = new cUploadBuffer<sObjectConstants>(_pDevice, _objectCount, true);
+	pObjectCB	= new cUploadBuffer<sObjectConstants>(_pDevice, _objectCount, true);
+	pPassCB		= new cUploadBuffer<sPassConstants>(_pDevice, _passCount, true);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -25,6 +26,7 @@ sFrameResource::sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _ob
 sFrameResource::~sFrameResource()
 {
 	delete pObjectCB;
+	delete pPassCB;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

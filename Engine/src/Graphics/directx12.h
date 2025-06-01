@@ -12,6 +12,8 @@ using namespace Microsoft::WRL;
 struct sVertex;
 struct sMeshGeometry;
 struct sFrameResource; 
+struct sRenderItem; 
+struct sPassConstants;
 
 class cWindow;
 class cTimer;
@@ -53,6 +55,11 @@ class cDirectX12
 
 	private:
 
+		void UpdateObjectCB();
+		void UpdatePassCB();
+
+	private:
+
 		void InitializeFrameResources();
 		void WaitForCurrentFrameResourceIfInUse(); 
 		void WaitForGPU();
@@ -79,4 +86,7 @@ class cDirectX12
 		std::vector<cRenderItem*>		m_renderItems;
 		sFrameResource* m_pCurrentFrameResource;
 		int m_currentFrameResourceIndex; 
+
+		sPassConstants m_passConstants; 
+		std::vector<sRenderItem*> m_renderItems;
 };

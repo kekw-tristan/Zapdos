@@ -13,10 +13,29 @@ class cSwapChainManager;
 template<typename T>
 class cUploadBuffer;
 
+using namespace DirectX; 
+
 struct sObjectConstants
 {
-	DirectX::XMFLOAT4X4 worldViewProj;
-	sObjectConstants() { DirectX::XMStoreFloat4x4(&worldViewProj, DirectX::XMMatrixIdentity()); }
+	XMFLOAT4X4 world;
+	sObjectConstants() { XMStoreFloat4x4(&world, XMMatrixIdentity()); }
+};
+
+struct sPassConstants
+{
+	XMFLOAT4X4 view;
+	XMFLOAT4X4 invView; 
+	XMFLOAT4X4 proj;
+	XMFLOAT4X4 viewProj; 
+	XMFLOAT4X4 invViewProj;
+	XMFLOAT3 eyePos; 
+	float cbPerObjectPad1;
+	XMFLOAT2 renderTargetSize;
+	XMFLOAT2 invRenderTargetSize;
+	float nearZ; 
+	float farZ;
+	float totalTime;
+	float deltaTime;
 };
 
 class cBufferManager

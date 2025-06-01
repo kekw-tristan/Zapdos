@@ -22,6 +22,7 @@
 #include "deviceManager.h"
 #include "pipelineManager.h"
 #include "bufferManager.h"
+#include "renderItem.h"
 #include "uploadBuffer.h"
 #include "vertex.h"
 #include "meshGeometry.h"
@@ -260,9 +261,9 @@ void cDirectX12::Update(XMMATRIX view)
     m_pCurrentFrameResource = m_frameResources[m_currentFrameResourceIndex];
     WaitForCurrentFrameResourceIfInUse();
     
-    ID3D12PipelineState* pPso = m_pPipelineManager->GetPipelineStateObject();
-    ID3D12CommandAllocator* pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
-    ID3D12GraphicsCommandList* pCommandList = m_pDeviceManager->GetCommandList();
+    ID3D12PipelineState*        pPso                = m_pPipelineManager->GetPipelineStateObject();
+    ID3D12CommandAllocator*     pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
+    ID3D12GraphicsCommandList*  pCommandList        = m_pDeviceManager->GetCommandList();
 
     cDirectX12Util::ThrowIfFailed(pDirectCmdListAlloc->Reset());
     cDirectX12Util::ThrowIfFailed(pCommandList->Reset(pDirectCmdListAlloc, pPso)); 
@@ -286,7 +287,7 @@ void cDirectX12::Update(XMMATRIX view)
 
     // Pack into constant buffer struct
     sObjectConstants objConstants;
-    XMStoreFloat4x4(&objConstants.worldViewProj, worldViewProjT);
+    XMStoreFloat4x4(&objConstants.world, worldViewProjT);
 
     // Upload to mapped constant buffer (frame index 0 for now)
     m_pBufferManager->GetObjectCB()->CopyData(0, objConstants);
@@ -297,7 +298,7 @@ void cDirectX12::Update(XMMATRIX view)
 
 void cDirectX12::Draw()
 {
-    ID3D12CommandAllocator* pDirectCmdListAlloc     = m_pCurrentFrameResource->pCmdListAlloc.Get();
+    ID3D12CommandAllocator*     pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
     ID3D12GraphicsCommandList*  pCommandList        = m_pDeviceManager->GetCommandList();
     ID3D12CommandQueue*         pCommandQueue       = m_pDeviceManager->GetCommandQueue();
     ID3D12PipelineState*        pPso                = m_pPipelineManager->GetPipelineStateObject();
@@ -305,7 +306,7 @@ void cDirectX12::Draw()
     IDXGISwapChain4*            pSwapChain          = m_pSwapChainManager->GetSwapChain();
     D3D12_VIEWPORT&             rViewport           = m_pSwapChainManager->GetViewport();
     ID3D12DescriptorHeap*       pCbvHeap            = m_pBufferManager->GetCbvHeap();
-    ID3D12Fence* pFence = m_pDeviceManager->GetFence();
+    ID3D12Fence*                pFence              = m_pDeviceManager->GetFence();
     
 
     // === Reset allocator & command list BEFORE recording ===
@@ -329,8 +330,6 @@ void cDirectX12::Draw()
     // === Clear render target ===
     float clearColor[] = { 0.f, 0.f, 0.f, 1.f }; // Magenta
     pCommandList->ClearRenderTargetView(m_pSwapChainManager->GetCurrentBackBufferView(), clearColor, 0, nullptr);
-
-    
 
     // === Clear depth/stencil buffer ===
     pCommandList->ClearDepthStencilView(
@@ -387,7 +386,7 @@ void cDirectX12::Draw()
     m_pCurrentFrameResource->fence = currentFence;
 
     // THEN present
-    cDirectX12Util::ThrowIfFailed(pSwapChain->Present(1, 0));
+    cDirectX12Util::ThrowIfFailed(pSwapChain->Present(0, 0));
 
 }
 
@@ -439,6 +438,60 @@ void cDirectX12::OnResize()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
+void cDirectX12::UpdateObjectCB()
+{
+    auto currObjCB = m_pCurrentFrameResource->pObjectCB;
+
+    for (auto& item : m_renderItems)
+    {
+        if (item->numberOfFramesDirty > 0)
+        {
+            XMMATRIX world = XMLoadFloat4x4(&item->worldMatrix);
+
+            sObjectConstants objConstants; 
+            XMStoreFloat4x4(&objConstants.world, XMMatrixTranspose(world));
+
+            currObjCB->CopyData(item->objCBIndex, objConstants); 
+
+            item->numberOfFramesDirty--; 
+        }
+    }
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::UpdatePassCB()
+{
+    
+    XMMATRIX view = XMLoadFloat4x4(&m_view);
+    XMMATRIX proj = XMLoadFloat4x4(&m_proj);
+    XMMATRIX viewProj = XMMatrixMultiply(view, proj);
+    XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
+    XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
+    XMMATRIX invViewProj = XMMatrixInverse(&XMMatrixDeterminant(viewProj), viewProj);
+
+    XMStoreFloat4x4(&m_passConstants.view, XMMatrixTranspose(view));
+    XMStoreFloat4x4(&m_passConstants.invView, XMMatrixTranspose(invView));
+    XMStoreFloat4x4(&m_passConstants.proj, XMMatrixTranspose(proj));
+    XMStoreFloat4x4(&m_passConstants.viewProj, XMMatrixTranspose(invProj));
+    XMStoreFloat4x4(&m_passConstants.invViewProj, XMMatrixTranspose(viewProj));
+    XMStoreFloat4x4(&m_passConstants.eyePos, XMMatrixTranspose(invViewProj));
+
+    // todo eye missing
+    m_passConstants.renderTargetSize = XMFLOAT2((float)m_pWindow->GetWidth() , (float)m_pWindow->GetHeight());
+    m_passConstants.invRenderTargetSize = XMFLOAT2(1.0f / m_pWindow->GetWidth(), 1.0f / m_pWindow->GetWidth());
+    m_passConstants.nearZ = 1.0f;
+    m_passConstants.farZ = 1000.0f;
+    m_passConstants.totalTime = m_pTimer->GetTotalTime();
+    m_passConstants.deltaTime = m_pTimer->GetDeltaTime();
+
+    auto currPassCB = m_pCurrentFrameResource->pPassCB;
+
+    currPassCB->CopyData(0, m_passConstants);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
 void cDirectX12::InitializeFrameResources()
 {
     for (int index = 0; index < c_NumberOfFrameResources; index++)
@@ -467,11 +520,6 @@ void cDirectX12::WaitForCurrentFrameResourceIfInUse()
         WaitForSingleObject(eventHandle, INFINITE);
         CloseHandle(eventHandle);
     }
-
-    std::cout << "GPU completed fence: " << gpuCompletedFence << "\n";
-    std::cout << "Frame resource fence: " << m_pCurrentFrameResource->fence << "\n";
-
-    // else: GPU already completed this frame resource, no wait needed
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
