@@ -115,6 +115,9 @@ void cDirectX12::Finalize()
 {
     WaitForGPU();
 
+    for (auto* renderItem : m_renderItems)
+        delete renderItem;
+
     for (auto* frameResource : m_frameResources)
     {
         delete frameResource;
@@ -133,6 +136,7 @@ void cDirectX12::Finalize()
 void cDirectX12::InitializeVertices()
 {
 	// vertices	
+    
 
     std::array<sVertex, 8> vertices =
 	{
@@ -250,7 +254,18 @@ void cDirectX12::InitializeVertices()
     // Convert the XMMATRIX to XMFLOAT4X4 for storage
     XMStoreFloat4x4(&m_world, worldMatrix);
 
+    sRenderItem* pItem1 = new sRenderItem(); 
+    pItem1->pGeometry = m_pBoxGeometry;
+    pItem1->objCBIndex = 0;
+    XMStoreFloat4x4(&pItem1->worldMatrix, worldMatrix);
 
+    const auto& submeshRef = m_pBoxGeometry->drawArguments["box"];
+
+    pItem1->indexCount = submeshRef.indexCount;
+    pItem1->startIndexLocation = submeshRef.startIndexLocation;
+    pItem1->baseVertexLocation = submeshRef.startVertexLocation;
+
+    m_renderItems.push_back(pItem1);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -289,8 +304,10 @@ void cDirectX12::Update(XMMATRIX view)
     sObjectConstants objConstants;
     XMStoreFloat4x4(&objConstants.world, worldViewProjT);
 
-    // Upload to mapped constant buffer (frame index 0 for now)
-    m_pBufferManager->GetObjectCB()->CopyData(0, objConstants);
+    UpdateObjectCB();
+    UpdatePassCB();
+
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -298,19 +315,17 @@ void cDirectX12::Update(XMMATRIX view)
 
 void cDirectX12::Draw()
 {
-    ID3D12CommandAllocator*     pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
-    ID3D12GraphicsCommandList*  pCommandList        = m_pDeviceManager->GetCommandList();
-    ID3D12CommandQueue*         pCommandQueue       = m_pDeviceManager->GetCommandQueue();
-    ID3D12PipelineState*        pPso                = m_pPipelineManager->GetPipelineStateObject();
-    ID3D12RootSignature*        pRootSignature      = m_pPipelineManager->GetRootSignature();
-    IDXGISwapChain4*            pSwapChain          = m_pSwapChainManager->GetSwapChain();
-    D3D12_VIEWPORT&             rViewport           = m_pSwapChainManager->GetViewport();
-    ID3D12DescriptorHeap*       pCbvHeap            = m_pBufferManager->GetCbvHeap();
-    ID3D12Fence*                pFence              = m_pDeviceManager->GetFence();
-    
+    ID3D12CommandAllocator* pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
+    ID3D12GraphicsCommandList* pCommandList = m_pDeviceManager->GetCommandList();
+    ID3D12CommandQueue* pCommandQueue = m_pDeviceManager->GetCommandQueue();
+    ID3D12PipelineState* pPso = m_pPipelineManager->GetPipelineStateObject();
+    ID3D12RootSignature* pRootSignature = m_pPipelineManager->GetRootSignature();
+    IDXGISwapChain4* pSwapChain = m_pSwapChainManager->GetSwapChain();
+    D3D12_VIEWPORT& rViewport = m_pSwapChainManager->GetViewport();
+    ID3D12DescriptorHeap* pCbvHeap = m_pBufferManager->GetCbvHeap();
+    ID3D12Fence* pFence = m_pDeviceManager->GetFence();
 
-    // === Reset allocator & command list BEFORE recording ===
-   
+
 
     // === Set viewport and scissor ===
     pCommandList->RSSetViewports(1, &rViewport);
@@ -328,7 +343,7 @@ void cDirectX12::Draw()
     );
 
     // === Clear render target ===
-    float clearColor[] = { 0.f, 0.f, 0.f, 1.f }; // Magenta
+    float clearColor[] = { 0.f, 0.f, 0.f, 1.f }; // Black
     pCommandList->ClearRenderTargetView(m_pSwapChainManager->GetCurrentBackBufferView(), clearColor, 0, nullptr);
 
     // === Clear depth/stencil buffer ===
@@ -340,7 +355,12 @@ void cDirectX12::Draw()
     );
 
     // === Set render targets ===
-    pCommandList->OMSetRenderTargets(1, &m_pSwapChainManager->GetCurrentBackBufferView(), TRUE, &m_pSwapChainManager->GetDepthStencilView());
+    pCommandList->OMSetRenderTargets(
+        1,
+        &m_pSwapChainManager->GetCurrentBackBufferView(),
+        TRUE,
+        &m_pSwapChainManager->GetDepthStencilView()
+    );
 
     // === Bind descriptor heap ===
     ID3D12DescriptorHeap* descriptorHeaps[] = { pCbvHeap };
@@ -349,19 +369,32 @@ void cDirectX12::Draw()
     // === Set root signature ===
     pCommandList->SetGraphicsRootSignature(pRootSignature);
 
-    // === Input assembler: vertex/index buffers ===
-    pCommandList->IASetVertexBuffers(0, 1, &m_pBoxGeometry->GetVertexBufferView());
-    pCommandList->IASetIndexBuffer(&m_pBoxGeometry->GetIndexBufferView());
-    pCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    CD3DX12_GPU_DESCRIPTOR_HANDLE passCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
+    passCbvHandle.Offset(0, m_pDeviceManager->GetDescriptorSizes().cbvSrvUav);
+    pCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
 
-    // === Set constant buffer view (CBV) ===
-    pCommandList->SetGraphicsRootDescriptorTable(0, pCbvHeap->GetGPUDescriptorHandleForHeapStart());
+    // === Draw render items ===
+    for (sRenderItem* renderItem : m_renderItems)
+    {
+        // Set vertex/index buffers and primitive topology
+        pCommandList->IASetVertexBuffers(0, 1, &renderItem->pGeometry->GetVertexBufferView());
+        pCommandList->IASetIndexBuffer(&renderItem->pGeometry->GetIndexBufferView());
+        pCommandList->IASetPrimitiveTopology(renderItem->primitiveType);
 
-    // === Draw geometry ===
-    pCommandList->DrawIndexedInstanced(
-        m_pBoxGeometry->drawArguments["box"].indexCount,
-        1, 0, 0, 0
-    );
+        // Set object CBV (register b0) at slot 0
+        CD3DX12_GPU_DESCRIPTOR_HANDLE objCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
+        objCbvHandle.Offset(renderItem->objCBIndex, m_pDeviceManager->GetDescriptorSizes().cbvSrvUav);
+        pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle); // Slot 0 = b0
+
+        // Draw
+        pCommandList->DrawIndexedInstanced(
+            renderItem->indexCount,
+            1,
+            renderItem->startIndexLocation,
+            renderItem->baseVertexLocation,
+            0
+        );
+    }
 
     // === Transition back buffer from RENDER_TARGET to PRESENT ===
     pCommandList->ResourceBarrier(
@@ -375,20 +408,19 @@ void cDirectX12::Draw()
     // === Close and execute command list ===
     cDirectX12Util::ThrowIfFailed(pCommandList->Close());
 
-    // Execute commands
     ID3D12CommandList* cmdLists[] = { pCommandList };
     pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
-    // Signal the fence
+    // === Signal fence for current frame ===
     UINT64 currentFence = m_pDeviceManager->GetFenceValue() + 1;
     pCommandQueue->Signal(pFence, currentFence);
     m_pDeviceManager->SetFenceValue(currentFence);
     m_pCurrentFrameResource->fence = currentFence;
 
-    // THEN present
+    // === Present frame ===
     cDirectX12Util::ThrowIfFailed(pSwapChain->Present(0, 0));
-
 }
+
 
 // --------------------------------------------------------------------------------------------------------------------------
 // calculates the aspectratio of the window 
@@ -442,18 +474,18 @@ void cDirectX12::UpdateObjectCB()
 {
     auto currObjCB = m_pCurrentFrameResource->pObjectCB;
 
-    for (auto& item : m_renderItems)
+    for (sRenderItem* pItem : m_renderItems)
     {
-        if (item->numberOfFramesDirty > 0)
+        if (pItem->numberOfFramesDirty > 0)
         {
-            XMMATRIX world = XMLoadFloat4x4(&item->worldMatrix);
+            XMMATRIX world = XMLoadFloat4x4(&pItem->worldMatrix);
 
             sObjectConstants objConstants; 
             XMStoreFloat4x4(&objConstants.world, XMMatrixTranspose(world));
 
-            currObjCB->CopyData(item->objCBIndex, objConstants); 
+            currObjCB->CopyData(pItem->objCBIndex, objConstants);
 
-            item->numberOfFramesDirty--; 
+            pItem->numberOfFramesDirty--;
         }
     }
 }
@@ -470,24 +502,27 @@ void cDirectX12::UpdatePassCB()
     XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
     XMMATRIX invViewProj = XMMatrixInverse(&XMMatrixDeterminant(viewProj), viewProj);
 
-    XMStoreFloat4x4(&m_passConstants.view, XMMatrixTranspose(view));
-    XMStoreFloat4x4(&m_passConstants.invView, XMMatrixTranspose(invView));
-    XMStoreFloat4x4(&m_passConstants.proj, XMMatrixTranspose(proj));
-    XMStoreFloat4x4(&m_passConstants.viewProj, XMMatrixTranspose(invProj));
-    XMStoreFloat4x4(&m_passConstants.invViewProj, XMMatrixTranspose(viewProj));
-    XMStoreFloat4x4(&m_passConstants.eyePos, XMMatrixTranspose(invViewProj));
+    sPassConstants passConstants;
 
-    // todo eye missing
-    m_passConstants.renderTargetSize = XMFLOAT2((float)m_pWindow->GetWidth() , (float)m_pWindow->GetHeight());
-    m_passConstants.invRenderTargetSize = XMFLOAT2(1.0f / m_pWindow->GetWidth(), 1.0f / m_pWindow->GetWidth());
-    m_passConstants.nearZ = 1.0f;
-    m_passConstants.farZ = 1000.0f;
-    m_passConstants.totalTime = m_pTimer->GetTotalTime();
-    m_passConstants.deltaTime = m_pTimer->GetDeltaTime();
+    XMStoreFloat4x4(&passConstants.view, XMMatrixTranspose(view));
+    XMStoreFloat4x4(&passConstants.invView, XMMatrixTranspose(invView));
+    XMStoreFloat4x4(&passConstants.proj, XMMatrixTranspose(proj));
+    XMStoreFloat4x4(&passConstants.invProj, XMMatrixTranspose(invProj));
+    XMStoreFloat4x4(&passConstants.viewProj, XMMatrixTranspose(viewProj));
+    XMStoreFloat4x4(&passConstants.invViewProj, XMMatrixTranspose(invViewProj));
+
+    // todo correct values for eyepos
+    passConstants.eyePos = { 0.f, 0.f, 0.f };
+    passConstants.renderTargetSize = XMFLOAT2((float)m_pWindow->GetWidth() , (float)m_pWindow->GetHeight());
+    passConstants.invRenderTargetSize = XMFLOAT2(1.0f / m_pWindow->GetWidth(), 1.0f / m_pWindow->GetWidth());
+    passConstants.nearZ = 1.0f;
+    passConstants.farZ = 1000.0f;
+    passConstants.totalTime = m_pTimer->GetTotalTime();
+    passConstants.deltaTime = m_pTimer->GetDeltaTime();
 
     auto currPassCB = m_pCurrentFrameResource->pPassCB;
 
-    currPassCB->CopyData(0, m_passConstants);
+    currPassCB->CopyData(0, passConstants);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

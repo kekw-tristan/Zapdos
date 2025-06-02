@@ -23,8 +23,6 @@ class cDeviceManager;
 class cBufferManager;
 class cPipelineManager;
 
-class cRenderItem; 
-
 template<typename T>
 class cUploadBuffer;
 
@@ -83,10 +81,8 @@ class cDirectX12
 		cPipelineManager* m_pPipelineManager;
 
 		std::vector<sFrameResource*>	m_frameResources;
-		std::vector<cRenderItem*>		m_renderItems;
+		std::vector<sRenderItem*>		m_renderItems;
 		sFrameResource* m_pCurrentFrameResource;
 		int m_currentFrameResourceIndex; 
 
-		sPassConstants m_passConstants; 
-		std::vector<sRenderItem*> m_renderItems;
 };

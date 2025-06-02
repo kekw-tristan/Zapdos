@@ -14,17 +14,6 @@ using namespace Microsoft::WRL;
 template<typename T>
 class cUploadBuffer
 {
-	inline void ThrowIfFailed(HRESULT hr)
-	{
-		if (FAILED(hr))
-		{
-			_com_error err(hr);
-			std::wcout << L"Error: " << err.ErrorMessage() << std::endl;
-
-			std::cout << "DirectX call failed. HRESULT = " << std::to_string(hr) << "\n";
-			throw std::runtime_error("DirectX call failed. HRESULT = " + std::to_string(hr));
-		}
-	}
 	public:
 		cUploadBuffer(ID3D12Device* _pDevice, UINT _elementCount, bool _isConstantBuffer)
 			: m_pMappedData(nullptr)
@@ -37,7 +26,7 @@ class cUploadBuffer
 			if (m_isConstanBuffer)
 			{
 				m_elementByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(T));
-				ThrowIfFailed(_pDevice->CreateCommittedResource(
+				cDirectX12Util::ThrowIfFailed(_pDevice->CreateCommittedResource(
 					&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 					D3D12_HEAP_FLAG_NONE,
 					&CD3DX12_RESOURCE_DESC::Buffer(m_elementByteSize),
@@ -46,7 +35,7 @@ class cUploadBuffer
 					IID_PPV_ARGS(&m_pUploadBuffer)
 				));
 
-				ThrowIfFailed(m_pUploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&m_pMappedData)));
+				cDirectX12Util::ThrowIfFailed(m_pUploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&m_pMappedData)));
 			}
 		}
 

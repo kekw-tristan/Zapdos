@@ -26,6 +26,7 @@ struct sPassConstants
 	XMFLOAT4X4 view;
 	XMFLOAT4X4 invView; 
 	XMFLOAT4X4 proj;
+	XMFLOAT4X4 invProj;
 	XMFLOAT4X4 viewProj; 
 	XMFLOAT4X4 invViewProj;
 	XMFLOAT3 eyePos; 
@@ -52,18 +53,15 @@ class cBufferManager
 	public:
 
 		ID3D12DescriptorHeap* GetCbvHeap()				const;
-		cUploadBuffer<sObjectConstants>* GetObjectCB()	const;
 
 	private:
 
 		void InitializeDescriptorHeaps();
-		void InitializeConstantBuffer();
 
 	private:
 
 		cDeviceManager*		m_pDeviceManager;
 		cSwapChainManager*	m_pSwapChainManager;
 
-		cUploadBuffer<sObjectConstants>* m_pObjectCB;
 		ComPtr<ID3D12DescriptorHeap> m_pCbvHeap;
 };

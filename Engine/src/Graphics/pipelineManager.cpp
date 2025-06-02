@@ -38,26 +38,39 @@ ID3D12RootSignature* cPipelineManager::GetRootSignature() const
 void cPipelineManager::InitializeRootSignature()
 {
     // Define the root parameter array     
-    CD3DX12_ROOT_PARAMETER slotRootParameter[1] = {};
+    CD3DX12_ROOT_PARAMETER slotRootParameter[2] = {};
 
 
     // Define a descriptor range for a Constant Buffer View (CBV)
-    CD3DX12_DESCRIPTOR_RANGE cbvTable;
-    cbvTable.Init(
+    CD3DX12_DESCRIPTOR_RANGE cbvTable0;
+    cbvTable0.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_CBV, // Type: Constant Buffer View
         1,                               // Number of descriptors in the range (1 CBV)
         0                                // Base shader register (register b0)
     );
 
+    CD3DX12_DESCRIPTOR_RANGE cbvTable1;
+
+    cbvTable1.Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+        1,
+        1
+    );
+
     // Initialize the root parameter as a descriptor table
     slotRootParameter[0].InitAsDescriptorTable(
         1,              // Number of descriptor ranges in the table (only one range)
-        &cbvTable       // Pointer to the descriptor range
+        &cbvTable0       // Pointer to the descriptor range
+    );
+
+    slotRootParameter[1].InitAsDescriptorTable(
+        1,
+        &cbvTable1
     );
 
     // Create a root signature descriptor with the above root parameter
     CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-        1,                              // Number of root parameters (just one descriptor table)
+        2,                              // Number of root parameters (just one descriptor table)
         slotRootParameter,              // Pointer to root parameters
         0,                              // Number of static samplers (none in this case)
         nullptr,                        // Pointer to static samplers (nullptr since none)
