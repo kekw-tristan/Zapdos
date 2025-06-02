@@ -252,7 +252,6 @@ void cDirectX12::InitializeVertices()
     worldMatrix = scaleMatrix * translationMatrix;
 
     // Convert the XMMATRIX to XMFLOAT4X4 for storage
-    XMStoreFloat4x4(&m_world, worldMatrix);
 
     sRenderItem* pItem1 = new sRenderItem(); 
     pItem1->pGeometry = m_pBoxGeometry;
@@ -266,48 +265,44 @@ void cDirectX12::InitializeVertices()
     pItem1->baseVertexLocation = submeshRef.startVertexLocation;
 
     m_renderItems.push_back(pItem1);
+
+    XMStoreFloat4x4(&pItem1->worldMatrix, XMMatrixTranspose(worldMatrix));
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cDirectX12::Update(XMMATRIX view)
+void cDirectX12::Update(XMMATRIX _view)
 {
+    // Advance frame resource
     m_currentFrameResourceIndex = (m_currentFrameResourceIndex + 1) % c_NumberOfFrameResources;
     m_pCurrentFrameResource = m_frameResources[m_currentFrameResourceIndex];
     WaitForCurrentFrameResourceIfInUse();
-    
-    ID3D12PipelineState*        pPso                = m_pPipelineManager->GetPipelineStateObject();
-    ID3D12CommandAllocator*     pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
-    ID3D12GraphicsCommandList*  pCommandList        = m_pDeviceManager->GetCommandList();
+
+    // Reset command list & allocator
+    ID3D12PipelineState* pPso = m_pPipelineManager->GetPipelineStateObject();
+    ID3D12CommandAllocator* pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
+    ID3D12GraphicsCommandList* pCommandList = m_pDeviceManager->GetCommandList();
 
     cDirectX12Util::ThrowIfFailed(pDirectCmdListAlloc->Reset());
-    cDirectX12Util::ThrowIfFailed(pCommandList->Reset(pDirectCmdListAlloc, pPso)); 
+    cDirectX12Util::ThrowIfFailed(pCommandList->Reset(pDirectCmdListAlloc, pPso));
 
+    // Handle window resize
     if (m_pWindow->GetHasResized())
     {
         OnResize();
         m_pWindow->SetHasResized(false);
     }
 
-    // Load matrices
-    XMMATRIX world = XMLoadFloat4x4(&m_world);
-    XMMATRIX proj = XMLoadFloat4x4(&m_proj);
+    XMVECTOR eyePos = XMVectorSet(0.0f, 0.0f, -10.0f, 1.0f);
+    XMVECTOR target = XMVectorZero();
+    XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
-    // Combine matrices into WorldViewProjection
-    XMMATRIX worldViewProj = XMMatrixMultiply(world, view);
-    worldViewProj = XMMatrixMultiply(worldViewProj, proj);
+    XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
+    XMStoreFloat4x4(&m_view, view);
 
-    // Transpose for HLSL (row-major expected)
-    XMMATRIX worldViewProjT = XMMatrixTranspose(worldViewProj);
-
-    // Pack into constant buffer struct
-    sObjectConstants objConstants;
-    XMStoreFloat4x4(&objConstants.world, worldViewProjT);
-
-    UpdateObjectCB();
-    UpdatePassCB();
-
-
+    // === Upload data to GPU buffers ===
+    UpdateObjectCB();  // Writes m_renderItems[*]->worldMatrix to per-object CB
+    UpdatePassCB();    // Writes m_mainPassCB to per-pass CB
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -465,7 +460,7 @@ void cDirectX12::OnResize()
     m_pSwapChainManager->OnResize();
 
     XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi, GetAspectRatio(), 0.1f, 1000.0f);
-    XMStoreFloat4x4(&m_proj, P);
+    XMStoreFloat4x4(&m_proj, XMMatrixTranspose(P));
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -497,7 +492,7 @@ void cDirectX12::UpdatePassCB()
     
     XMMATRIX view = XMLoadFloat4x4(&m_view);
     XMMATRIX proj = XMLoadFloat4x4(&m_proj);
-    XMMATRIX viewProj = XMMatrixMultiply(view, proj);
+    XMMATRIX viewProj = XMMatrixMultiply(proj, view);
     XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
     XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
     XMMATRIX invViewProj = XMMatrixInverse(&XMMatrixDeterminant(viewProj), viewProj);
@@ -512,9 +507,9 @@ void cDirectX12::UpdatePassCB()
     XMStoreFloat4x4(&passConstants.invViewProj, XMMatrixTranspose(invViewProj));
 
     // todo correct values for eyepos
-    passConstants.eyePos = { 0.f, 0.f, 0.f };
+    passConstants.eyePos = XMFLOAT3(0.0f, 0.0f, -10.0f);
     passConstants.renderTargetSize = XMFLOAT2((float)m_pWindow->GetWidth() , (float)m_pWindow->GetHeight());
-    passConstants.invRenderTargetSize = XMFLOAT2(1.0f / m_pWindow->GetWidth(), 1.0f / m_pWindow->GetWidth());
+    passConstants.invRenderTargetSize = XMFLOAT2(1.0f / m_pWindow->GetWidth(), 1.0f / m_pWindow->GetHeight());
     passConstants.nearZ = 1.0f;
     passConstants.farZ = 1000.0f;
     passConstants.totalTime = m_pTimer->GetTotalTime();
@@ -529,9 +524,43 @@ void cDirectX12::UpdatePassCB()
 
 void cDirectX12::InitializeFrameResources()
 {
+    ID3D12Device* pDevice = m_pDeviceManager->GetDevice();
+    ID3D12DescriptorHeap* pCbvHeap = m_pBufferManager->GetCbvHeap();
+
     for (int index = 0; index < c_NumberOfFrameResources; index++)
     {
         m_frameResources.push_back(new sFrameResource(m_pDeviceManager->GetDevice(), 0, m_renderItems.size()));
+    }
+
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    D3D12_CPU_DESCRIPTOR_HANDLE cbvHandle = pCbvHeap->GetCPUDescriptorHandleForHeapStart();
+
+    for (UINT frameIndex = 0; frameIndex < c_NumberOfFrameResources; frameIndex++)
+    {
+        sFrameResource* frameResource = m_frameResources[frameIndex];
+
+        // Create all per-object CBVs
+        for (UINT objIndex = 0; objIndex < 1; objIndex++)
+        {
+            D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+            cbvDesc.BufferLocation = frameResource->pObjectCB->GetResource()->GetGPUVirtualAddress() + objIndex * frameResource->pObjectCB->GetElementByteSize();
+            cbvDesc.SizeInBytes = frameResource->pObjectCB->GetElementByteSize();
+
+            pDevice->CreateConstantBufferView(
+                &cbvDesc,
+                cbvHandle);
+
+            cbvHandle.ptr += descriptorSize;
+        }
+
+        // Create pass CBV
+        D3D12_CONSTANT_BUFFER_VIEW_DESC passCbvDesc = {};
+        passCbvDesc.BufferLocation = frameResource->pPassCB->GetResource()->GetGPUVirtualAddress();
+        passCbvDesc.SizeInBytes = frameResource->pPassCB->GetElementByteSize();
+
+        pDevice->CreateConstantBufferView(&passCbvDesc, cbvHandle);
+
+        cbvHandle.ptr += descriptorSize;
     }
 }
 

@@ -54,6 +54,11 @@ class cUploadBuffer
 			return m_pUploadBuffer.Get();
 		}
 
+		UINT GetElementByteSize()
+		{
+			return m_elementByteSize;
+		}
+
 		void CopyData(int _elementIndex, const T& _rData)
 		{
 			memcpy(&m_pMappedData[_elementIndex * m_elementByteSize], &_rData, sizeof(T));
