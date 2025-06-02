@@ -242,7 +242,7 @@ void cDirectX12::InitializeVertices()
     float z = 0.0f;
 
     // Define scale
-    float scale = 1.0f;
+    float scale = 2.0f;
 
     // Create scaling and translation matrices
     XMMATRIX scaleMatrix = XMMatrixScaling(scale, scale, scale);
@@ -266,7 +266,6 @@ void cDirectX12::InitializeVertices()
 
     m_renderItems.push_back(pItem1);
 
-    XMStoreFloat4x4(&pItem1->worldMatrix, XMMatrixTranspose(worldMatrix));
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -293,12 +292,12 @@ void cDirectX12::Update(XMMATRIX _view)
         m_pWindow->SetHasResized(false);
     }
 
-    XMVECTOR eyePos = XMVectorSet(0.0f, 0.0f, -10.0f, 1.0f);
+    XMVECTOR eyePos = XMVectorSet(0.0f, 0.0f, -20.0f, 1.0f);
     XMVECTOR target = XMVectorZero();
     XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
     XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
-    XMStoreFloat4x4(&m_view, view);
+    XMStoreFloat4x4(&m_view, _view);
 
     // === Upload data to GPU buffers ===
     UpdateObjectCB();  // Writes m_renderItems[*]->worldMatrix to per-object CB
@@ -365,7 +364,7 @@ void cDirectX12::Draw()
     pCommandList->SetGraphicsRootSignature(pRootSignature);
 
     CD3DX12_GPU_DESCRIPTOR_HANDLE passCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    passCbvHandle.Offset(0, m_pDeviceManager->GetDescriptorSizes().cbvSrvUav);
+    passCbvHandle.Offset(1, m_pDeviceManager->GetDescriptorSizes().cbvSrvUav);
     pCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
 
     // === Draw render items ===
@@ -378,7 +377,7 @@ void cDirectX12::Draw()
 
         // Set object CBV (register b0) at slot 0
         CD3DX12_GPU_DESCRIPTOR_HANDLE objCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-        objCbvHandle.Offset(renderItem->objCBIndex, m_pDeviceManager->GetDescriptorSizes().cbvSrvUav);
+        objCbvHandle.Offset(0, m_pDeviceManager->GetDescriptorSizes().cbvSrvUav);
         pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle); // Slot 0 = b0
 
         // Draw
@@ -460,7 +459,7 @@ void cDirectX12::OnResize()
     m_pSwapChainManager->OnResize();
 
     XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi, GetAspectRatio(), 0.1f, 1000.0f);
-    XMStoreFloat4x4(&m_proj, XMMatrixTranspose(P));
+    XMStoreFloat4x4(&m_proj, P);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -492,7 +491,7 @@ void cDirectX12::UpdatePassCB()
     
     XMMATRIX view = XMLoadFloat4x4(&m_view);
     XMMATRIX proj = XMLoadFloat4x4(&m_proj);
-    XMMATRIX viewProj = XMMatrixMultiply(proj, view);
+    XMMATRIX viewProj = XMMatrixMultiply(view, proj);
     XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
     XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
     XMMATRIX invViewProj = XMMatrixInverse(&XMMatrixDeterminant(viewProj), viewProj);
