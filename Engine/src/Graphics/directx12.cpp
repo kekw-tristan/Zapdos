@@ -237,12 +237,12 @@ void cDirectX12::InitializeVertices()
     XMMATRIX worldMatrix = XMMatrixIdentity();
 
     // Define position
-    float x = 0.0f;
+    float x = 5.0f;
     float y = 0.0f;
     float z = 0.0f;
 
     // Define scale
-    float scale = 2.0f;
+    float scale = 1.0f;
 
     // Create scaling and translation matrices
     XMMATRIX scaleMatrix = XMMatrixScaling(scale, scale, scale);
@@ -254,17 +254,29 @@ void cDirectX12::InitializeVertices()
     // Convert the XMMATRIX to XMFLOAT4X4 for storage
 
     sRenderItem* pItem1 = new sRenderItem(); 
+    sRenderItem* pItem2 = new sRenderItem(); 
     pItem1->pGeometry = m_pBoxGeometry;
     pItem1->objCBIndex = 0;
     XMStoreFloat4x4(&pItem1->worldMatrix, worldMatrix);
 
-    const auto& submeshRef = m_pBoxGeometry->drawArguments["box"];
+    pItem1->indexCount = submesh.indexCount;
+    pItem1->startIndexLocation = submesh.startIndexLocation;
+    pItem1->baseVertexLocation = submesh.startVertexLocation;
+    
+    // item 2
 
-    pItem1->indexCount = submeshRef.indexCount;
-    pItem1->startIndexLocation = submeshRef.startIndexLocation;
-    pItem1->baseVertexLocation = submeshRef.startVertexLocation;
+    pItem2->pGeometry = m_pBoxGeometry;
+    pItem2->objCBIndex = 1;
+
+    worldMatrix = scaleMatrix * XMMatrixTranslation(-3.f, 0.f, 0.f);
+    XMStoreFloat4x4(&pItem2->worldMatrix, worldMatrix);
+
+    pItem2->indexCount = submesh.indexCount;
+    pItem2->startIndexLocation = submesh.startIndexLocation;
+    pItem2->baseVertexLocation = submesh.startVertexLocation;
 
     m_renderItems.push_back(pItem1);
+    m_renderItems.push_back(pItem2);
 
 }
 
@@ -292,12 +304,12 @@ void cDirectX12::Update(XMMATRIX _view)
         m_pWindow->SetHasResized(false);
     }
 
-    XMVECTOR eyePos = XMVectorSet(0.0f, 0.0f, -20.0f, 1.0f);
+    XMVECTOR eyePos = XMVectorSet(0.0f, 10.0f, -20.0f, 1.0f);
     XMVECTOR target = XMVectorZero();
     XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
     XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
-    XMStoreFloat4x4(&m_view, _view);
+    XMStoreFloat4x4(&m_view, view);
 
     // === Upload data to GPU buffers ===
     UpdateObjectCB();  // Writes m_renderItems[*]->worldMatrix to per-object CB
@@ -377,8 +389,8 @@ void cDirectX12::Draw()
 
         // Set object CBV (register b0) at slot 0
         CD3DX12_GPU_DESCRIPTOR_HANDLE objCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-        objCbvHandle.Offset(0, m_pDeviceManager->GetDescriptorSizes().cbvSrvUav);
-        pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle); // Slot 0 = b0
+        objCbvHandle.Offset(renderItem->objCBIndex, m_pDeviceManager->GetDescriptorSizes().cbvSrvUav);
+        pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle);// Slot 0 = b0
 
         // Draw
         pCommandList->DrawIndexedInstanced(
@@ -388,6 +400,8 @@ void cDirectX12::Draw()
             renderItem->baseVertexLocation,
             0
         );
+        
+
     }
 
     // === Transition back buffer from RENDER_TARGET to PRESENT ===
@@ -481,6 +495,17 @@ void cDirectX12::UpdateObjectCB()
 
             pItem->numberOfFramesDirty--;
         }
+
+        XMFLOAT4X4& m = pItem->worldMatrix;
+        std::cout << "World Matrix:\n";
+        for (int row = 0; row < 4; ++row)
+        {
+            std::cout << m.m[row][0] << " "
+                << m.m[row][1] << " "
+                << m.m[row][2] << " "
+                << m.m[row][3] << "\n";
+        }
+
     }
 }
 
