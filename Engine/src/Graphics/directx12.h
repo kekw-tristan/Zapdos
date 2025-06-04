@@ -3,6 +3,8 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
+#include <string>
+#include <unordered_map>
 #include <vector>
 #include <wrl.h>
 
@@ -85,4 +87,5 @@ class cDirectX12
 		sFrameResource* m_pCurrentFrameResource;
 		int m_currentFrameResourceIndex; 
 
+		std::unordered_map<std::string, sMeshGeometry*> m_geometries; 
 };
