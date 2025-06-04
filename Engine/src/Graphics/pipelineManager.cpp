@@ -70,7 +70,7 @@ void cPipelineManager::InitializeRootSignature()
 
     // Create a root signature descriptor with the above root parameter
     CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-        2,                              // Number of root parameters (just one descriptor table)
+        2,                              // Number of root parameters 
         slotRootParameter,              // Pointer to root parameters
         0,                              // Number of static samplers (none in this case)
         nullptr,                        // Pointer to static samplers (nullptr since none)

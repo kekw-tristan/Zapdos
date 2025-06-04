@@ -100,8 +100,8 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     m_pPipelineManager = new cPipelineManager(m_pDeviceManager);
     m_pPipelineManager->Initialize(); 
     
-    InitializeFrameResources();
     InitializeVertices();
+    InitializeFrameResources();
 
     m_pDeviceManager->GetCommandList()->Close();
     ID3D12CommandList* cmdLists[] = { m_pDeviceManager->GetCommandList() };
@@ -375,8 +375,14 @@ void cDirectX12::Draw()
     // === Set root signature ===
     pCommandList->SetGraphicsRootSignature(pRootSignature);
 
+    // === Compute per-frame descriptor offset ===
+    UINT descriptorsPerFrame = static_cast<UINT>(m_renderItems.size()) + 1; // +1 for pass CBV
+    UINT baseOffset = m_currentFrameResourceIndex * descriptorsPerFrame;
+    UINT descriptorSize = m_pDeviceManager->GetDescriptorSizes().cbvSrvUav;
+
+    // === Set Pass CBV (root param 1, register b1) ===
     CD3DX12_GPU_DESCRIPTOR_HANDLE passCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    passCbvHandle.Offset(1, m_pDeviceManager->GetDescriptorSizes().cbvSrvUav);
+    passCbvHandle.Offset(baseOffset + m_renderItems.size(), descriptorSize); // Pass CBV is last
     pCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
 
     // === Draw render items ===
@@ -387,12 +393,12 @@ void cDirectX12::Draw()
         pCommandList->IASetIndexBuffer(&renderItem->pGeometry->GetIndexBufferView());
         pCommandList->IASetPrimitiveTopology(renderItem->primitiveType);
 
-        // Set object CBV (register b0) at slot 0
+        // === Set Object CBV (root param 0, register b0) ===
         CD3DX12_GPU_DESCRIPTOR_HANDLE objCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-        objCbvHandle.Offset(renderItem->objCBIndex, m_pDeviceManager->GetDescriptorSizes().cbvSrvUav);
-        pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle);// Slot 0 = b0
+        objCbvHandle.Offset(baseOffset + renderItem->objCBIndex, descriptorSize); // Per-frame offset
+        pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle);
 
-        // Draw
+        // === Draw the object ===
         pCommandList->DrawIndexedInstanced(
             renderItem->indexCount,
             1,
@@ -400,8 +406,6 @@ void cDirectX12::Draw()
             renderItem->baseVertexLocation,
             0
         );
-        
-
     }
 
     // === Transition back buffer from RENDER_TARGET to PRESENT ===
@@ -426,7 +430,7 @@ void cDirectX12::Draw()
     m_pCurrentFrameResource->fence = currentFence;
 
     // === Present frame ===
-    cDirectX12Util::ThrowIfFailed(pSwapChain->Present(0, 0));
+    cDirectX12Util::ThrowIfFailed(pSwapChain->Present(1, 0));
 }
 
 
@@ -496,16 +500,6 @@ void cDirectX12::UpdateObjectCB()
             pItem->numberOfFramesDirty--;
         }
 
-        XMFLOAT4X4& m = pItem->worldMatrix;
-        std::cout << "World Matrix:\n";
-        for (int row = 0; row < 4; ++row)
-        {
-            std::cout << m.m[row][0] << " "
-                << m.m[row][1] << " "
-                << m.m[row][2] << " "
-                << m.m[row][3] << "\n";
-        }
-
     }
 }
 
@@ -553,7 +547,8 @@ void cDirectX12::InitializeFrameResources()
 
     for (int index = 0; index < c_NumberOfFrameResources; index++)
     {
-        m_frameResources.push_back(new sFrameResource(m_pDeviceManager->GetDevice(), 0, m_renderItems.size()));
+        std::cout << m_renderItems.size() << std::endl; 
+        m_frameResources.push_back(new sFrameResource(m_pDeviceManager->GetDevice(), 1, m_renderItems.size()));
     }
 
     UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -563,8 +558,7 @@ void cDirectX12::InitializeFrameResources()
     {
         sFrameResource* frameResource = m_frameResources[frameIndex];
 
-        // Create all per-object CBVs
-        for (UINT objIndex = 0; objIndex < 1; objIndex++)
+        for (UINT objIndex = 0; objIndex < m_renderItems.size(); objIndex++)
         {
             D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
             cbvDesc.BufferLocation = frameResource->pObjectCB->GetResource()->GetGPUVirtualAddress() + objIndex * frameResource->pObjectCB->GetElementByteSize();
