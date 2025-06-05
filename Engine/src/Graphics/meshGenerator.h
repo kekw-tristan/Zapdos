@@ -15,7 +15,11 @@ class cMeshGenerator
 
 		struct sVertex
 		{
-			sVertex() {};
+			sVertex()
+				: position()
+				, normal()
+				, tangentU()
+				, texC() {};
 			sVertex(const XMFLOAT3& _pos, const XMFLOAT3& _normal, const DirectX::XMFLOAT3& _tangentU, const XMFLOAT2& _uv)
 				: position(_pos)
 				, normal(_normal)
@@ -54,6 +58,9 @@ class cMeshGenerator
 	public:
 
 		sMeshData CreateCylinder(float _bottomRadius, float _topRadius, float _height, uint32 _sliceCount, uint32 _stackCount); 
+		sMeshData CreateCube();
+		sMeshData CreateSphere(float radius, uint32_t sliceCount, uint32_t stackCount);
+		
 
 	private:
 

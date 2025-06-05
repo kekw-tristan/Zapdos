@@ -40,7 +40,7 @@ void cBufferManager::InitializeDescriptorHeaps()
 
     cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Ensure this is shader visible
-    cbvHeapDesc.NumDescriptors = 9;
+    cbvHeapDesc.NumDescriptors = 12;
     cbvHeapDesc.NodeMask = 0;
 
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDevice()->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_pCbvHeap)));

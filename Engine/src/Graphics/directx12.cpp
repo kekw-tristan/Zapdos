@@ -286,102 +286,171 @@ void cDirectX12::InitializeVertices()
     m_renderItems.push_back(pItem2);
 */
 
-    cMeshGenerator meshGenerator;
-    cMeshGenerator::sMeshData cylinder = meshGenerator.CreateCylinder(0.5, 0.3f, 3.0f, 20, 20);
+cMeshGenerator meshGenerator;
 
-    // Setup submesh info
-    UINT cylinderVertexOffset = 0;
-    UINT cylinderIndexOffset = 0;
+// Create Cylinder
+cMeshGenerator::sMeshData cylinder = meshGenerator.CreateCylinder(0.5f, 0.3f, 3.0f, 20, 20);
 
-    sSubmeshGeometry cylinderSubmesh;
-    cylinderSubmesh.indexCount = static_cast<UINT>(cylinder.indices32.size());
-    cylinderSubmesh.startIndexLocation = cylinderIndexOffset;
-    cylinderSubmesh.startVertexLocation = cylinderVertexOffset;
+// Setup submesh info for cylinder
+UINT cylinderVertexOffset = 0;
+UINT cylinderIndexOffset = 0;
 
-    // Convert vertices
-    auto totalVertexCount = cylinder.vertecies.size();
-    std::vector<sVertex> vertecies(totalVertexCount);
+sSubmeshGeometry cylinderSubmesh;
+cylinderSubmesh.indexCount = static_cast<UINT>(cylinder.indices32.size());
+cylinderSubmesh.startIndexLocation = cylinderIndexOffset;
+cylinderSubmesh.startVertexLocation = cylinderVertexOffset;
 
-    for (size_t index = 0; index < totalVertexCount; ++index)
-    {
-        vertecies[index].pos = cylinder.vertecies[index].position;
-        vertecies[index].color = XMFLOAT4(1.f, 1.f, 0.f, 1.f);
-    }
+// Convert cylinder vertices
+std::vector<sVertex> vertecies;
+for (const auto& v : cylinder.vertecies)
+{
+    sVertex outV;
+    outV.pos = v.position;
+    outV.color = XMFLOAT4(1.f, 1.f, 0.f, 1.f); // Yellow cylinder
+    vertecies.push_back(outV);
+}
 
-    // Convert indices
-    std::vector<std::uint16_t> indices;
-    indices.insert(indices.end(), std::begin(cylinder.GetIndices16()), std::end(cylinder.GetIndices16()));
+// Convert cylinder indices
+std::vector<uint16_t> indices = cylinder.GetIndices16();
 
-    // Buffer sizes
-    const UINT vbByteSize = static_cast<UINT>(vertecies.size() * sizeof(sVertex));
-    const UINT ibByteSize = static_cast<UINT>(indices.size() * sizeof(std::uint16_t));
+// ---- Add Cube ----
+cMeshGenerator::sMeshData cube = meshGenerator.CreateCube();
 
-    // Create geometry
-    sMeshGeometry* geo = new sMeshGeometry();
-    geo->name = "shapeGeo";
+UINT cubeVertexOffset = static_cast<UINT>(vertecies.size());
+UINT cubeIndexOffset = static_cast<UINT>(indices.size());
 
-    cDirectX12Util::ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->vertexBufferCPU));
-    CopyMemory(geo->vertexBufferCPU->GetBufferPointer(), vertecies.data(), vbByteSize);
+sSubmeshGeometry cubeSubmesh;
+cubeSubmesh.indexCount = static_cast<UINT>(cube.indices32.size());
+cubeSubmesh.startIndexLocation = cubeIndexOffset;
+cubeSubmesh.startVertexLocation = cubeVertexOffset;
 
-    cDirectX12Util::ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->indexBufferCPU));
-    CopyMemory(geo->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+// Add cube vertices
+for (const auto& v : cube.vertecies)
+{
+    sVertex outV;
+    outV.pos = v.position;
+    outV.color = XMFLOAT4(0.2f, 0.6f, 1.f, 1.f); // Blue cube
+    vertecies.push_back(outV);
+}
 
-    geo->vertexBufferGPU = cDirectX12Util::CreateDefaultBuffer(
-        m_pDeviceManager->GetDevice(),
-        m_pDeviceManager->GetCommandList(),
-        vertecies.data(),
-        vbByteSize,
-        geo->vertexBufferUploader
-    );
+// Add cube indices
+auto cubeIndices16 = cube.GetIndices16();
+indices.insert(indices.end(), cubeIndices16.begin(), cubeIndices16.end());
 
-    geo->indexBufferGPU = cDirectX12Util::CreateDefaultBuffer(
-        m_pDeviceManager->GetDevice(),
-        m_pDeviceManager->GetCommandList(),
-        indices.data(),
-        ibByteSize,
-        geo->indexBufferUploader
-    );
+// ---- Add Sphere ----
+cMeshGenerator::sMeshData sphere = meshGenerator.CreateSphere(1.0f, 20, 20);
 
-    geo->vertexByteStride = sizeof(sVertex);
-    geo->vertexBufferByteSize = vbByteSize;
-    geo->indexFormat = DXGI_FORMAT_R16_UINT;
-    geo->indexBufferByteSize = ibByteSize;
+UINT sphereVertexOffset = static_cast<UINT>(vertecies.size());
+UINT sphereIndexOffset = static_cast<UINT>(indices.size());
 
-    geo->drawArguments["cylinder"] = cylinderSubmesh;
+sSubmeshGeometry sphereSubmesh;
+sphereSubmesh.indexCount = static_cast<UINT>(sphere.indices32.size());
+sphereSubmesh.startIndexLocation = sphereIndexOffset;
+sphereSubmesh.startVertexLocation = sphereVertexOffset;
 
-    // Store the geometry
-    m_geometries[geo->name] = geo;
+// Add sphere vertices
+for (const auto& v : sphere.vertecies)
+{
+    sVertex outV;
+    outV.pos = v.position;
+    outV.color = XMFLOAT4(1.f, 0.4f, 0.4f, 1.f); // Reddish sphere
+    vertecies.push_back(outV);
+}
 
-    // Create first cylinder render item
-    sRenderItem* pItem2 = new sRenderItem();
-    pItem2->pGeometry = geo;
-    pItem2->objCBIndex = 0;
+// Add sphere indices
+auto sphereIndices16 = sphere.GetIndices16();
+indices.insert(indices.end(), sphereIndices16.begin(), sphereIndices16.end());
 
-    float scale = 1.f;
-    XMMATRIX scaleMatrix = XMMatrixScaling(scale, scale, scale);
-    XMMATRIX worldMatrix = scaleMatrix * XMMatrixTranslation(-3.f, 0.f, 0.f);
-    XMStoreFloat4x4(&pItem2->worldMatrix, worldMatrix);
+// ---- Create Geometry Buffers ----
+const UINT vbByteSize = static_cast<UINT>(vertecies.size() * sizeof(sVertex));
+const UINT ibByteSize = static_cast<UINT>(indices.size() * sizeof(uint16_t));
 
-    sSubmeshGeometry submesh = geo->drawArguments["cylinder"];
-    pItem2->indexCount = submesh.indexCount;
-    pItem2->startIndexLocation = submesh.startIndexLocation;
-    pItem2->baseVertexLocation = submesh.startVertexLocation;
+sMeshGeometry* geo = new sMeshGeometry();
+geo->name = "shapeGeo";
 
-    m_renderItems.push_back(pItem2);
+cDirectX12Util::ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->vertexBufferCPU));
+CopyMemory(geo->vertexBufferCPU->GetBufferPointer(), vertecies.data(), vbByteSize);
 
-    // Create second cylinder render item
-    sRenderItem* pItem3 = new sRenderItem();
-    pItem3->pGeometry = geo;
-    pItem3->objCBIndex = 1;
+cDirectX12Util::ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->indexBufferCPU));
+CopyMemory(geo->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
-    XMMATRIX worldMatrix2 = scaleMatrix * XMMatrixTranslation(3.f, 0.f, 0.f);
-    XMStoreFloat4x4(&pItem3->worldMatrix, worldMatrix2);
+geo->vertexBufferGPU = cDirectX12Util::CreateDefaultBuffer(
+    m_pDeviceManager->GetDevice(),
+    m_pDeviceManager->GetCommandList(),
+    vertecies.data(),
+    vbByteSize,
+    geo->vertexBufferUploader
+);
 
-    pItem3->indexCount = submesh.indexCount;
-    pItem3->startIndexLocation = submesh.startIndexLocation;
-    pItem3->baseVertexLocation = submesh.startVertexLocation;
+geo->indexBufferGPU = cDirectX12Util::CreateDefaultBuffer(
+    m_pDeviceManager->GetDevice(),
+    m_pDeviceManager->GetCommandList(),
+    indices.data(),
+    ibByteSize,
+    geo->indexBufferUploader
+);
 
-    m_renderItems.push_back(pItem3);
+geo->vertexByteStride = sizeof(sVertex);
+geo->vertexBufferByteSize = vbByteSize;
+geo->indexFormat = DXGI_FORMAT_R16_UINT;
+geo->indexBufferByteSize = ibByteSize;
+
+geo->drawArguments["cylinder"] = cylinderSubmesh;
+geo->drawArguments["cube"] = cubeSubmesh;
+geo->drawArguments["sphere"] = sphereSubmesh;
+
+// Store geometry
+m_geometries[geo->name] = geo;
+
+// ---- Create Render Item: Cylinder ----
+sRenderItem* pItem2 = new sRenderItem();
+pItem2->pGeometry = geo;
+pItem2->objCBIndex = 0;
+
+float scale = 2.f;
+XMMATRIX scaleMatrix = XMMatrixScaling(scale, scale, scale);
+XMMATRIX worldMatrix = scaleMatrix * XMMatrixTranslation(-3.f, 0.f, 0.f);
+XMStoreFloat4x4(&pItem2->worldMatrix, worldMatrix);
+
+sSubmeshGeometry submeshCyl = geo->drawArguments["cylinder"];
+pItem2->indexCount = submeshCyl.indexCount;
+pItem2->startIndexLocation = submeshCyl.startIndexLocation;
+pItem2->baseVertexLocation = submeshCyl.startVertexLocation;
+
+m_renderItems.push_back(pItem2);
+
+// ---- Create Render Item: Cube ----
+sRenderItem* pItem3 = new sRenderItem();
+pItem3->pGeometry = geo;
+pItem3->objCBIndex = 1;
+
+XMMATRIX cubeScale = XMMatrixScaling(2.f, 2.f, 2.f);
+XMMATRIX cubeWorld = cubeScale * XMMatrixTranslation(3.f, 0.f, 0.f);
+XMStoreFloat4x4(&pItem3->worldMatrix, cubeWorld);
+
+sSubmeshGeometry submeshCube = geo->drawArguments["cube"];
+pItem3->indexCount = submeshCube.indexCount;
+pItem3->startIndexLocation = submeshCube.startIndexLocation;
+pItem3->baseVertexLocation = submeshCube.startVertexLocation;
+
+m_renderItems.push_back(pItem3);
+
+// ---- Create Render Item: Sphere ----
+sRenderItem* pItem4 = new sRenderItem();
+pItem4->pGeometry = geo;
+pItem4->objCBIndex = 2;
+
+XMMATRIX sphereScale = XMMatrixScaling(2.f, 2.f, 2.f);
+XMMATRIX sphereWorld = sphereScale * XMMatrixTranslation(0.f, 0.f, 3.f);
+XMStoreFloat4x4(&pItem4->worldMatrix, sphereWorld);
+
+sSubmeshGeometry submeshSphere = geo->drawArguments["sphere"];
+pItem4->indexCount = submeshSphere.indexCount;
+pItem4->startIndexLocation = submeshSphere.startIndexLocation;
+pItem4->baseVertexLocation = submeshSphere.startVertexLocation;
+
+m_renderItems.push_back(pItem4);
+
    
 }
 
@@ -414,7 +483,7 @@ void cDirectX12::Update(XMMATRIX _view)
     XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
     XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
-    XMStoreFloat4x4(&m_view, _view);
+    XMStoreFloat4x4(&m_view, view);
 
     // === Upload data to GPU buffers ===
     UpdateObjectCB();  // Writes m_renderItems[*]->worldMatrix to per-object CB

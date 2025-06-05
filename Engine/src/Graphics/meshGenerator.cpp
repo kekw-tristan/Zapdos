@@ -1,5 +1,7 @@
 #include "meshGenerator.h"
 
+#include "array"
+
 // --------------------------------------------------------------------------------------------------------------------------
 
 cMeshGenerator::sMeshData cMeshGenerator::CreateCylinder(float _bottomRadius, float _topRadius, float _height, uint32 _sliceCount, uint32 _stackCount)
@@ -157,4 +159,169 @@ void cMeshGenerator::BuildCylinderBottomCap(float _bottomRadius, float _height, 
 		meshData.indices32.push_back(baseIndex + sliceIndex);
 		meshData.indices32.push_back(baseIndex + sliceIndex + 1);
 	}
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+cMeshGenerator::sMeshData cMeshGenerator::CreateCube()
+{
+	sMeshData meshData;
+
+	// Define positions for each face (quad: 2 triangles, 4 vertices)
+	struct sFace
+	{
+		XMFLOAT3 a, b, c, d;
+		XMFLOAT3 normal;
+	};
+
+	float half = 0.5f;
+
+	std::vector<sFace> faces = {
+		// Front face
+		{{-half, -half, -half}, { half, -half, -half}, { half,  half, -half}, {-half,  half, -half}, {0, 0, -1}},
+		// Back face
+		{{ half, -half,  half}, {-half, -half,  half}, {-half,  half,  half}, { half,  half,  half}, {0, 0, 1}},
+		// Left face
+		{{-half, -half,  half}, {-half, -half, -half}, {-half,  half, -half}, {-half,  half,  half}, {-1, 0, 0}},
+		// Right face
+		{{ half, -half, -half}, { half, -half,  half}, { half,  half,  half}, { half,  half, -half}, {1, 0, 0}},
+		// Top face
+		{{-half,  half, -half}, { half,  half, -half}, { half,  half,  half}, {-half,  half,  half}, {0, 1, 0}},
+		// Bottom face
+		{{-half, -half,  half}, { half, -half,  half}, { half, -half, -half}, {-half, -half, -half}, {0, -1, 0}},
+	};
+
+	for (const auto& face : faces)
+	{
+		uint32_t start = static_cast<uint32_t>(meshData.vertecies.size());
+
+		// Basic UVs for a quad
+		std::array<XMFLOAT2, 4> uvs = {
+			XMFLOAT2(0, 1),
+			XMFLOAT2(1, 1),
+			XMFLOAT2(1, 0),
+			XMFLOAT2(0, 0)
+		};
+
+		std::array<XMFLOAT3, 4> verts = { face.a, face.b, face.c, face.d };
+		for (int i = 0; i < 4; ++i)
+		{
+			sVertex v;
+			v.position = verts[i];
+			v.normal = face.normal;
+			v.tangentU = { 1, 0, 0 }; // placeholder
+			v.texC = uvs[i];
+			meshData.vertecies.push_back(v);
+		}
+
+		// 2 triangles: (0, 1, 2) and (0, 2, 3)
+		meshData.indices32.push_back(start + 0);
+		meshData.indices32.push_back(start + 1);
+		meshData.indices32.push_back(start + 2);
+
+		meshData.indices32.push_back(start + 0);
+		meshData.indices32.push_back(start + 2);
+		meshData.indices32.push_back(start + 3);
+	}
+
+	return meshData;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sliceCount, uint32_t stackCount)
+{
+	sMeshData meshData;
+
+	// Top vertex (north pole)
+	sVertex topVertex;
+	topVertex.position = XMFLOAT3(0.0f, +radius, 0.0f);
+	topVertex.normal = XMFLOAT3(0.0f, +1.0f, 0.0f);
+	topVertex.tangentU = XMFLOAT3(1.0f, 0.0f, 0.0f);
+	topVertex.texC = XMFLOAT2(0.0f, 0.0f);
+	meshData.vertecies.push_back(topVertex);
+
+	float phiStep = XM_PI / stackCount;
+	float thetaStep = 2.0f * XM_PI / sliceCount;
+
+	// Compute vertices for each stack ring (excluding top and bottom poles)
+	for (uint32_t i = 1; i <= stackCount - 1; ++i)
+	{
+		float phi = i * phiStep;
+
+		for (uint32_t j = 0; j <= sliceCount; ++j)
+		{
+			float theta = j * thetaStep;
+
+			sVertex vertex;
+
+			// Position
+			vertex.position.x = radius * sinf(phi) * cosf(theta);
+			vertex.position.y = radius * cosf(phi);
+			vertex.position.z = radius * sinf(phi) * sinf(theta);
+
+			// Normal
+			XMVECTOR p = XMLoadFloat3(&vertex.position);
+			XMStoreFloat3(&vertex.normal, XMVector3Normalize(p));
+
+			// Texture coordinates
+			vertex.texC.x = theta / XM_2PI;
+			vertex.texC.y = phi / XM_PI;
+
+			// Tangent (pointing in the theta direction)
+			vertex.tangentU = XMFLOAT3(-radius * sinf(phi) * sinf(theta), 0.0f, radius * sinf(phi) * cosf(theta));
+			XMStoreFloat3(&vertex.tangentU, XMVector3Normalize(XMLoadFloat3(&vertex.tangentU)));
+
+			meshData.vertecies.push_back(vertex);
+		}
+	}
+
+	// Bottom vertex (south pole)
+	sVertex bottomVertex;
+	bottomVertex.position = XMFLOAT3(0.0f, -radius, 0.0f);
+	bottomVertex.normal = XMFLOAT3(0.0f, -1.0f, 0.0f);
+	bottomVertex.tangentU = XMFLOAT3(1.0f, 0.0f, 0.0f);
+	bottomVertex.texC = XMFLOAT2(0.0f, 1.0f);
+	meshData.vertecies.push_back(bottomVertex);
+
+	// --- Indices ---
+
+	// Top cap indices (triangle fan)
+	for (uint32_t i = 1; i <= sliceCount; ++i)
+	{
+		meshData.indices32.push_back(0);                    // top vertex
+		meshData.indices32.push_back(i);
+		meshData.indices32.push_back(i % sliceCount + 1);  // wrap around slice
+	}
+
+	// Body indices (quads split into two triangles)
+	uint32_t baseIndex = 1;
+	uint32_t ringVertexCount = sliceCount + 1;
+
+	for (uint32_t i = 0; i < stackCount - 2; ++i)
+	{
+		for (uint32_t j = 0; j < sliceCount; ++j)
+		{
+			meshData.indices32.push_back(baseIndex + i * ringVertexCount + j);
+			meshData.indices32.push_back(baseIndex + (i + 1) * ringVertexCount + j);
+			meshData.indices32.push_back(baseIndex + (i + 1) * ringVertexCount + j + 1);
+
+			meshData.indices32.push_back(baseIndex + i * ringVertexCount + j);
+			meshData.indices32.push_back(baseIndex + (i + 1) * ringVertexCount + j + 1);
+			meshData.indices32.push_back(baseIndex + i * ringVertexCount + j + 1);
+		}
+	}
+
+	// Bottom cap indices (triangle fan)
+	uint32_t southPoleIndex = static_cast<uint32_t>(meshData.vertecies.size()) - 1;
+	baseIndex = southPoleIndex - ringVertexCount;
+
+	for (uint32_t i = 0; i < sliceCount; ++i)
+	{
+		meshData.indices32.push_back(southPoleIndex);
+		meshData.indices32.push_back(baseIndex + (i + 1) % ringVertexCount);
+		meshData.indices32.push_back(baseIndex + i);
+	}
+
+	return meshData;
 }
