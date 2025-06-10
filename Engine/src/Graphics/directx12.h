@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <DirectXMath.h>
@@ -7,6 +8,8 @@
 #include <unordered_map>
 #include <vector>
 #include <wrl.h>
+
+#include "meshGenerator.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -47,6 +50,10 @@ class cDirectX12
 		
 	public:
 		void InitializeVertices();
+
+		void InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::vector<sVertex>& _rVertecis, std::vector<std::uint16_t>& _rIndices, std::string& _rName, XMFLOAT4 _rColor);
+		void InitializeGeometryBuffer(std::vector<sVertex>& _rVertecis, std::vector<std::uint16_t>& _rIndices); 
+
 		void Update(XMMATRIX _view);
 		void Draw(); 
 		float GetAspectRatio() const;
@@ -71,7 +78,7 @@ class cDirectX12
 
 	private:
 
-		sMeshGeometry* m_pBoxGeometry;
+		sMeshGeometry* m_pGeometry;
 		
 		XMFLOAT4X4 m_proj;
 		XMFLOAT4X4 m_view;
@@ -84,7 +91,7 @@ class cDirectX12
 
 		std::vector<sFrameResource*>	m_frameResources;
 		std::vector<sRenderItem*>		m_renderItems;
-		sFrameResource* m_pCurrentFrameResource;
+		sFrameResource*	m_pCurrentFrameResource;
 		int m_currentFrameResourceIndex; 
 
 		std::unordered_map<std::string, sMeshGeometry*> m_geometries; 

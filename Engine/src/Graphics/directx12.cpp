@@ -101,6 +101,8 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     m_pPipelineManager = new cPipelineManager(m_pDeviceManager);
     m_pPipelineManager->Initialize(); 
     
+    m_pGeometry = new sMeshGeometry;
+
     InitializeVertices();
     InitializeFrameResources();
 
@@ -129,7 +131,7 @@ void cDirectX12::Finalize()
         delete pair.second;
     }
     
-    delete m_pBoxGeometry;
+    delete m_pGeometry;
 
     delete m_pBufferManager;
     delete m_pSwapChainManager;
@@ -141,7 +143,7 @@ void cDirectX12::Finalize()
 
 void cDirectX12::InitializeVertices()
 {
-
+/*
     cMeshGenerator meshGenerator;
 
     // Create Cylinder
@@ -257,10 +259,22 @@ void cDirectX12::InitializeVertices()
 
     // Store geometry
     m_geometries[geo->name] = geo;
+ */
 
+    
+    std::vector<sVertex> vertecies;
+    std::vector<uint16_t> indices;
+
+    cMeshGenerator meshGenerator;
+
+    InitializeMesh(meshGenerator.CreateCylinder(0.5f, 0.3f, 3.0f, 20, 20), vertecies, indices, std::string("cylinder"), XMFLOAT4(1.f, 0.f, 0.f, 1.f));
+    InitializeMesh(meshGenerator.CreateCube(), vertecies, indices, std::string("cube"), XMFLOAT4(0.f, 0.f, 1.f, 1.f));
+    InitializeMesh(meshGenerator.CreateSphere(1.0f, 20, 20), vertecies, indices, std::string("sphere"), XMFLOAT4(0.f, 1.f, 1.f, 1.f));
+   
+    InitializeGeometryBuffer(vertecies, indices);
     // ---- Create Render Item: Cylinder ----
     sRenderItem* pItem2 = new sRenderItem();
-    pItem2->pGeometry = geo;
+    pItem2->pGeometry = m_pGeometry;
     pItem2->objCBIndex = 0;
 
     float scale = 2.f;
@@ -268,7 +282,7 @@ void cDirectX12::InitializeVertices()
     XMMATRIX worldMatrix = scaleMatrix * XMMatrixTranslation(-3.f, 0.f, 0.f);
     XMStoreFloat4x4(&pItem2->worldMatrix, worldMatrix);
 
-    sSubmeshGeometry submeshCyl = geo->drawArguments["cylinder"];
+    sSubmeshGeometry submeshCyl = m_pGeometry->drawArguments["cylinder"];
     pItem2->indexCount = submeshCyl.indexCount;
     pItem2->startIndexLocation = submeshCyl.startIndexLocation;
     pItem2->baseVertexLocation = submeshCyl.startVertexLocation;
@@ -277,14 +291,14 @@ void cDirectX12::InitializeVertices()
 
     // ---- Create Render Item: Cube ----
     sRenderItem* pItem3 = new sRenderItem();
-    pItem3->pGeometry = geo;
+    pItem3->pGeometry = m_pGeometry;
     pItem3->objCBIndex = 1;
 
     XMMATRIX cubeScale = XMMatrixScaling(2.f, 2.f, 2.f);
     XMMATRIX cubeWorld = cubeScale * XMMatrixTranslation(3.f, 0.f, 0.f);
     XMStoreFloat4x4(&pItem3->worldMatrix, cubeWorld);
 
-    sSubmeshGeometry submeshCube = geo->drawArguments["cube"];
+    sSubmeshGeometry submeshCube = m_pGeometry->drawArguments["cube"];
     pItem3->indexCount = submeshCube.indexCount;
     pItem3->startIndexLocation = submeshCube.startIndexLocation;
     pItem3->baseVertexLocation = submeshCube.startVertexLocation;
@@ -293,19 +307,80 @@ void cDirectX12::InitializeVertices()
 
     // ---- Create Render Item: Sphere ----
     sRenderItem* pItem4 = new sRenderItem();
-    pItem4->pGeometry = geo;
+    pItem4->pGeometry = m_pGeometry;
     pItem4->objCBIndex = 2;
 
     XMMATRIX sphereScale = XMMatrixScaling(2.f, 2.f, 2.f);
     XMMATRIX sphereWorld = sphereScale * XMMatrixTranslation(0.f, 0.f, 3.f);
     XMStoreFloat4x4(&pItem4->worldMatrix, sphereWorld);
 
-    sSubmeshGeometry submeshSphere = geo->drawArguments["sphere"];
+    sSubmeshGeometry submeshSphere = m_pGeometry->drawArguments["sphere"];
     pItem4->indexCount = submeshSphere.indexCount;
     pItem4->startIndexLocation = submeshSphere.startIndexLocation;
     pItem4->baseVertexLocation = submeshSphere.startVertexLocation;
 
     m_renderItems.push_back(pItem4);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::vector<sVertex>& _rVertecis, std::vector<std::uint16_t>& _rIndices, std::string& _rName, XMFLOAT4 _rColor)
+{
+    sSubmeshGeometry subMesh;
+
+    subMesh.indexCount              = _rMeshData.indices32.size();
+    subMesh.startIndexLocation      = _rIndices.size();
+    subMesh.startVertexLocation     = _rVertecis.size();
+
+    // todo: rename vertecies 
+    for (auto v : _rMeshData.vertecies)
+    {
+        sVertex vOut; 
+
+        vOut.pos = v.position;
+        vOut.color = _rColor;
+        _rVertecis.push_back(vOut);
+    }
+
+    std::vector<uint16> meshIndices16 = _rMeshData.GetIndices16(); 
+    _rIndices.insert(_rIndices.end(), meshIndices16.begin(), meshIndices16.end());
+
+    m_pGeometry->drawArguments[_rName] = subMesh;
+}
+
+void cDirectX12::InitializeGeometryBuffer(std::vector<sVertex>& _rVertecis, std::vector<std::uint16_t>& _rIndices)
+{
+    const UINT vbByteSize = static_cast<UINT>(_rVertecis.size() * sizeof(sVertex));
+    const UINT ibByteSize = static_cast<UINT>(_rIndices.size() * sizeof(uint16_t));
+
+    m_pGeometry->name = "shapeGeo";
+
+    cDirectX12Util::ThrowIfFailed(D3DCreateBlob(vbByteSize, &m_pGeometry->vertexBufferCPU));
+    CopyMemory(m_pGeometry->vertexBufferCPU->GetBufferPointer(), _rVertecis.data(), vbByteSize);
+
+    cDirectX12Util::ThrowIfFailed(D3DCreateBlob(ibByteSize, &m_pGeometry->indexBufferCPU));
+    CopyMemory(m_pGeometry->indexBufferCPU->GetBufferPointer(), _rIndices.data(), ibByteSize);
+
+    m_pGeometry->vertexBufferGPU = cDirectX12Util::CreateDefaultBuffer(
+        m_pDeviceManager->GetDevice(),
+        m_pDeviceManager->GetCommandList(),
+        _rVertecis.data(),
+        vbByteSize,
+        m_pGeometry->vertexBufferUploader
+    );
+
+    m_pGeometry->indexBufferGPU = cDirectX12Util::CreateDefaultBuffer(
+        m_pDeviceManager->GetDevice(),
+        m_pDeviceManager->GetCommandList(),
+        _rIndices.data(),
+        ibByteSize,
+        m_pGeometry->indexBufferUploader
+    );
+
+    m_pGeometry->vertexByteStride = sizeof(sVertex);
+    m_pGeometry->vertexBufferByteSize = vbByteSize;
+    m_pGeometry->indexFormat = DXGI_FORMAT_R16_UINT;
+    m_pGeometry->indexBufferByteSize = ibByteSize;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

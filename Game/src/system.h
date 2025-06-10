@@ -1,9 +1,15 @@
 #pragma once 
 
+#include <cstdint>
 #include <windows.h>
 #include <DirectXMath.h>
+#include <vector>
+
+#include "Graphics/vertex.h"
 
 using namespace DirectX;
+
+struct sVertex; 
 
 class cWindow;
 class cDirectX12;
@@ -46,6 +52,9 @@ class cSystem
 
 		int m_lastMouseX;
 		int m_lastMouseY;
+
+		std::vector<sVertex>		m_vertices;
+		std::vector<std::int16_t>	m_indices;
 
 		XMFLOAT4X4 m_view;
 		XMFLOAT4X4 m_world;
