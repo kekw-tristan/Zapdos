@@ -7,12 +7,13 @@
 #include <d3d12.h>
 
 #include "core/window.h"
-#include "graphics/directx12.h"
-#include "graphics/directx12Util.h"
 #include "core/timer.h"
 #include "core/input.h"
+
+#include "graphics/directx12.h"
+#include "graphics/directx12Util.h"
 #include "graphics/vertex.h"
-#include "Graphics/meshGeometry.h"
+#include "graphics/meshGeometry.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -31,13 +32,7 @@ void cSystem::Initialize()
 	m_pDirectX12 = new cDirectX12();
 	m_pDirectX12->Initialize(m_pWindow, m_pTimer, c_numberOfRenderItems);
 
-
 	InitializeRenderItems();
-
-
-	m_radius = 10.0f;    // Reasonable camera distance
-	m_theta = 1.5f;      // Some rotation around Y
-	m_phi = 1.0f;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -86,10 +81,10 @@ void cSystem::InitializeRenderItems()
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
-    const int totalItems = 1000;
-    const float spacing = 4.0f;     
-	const int itemsPerRow = 20;
-    const int itemsPerLayer = 20;
+    const int   totalItems      = 1000;
+    const float spacing         = 4.0f;     
+	const int   itemsPerRow     = 20;
+    const int   itemsPerLayer   = 20;
 
     for (int i = 0; i < totalItems; ++i)
     {
@@ -109,38 +104,38 @@ void cSystem::InitializeRenderItems()
         float yPos = (yIndex - itemsPerLayer / 2) * spacing;
         float zPos = (zIndex - (totalItems / (itemsPerRow * itemsPerLayer)) / 2) * spacing;
 
-        XMMATRIX scale = XMMatrixScaling(2.f, 2.f, 2.f);
-        XMMATRIX translation = XMMatrixTranslation(xPos, yPos, zPos);
-        XMMATRIX world = scale * translation;
+        XMMATRIX scale          = XMMatrixScaling(2.f, 2.f, 2.f);
+        XMMATRIX translation    = XMMatrixTranslation(xPos, yPos, zPos);
+        XMMATRIX world          = scale * translation;
 
         switch (typeIndex)
         {
-        case 0: // cube
-        {
-            const sSubmeshGeometry& submesh = pMeshGeo->drawArguments.at("cube");
-            renderItem.indexCount = submesh.indexCount;
-            renderItem.startIndexLocation = submesh.startIndexLocation;
-            renderItem.baseVertexLocation = submesh.startVertexLocation;
-            break;
-        }
-        case 1: // sphere
-        {
-            const sSubmeshGeometry& submesh = pMeshGeo->drawArguments.at("sphere");
-            renderItem.indexCount = submesh.indexCount;
-            renderItem.startIndexLocation = submesh.startIndexLocation;
-            renderItem.baseVertexLocation = submesh.startVertexLocation;
-            break;
-        }
-        case 2: // cylinder
-        {
-            const sSubmeshGeometry& submesh = pMeshGeo->drawArguments.at("cylinder");
-            renderItem.indexCount = submesh.indexCount;
-            renderItem.startIndexLocation = submesh.startIndexLocation;
-            renderItem.baseVertexLocation = submesh.startVertexLocation;
-            break;
-        }
-        default:
-            break;
+            case 0: // cube
+            {
+                const sSubmeshGeometry& submesh = pMeshGeo->drawArguments.at("cube");
+                renderItem.indexCount           = submesh.indexCount;
+                renderItem.startIndexLocation   = submesh.startIndexLocation;
+                renderItem.baseVertexLocation   = submesh.startVertexLocation;
+                break;
+            }
+            case 1: // sphere
+            {
+                const sSubmeshGeometry& submesh = pMeshGeo->drawArguments.at("sphere");
+                renderItem.indexCount           = submesh.indexCount;
+                renderItem.startIndexLocation   = submesh.startIndexLocation;
+                renderItem.baseVertexLocation   = submesh.startVertexLocation;
+                break;
+            }
+            case 2: // cylinder
+            {
+                const sSubmeshGeometry& submesh     = pMeshGeo->drawArguments.at("cylinder");
+                renderItem.indexCount               = submesh.indexCount;
+                renderItem.startIndexLocation       = submesh.startIndexLocation;
+                renderItem.baseVertexLocation       = submesh.startVertexLocation;
+                break;
+            }
+            default:
+                break;
         }
 
         XMStoreFloat4x4(&renderItem.worldMatrix, world);
@@ -152,53 +147,68 @@ void cSystem::InitializeRenderItems()
 
 void cSystem::Update()
 {
-	HandleInput();
+    HandleInput();
 
-	// Convert spherical to Cartesian coordinates
-	float x = m_radius * sinf(m_phi) * cosf(m_theta);
-	float y = m_radius * sinf(m_phi) * sinf(m_theta);
-	float z = m_radius * cosf(m_phi);
+    XMVECTOR pos = XMLoadFloat3(&m_position);
+    XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_pitch, m_yaw, 0.0f);
 
-	XMVECTOR pos = XMVectorSet(x, y, z, 1.0f);
-	XMVECTOR at = XMVectorZero(); 
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f); 
+    XMVECTOR forward    = XMVector3TransformCoord(XMVectorSet(0, 0, 1, 0), rot);
+    XMVECTOR up         = XMVector3TransformCoord(XMVectorSet(0, 1, 0, 0), rot);
+    XMVECTOR at         = pos + forward;
 
-	// Create and store the view matrix
-	XMMATRIX view = XMMatrixLookAtLH(pos, at, up);
-	XMStoreFloat4x4(&m_view, view);
+    XMMATRIX view = XMMatrixLookAtLH(pos, at, up);
+    XMStoreFloat4x4(&m_view, view);
 
-	// Update DirectX12 engine
-	m_pDirectX12->Update(view, &m_renderItems);
+    m_pDirectX12->Update(view, &m_renderItems);
 }
-
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cSystem::HandleInput()
 {
-	if (cInput::IsMouseButtonDown(MK_LBUTTON))
-	{
-		float dx = XMConvertToRadians(0.25f * static_cast<float>(cInput::GetMouseX() - m_lastMouseX));
-		float dy = XMConvertToRadians(0.25f * static_cast<float>(cInput::GetMouseY() - m_lastMouseY));
+    float speed = 0.1f;
+    constexpr float rotSpeed = XMConvertToRadians(1.0f);
 
-		m_theta += dx;
-		m_phi += dy;
+    // Create rotation matrix from yaw and pitch to compute directions
+    XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_pitch, m_yaw, 0.0f);
 
-		m_phi = std::clamp(m_phi, 0.1f, XM_PI - 0.1f);
-	}
-	else if (cInput::IsMouseButtonDown(MK_RBUTTON))
-	{
-		float dy = 0.25f * static_cast<float>(cInput::GetMouseY() - m_lastMouseY);
+    XMVECTOR forward = XMVector3TransformCoord(XMVectorSet(0, 0, 1, 0), rot);
+    XMVECTOR right = XMVector3TransformCoord(XMVectorSet(1, 0, 0, 0), rot);
 
-		m_radius += 0.01f * dy;
+    XMVECTOR pos = XMLoadFloat3(&m_position);
 
-		// Final clamp: enforce positive, reasonable zoom
-		m_radius = std::clamp(m_radius, 3.0f, 15.0f);
-	}
+    // WASD movement
+    if (cInput::IsKeyDown('W'))
+        pos += speed * forward;
 
-	m_lastMouseX = cInput::GetMouseX();
-	m_lastMouseY = cInput::GetMouseY();
+    if (cInput::IsKeyDown('S'))
+        pos -= speed * forward;
+
+    if (cInput::IsKeyDown('A'))
+        pos -= speed * right;
+
+    if (cInput::IsKeyDown('D'))
+        pos += speed * right;
+
+    // Arrow key rotation
+    if (cInput::IsKeyDown(VK_LEFT))
+        m_yaw -= rotSpeed;
+
+    if (cInput::IsKeyDown(VK_RIGHT))
+        m_yaw += rotSpeed;
+
+    if (cInput::IsKeyDown(VK_DOWN))
+        m_pitch += rotSpeed;
+
+    if (cInput::IsKeyDown(VK_UP))
+        m_pitch -= rotSpeed;
+
+    // Clamp pitch to avoid gimbal lock
+    m_pitch = std::clamp(m_pitch, -XM_PIDIV2 + 0.1f, XM_PIDIV2 - 0.1f);
+
+    XMStoreFloat3(&m_position, pos);
 }
 
+// --------------------------------------------------------------------------------------------------------------------------
 
 

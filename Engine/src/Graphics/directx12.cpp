@@ -14,7 +14,7 @@
 
 #include "core/window.h"
 #include "core/timer.h"
-#include "Core/input.h"
+#include "core/input.h"
 
 #include "directx12Util.h"
 #include "frameResource.h"
@@ -29,9 +29,6 @@
 #include "meshGenerator.h"
 
 constexpr float c_pi = 3.1415927f;
-
-// possible things to add:
-// sissor rectangles(pixels outside the rectangle area are culled [useful for gui optimization])
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -58,7 +55,6 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
     if (newestVersionFound.empty())
     {
-        // TODO: Error, no PIX installation found
         std::cout << "no pix installation found" << std::endl;
     }
 
@@ -86,27 +82,22 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _ma
         std::cerr << "D3D12 Debug Layer not available." << std::endl;
     }
    
-    m_pWindow = _pWindow;
-    m_pTimer = _pTimer;
-    m_maxNumberOfRenderItems = _maxNumberOfRenderItems; 
+    m_pWindow                   = _pWindow;
+    m_pTimer                    = _pTimer;
+    m_maxNumberOfRenderItems    = _maxNumberOfRenderItems; 
 
-    m_pDeviceManager = new cDeviceManager();
-    m_pDeviceManager->Initialize();
-
+    m_pDeviceManager    = new cDeviceManager();
     m_pSwapChainManager = new cSwapChainManager(m_pDeviceManager, m_pWindow);
-    m_pSwapChainManager->Initialize();
+    m_pBufferManager    = new cBufferManager(m_pDeviceManager, m_pSwapChainManager);
+    m_pPipelineManager  = new cPipelineManager(m_pDeviceManager);
+    m_pGeometry         = new sMeshGeometry;
 
-    m_pBufferManager = new cBufferManager(m_pDeviceManager, m_pSwapChainManager);
-    m_pBufferManager->Initialize(_maxNumberOfRenderItems);
-
-    m_pPipelineManager = new cPipelineManager(m_pDeviceManager);
-    m_pPipelineManager->Initialize(); 
+    m_pDeviceManager    ->Initialize();
+    m_pSwapChainManager ->Initialize();
+    m_pBufferManager    ->Initialize(_maxNumberOfRenderItems);
+    m_pPipelineManager  ->Initialize(); 
     
-    m_pGeometry = new sMeshGeometry;
-
     InitializeFrameResources();
-
-   
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -126,7 +117,6 @@ void cDirectX12::Finalize()
     }
     
     delete m_pGeometry;
-
     delete m_pBufferManager;
     delete m_pSwapChainManager;
     delete m_pDeviceManager;
@@ -137,7 +127,6 @@ void cDirectX12::Finalize()
 
 void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::string& _rName, XMFLOAT4 _rColor)
 {
-
     sSubmeshGeometry subMesh;
 
     subMesh.indexCount              = _rMeshData.indices32.size();
@@ -193,10 +182,10 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
         m_pGeometry->indexBufferUploader
     );
 
-    m_pGeometry->vertexByteStride = sizeof(sVertex);
-    m_pGeometry->vertexBufferByteSize = vbByteSize;
-    m_pGeometry->indexFormat = DXGI_FORMAT_R16_UINT;
-    m_pGeometry->indexBufferByteSize = ibByteSize;
+    m_pGeometry->vertexByteStride       = sizeof(sVertex);
+    m_pGeometry->vertexBufferByteSize   = vbByteSize;
+    m_pGeometry->indexFormat            = DXGI_FORMAT_R16_UINT;
+    m_pGeometry->indexBufferByteSize    = ibByteSize;
 
     m_pDeviceManager->GetCommandList()->Close();
     ID3D12CommandList* cmdLists[] = { m_pDeviceManager->GetCommandList() };
@@ -211,15 +200,16 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
 void cDirectX12::Update(XMMATRIX _view, std::array<sRenderItem, 1000>* _pRenderItems)
 {
     m_pRenderItems = _pRenderItems; 
+    
     // Advance frame resource
     m_currentFrameResourceIndex = (m_currentFrameResourceIndex + 1) % c_NumberOfFrameResources;
-    m_pCurrentFrameResource = m_frameResources[m_currentFrameResourceIndex];
+    m_pCurrentFrameResource     = m_frameResources[m_currentFrameResourceIndex];
     WaitForCurrentFrameResourceIfInUse();
 
     // Reset command list & allocator
-    ID3D12PipelineState* pPso = m_pPipelineManager->GetPipelineStateObject();
-    ID3D12CommandAllocator* pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
-    ID3D12GraphicsCommandList* pCommandList = m_pDeviceManager->GetCommandList();
+    ID3D12PipelineState*        pPso                = m_pPipelineManager->GetPipelineStateObject();
+    ID3D12CommandAllocator*     pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
+    ID3D12GraphicsCommandList*  pCommandList        = m_pDeviceManager->GetCommandList();
 
     cDirectX12Util::ThrowIfFailed(pDirectCmdListAlloc->Reset());
     cDirectX12Util::ThrowIfFailed(pCommandList->Reset(pDirectCmdListAlloc, pPso));
@@ -233,10 +223,10 @@ void cDirectX12::Update(XMMATRIX _view, std::array<sRenderItem, 1000>* _pRenderI
 
     XMVECTOR eyePos = XMVectorSet(0.0f, 10.0f, -100.0f, 1.0f);
     XMVECTOR target = XMVectorZero();
-    XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+    XMVECTOR up     = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
     XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
-    XMStoreFloat4x4(&m_view, view);
+    XMStoreFloat4x4(&m_view, _view);
 
     // === Upload data to GPU buffers ===
     UpdateObjectCB();  // Writes m_renderItems[*]->worldMatrix to per-object CB
@@ -475,8 +465,8 @@ void cDirectX12::InitializeFrameResources()
         m_frameResources.push_back(new sFrameResource(m_pDeviceManager->GetDevice(), 1, m_maxNumberOfRenderItems));
     }
 
-    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    D3D12_CPU_DESCRIPTOR_HANDLE cbvHandle = pCbvHeap->GetCPUDescriptorHandleForHeapStart();
+    UINT                        descriptorSize  = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    D3D12_CPU_DESCRIPTOR_HANDLE cbvHandle       = pCbvHeap->GetCPUDescriptorHandleForHeapStart();
 
     for (UINT frameIndex = 0; frameIndex < c_NumberOfFrameResources; frameIndex++)
     {

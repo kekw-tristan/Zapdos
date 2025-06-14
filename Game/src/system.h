@@ -62,4 +62,8 @@ class cSystem
 		XMFLOAT4X4 m_proj;
 
 		std::array<sRenderItem, c_numberOfRenderItems> m_renderItems;
+
+		XMFLOAT3	m_position	= XMFLOAT3(0.0f, 0.0f, -30.0f);
+		float		m_yaw		= 0.0f;    
+		float		m_pitch		= 0.0f;
 };
