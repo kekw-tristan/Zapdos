@@ -79,50 +79,73 @@ void cSystem::InitializeRenderItems()
 {
     cMeshGenerator meshGenerator;
 
+    // Initialize meshes with distinct keys
     m_pDirectX12->InitializeMesh(meshGenerator.CreateCube(), std::string("cube"), XMFLOAT4(0.f, 0.f, 1.f, 1.f));
     m_pDirectX12->InitializeMesh(meshGenerator.CreateSphere(1.0f, 20, 20), std::string("sphere"), XMFLOAT4(0.f, 1.f, 1.f, 1.f));
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateCylinder(0.3, 0.5, 5.f, 20, 20), std::string("sphere"), XMFLOAT4(0.f, 1.f, 1.f, 1.f));
-    
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateCylinder(0.3, 0.5, 5.f, 20, 20), std::string("cylinder"), XMFLOAT4(1.f, 0.f, 1.f, 1.f));
+
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
-	for (size_t i = 0; i < m_renderItems.size(); ++i)
-	{
-		sRenderItem renderItem; // Create a local renderItem (not a pointer)
+    const int totalItems = 1000;
+    const float spacing = 4.0f;     
+	const int itemsPerRow = 20;
+    const int itemsPerLayer = 20;
 
-		renderItem.pGeometry = pMeshGeo;
-		renderItem.objCBIndex = static_cast<UINT>(i);
+    for (int i = 0; i < totalItems; ++i)
+    {
+        sRenderItem renderItem;
+        renderItem.pGeometry = pMeshGeo;
+        renderItem.objCBIndex = static_cast<UINT>(i);
 
-		if (i % 2 == 0)
-		{
-			// Cube
-			XMMATRIX scale = XMMatrixScaling(2.f, 2.f, 2.f);
-			XMMATRIX world = scale * XMMatrixTranslation(3.f * (i / 2), 0.f, 0.f);
-			XMStoreFloat4x4(&renderItem.worldMatrix, world);
+        // Cycle through cube, sphere, cylinder
+        int typeIndex = i % 3;
 
-			const sSubmeshGeometry& submesh = pMeshGeo->drawArguments["cube"];
+        // Calculate 3D grid position:
+        int xIndex = i % itemsPerRow;
+        int yIndex = (i / itemsPerRow) % itemsPerLayer;
+        int zIndex = i / (itemsPerRow * itemsPerLayer);
 
-			renderItem.indexCount = submesh.indexCount;
-			renderItem.startIndexLocation = submesh.startIndexLocation;
-			renderItem.baseVertexLocation = submesh.startVertexLocation;
-		}
-		else
-		{
-			// Sphere
-			XMMATRIX scale = XMMatrixScaling(2.f, 2.f, 2.f);
-			XMMATRIX world = scale * XMMatrixTranslation(0.f, 0.f, 3.f * (i / 2));
-			XMStoreFloat4x4(&renderItem.worldMatrix, world);
+        float xPos = (xIndex - itemsPerRow / 2) * spacing;
+        float yPos = (yIndex - itemsPerLayer / 2) * spacing;
+        float zPos = (zIndex - (totalItems / (itemsPerRow * itemsPerLayer)) / 2) * spacing;
 
-			const sSubmeshGeometry& submesh = pMeshGeo->drawArguments["sphere"];
+        XMMATRIX scale = XMMatrixScaling(2.f, 2.f, 2.f);
+        XMMATRIX translation = XMMatrixTranslation(xPos, yPos, zPos);
+        XMMATRIX world = scale * translation;
 
-			renderItem.indexCount = submesh.indexCount;
-			renderItem.startIndexLocation = submesh.startIndexLocation;
-			renderItem.baseVertexLocation = submesh.startVertexLocation;
-		}
+        switch (typeIndex)
+        {
+        case 0: // cube
+        {
+            const sSubmeshGeometry& submesh = pMeshGeo->drawArguments.at("cube");
+            renderItem.indexCount = submesh.indexCount;
+            renderItem.startIndexLocation = submesh.startIndexLocation;
+            renderItem.baseVertexLocation = submesh.startVertexLocation;
+            break;
+        }
+        case 1: // sphere
+        {
+            const sSubmeshGeometry& submesh = pMeshGeo->drawArguments.at("sphere");
+            renderItem.indexCount = submesh.indexCount;
+            renderItem.startIndexLocation = submesh.startIndexLocation;
+            renderItem.baseVertexLocation = submesh.startVertexLocation;
+            break;
+        }
+        case 2: // cylinder
+        {
+            const sSubmeshGeometry& submesh = pMeshGeo->drawArguments.at("cylinder");
+            renderItem.indexCount = submesh.indexCount;
+            renderItem.startIndexLocation = submesh.startIndexLocation;
+            renderItem.baseVertexLocation = submesh.startVertexLocation;
+            break;
+        }
+        default:
+            break;
+        }
 
-		m_renderItems[i] = renderItem;
-
-	}
-
+        XMStoreFloat4x4(&renderItem.worldMatrix, world);
+        m_renderItems[i] = renderItem;
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

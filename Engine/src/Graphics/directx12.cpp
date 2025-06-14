@@ -236,7 +236,7 @@ void cDirectX12::Update(XMMATRIX _view, std::array<sRenderItem, 1000>* _pRenderI
     XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
     XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
-    XMStoreFloat4x4(&m_view, _view);
+    XMStoreFloat4x4(&m_view, view);
 
     // === Upload data to GPU buffers ===
     UpdateObjectCB();  // Writes m_renderItems[*]->worldMatrix to per-object CB
