@@ -3,6 +3,7 @@
 #include "deviceManager.h"
 #include "directx12Util.h"
 #include "uploadBuffer.h"
+#include "directx12.h"
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -20,9 +21,9 @@ cBufferManager::~cBufferManager()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cBufferManager::Initialize()
+void cBufferManager::Initialize(unsigned int _maxNumberOfRenderItems)
 {
-    InitializeDescriptorHeaps();
+    InitializeDescriptorHeaps(_maxNumberOfRenderItems);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -34,13 +35,13 @@ ID3D12DescriptorHeap* cBufferManager::GetCbvHeap() const
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cBufferManager::InitializeDescriptorHeaps()
+void cBufferManager::InitializeDescriptorHeaps(unsigned int _maxNumberOfRenderItems)
 {
     D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
 
     cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  // Ensure this is shader visible
-    cbvHeapDesc.NumDescriptors = 12;
+    cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  
+    cbvHeapDesc.NumDescriptors = c_NumberOfFrameResources * (_maxNumberOfRenderItems + 1); // 1 is for passconstants
     cbvHeapDesc.NodeMask = 0;
 
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDevice()->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_pCbvHeap)));

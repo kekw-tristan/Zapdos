@@ -48,15 +48,15 @@ class cBufferManager
 
 	public:
 		
-		void Initialize();
+		void Initialize(unsigned int _maxNumberOfRenderItems);
 
 	public:
 
-		ID3D12DescriptorHeap* GetCbvHeap()				const;
+		ID3D12DescriptorHeap* GetCbvHeap() const;
 
 	private:
 
-		void InitializeDescriptorHeaps();
+		void InitializeDescriptorHeaps(unsigned int _maxNumberOfRenderItems);
 
 	private:
 

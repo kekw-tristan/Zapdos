@@ -9,7 +9,7 @@
 #include <vector>
 #include <wrl.h>
 
-#include "meshGenerator.h"
+#include "graphics/meshGenerator.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -45,16 +45,15 @@ class cDirectX12
 
 	public:
 
-		void Initialize(cWindow* _pWindow, cTimer* _pTimer);
+		void Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems);
 		void Finalize();
 		
 	public:
-		void InitializeVertices();
 
-		void InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::vector<sVertex>& _rVertecis, std::vector<std::uint16_t>& _rIndices, std::string& _rName, XMFLOAT4 _rColor);
-		void InitializeGeometryBuffer(std::vector<sVertex>& _rVertecis, std::vector<std::uint16_t>& _rIndices); 
+		void InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::string& _rName, XMFLOAT4 _rColor);
+		sMeshGeometry* InitializeGeometryBuffer(); 
 
-		void Update(XMMATRIX _view);
+		void Update(XMMATRIX _view, std::array<sRenderItem, 1000>* _pRenderItems);
 		void Draw(); 
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
@@ -78,21 +77,26 @@ class cDirectX12
 
 	private:
 
+		unsigned int m_maxNumberOfRenderItems; 
 		sMeshGeometry* m_pGeometry;
 		
 		XMFLOAT4X4 m_proj;
 		XMFLOAT4X4 m_view;
 		XMFLOAT4X4 m_world;
 
-		cSwapChainManager* m_pSwapChainManager;
-		cDeviceManager* m_pDeviceManager;
-		cBufferManager* m_pBufferManager;
-		cPipelineManager* m_pPipelineManager;
+		cSwapChainManager*	m_pSwapChainManager;
+		cDeviceManager*		m_pDeviceManager;
+		cBufferManager*		m_pBufferManager;
+		cPipelineManager*	m_pPipelineManager;
 
 		std::vector<sFrameResource*>	m_frameResources;
-		std::vector<sRenderItem*>		m_renderItems;
+		std::array<sRenderItem, 1000>* m_pRenderItems;
+
 		sFrameResource*	m_pCurrentFrameResource;
 		int m_currentFrameResourceIndex; 
 
 		std::unordered_map<std::string, sMeshGeometry*> m_geometries; 
+
+		std::vector<sVertex>		m_vertecis; 
+		std::vector<std::uint16_t>	m_indices;
 };

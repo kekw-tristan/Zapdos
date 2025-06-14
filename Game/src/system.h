@@ -1,11 +1,12 @@
 #pragma once 
 
+#include <array>
 #include <cstdint>
 #include <windows.h>
 #include <DirectXMath.h>
 #include <vector>
 
-#include "Graphics/vertex.h"
+#include "Graphics/renderItem.h"
 
 using namespace DirectX;
 
@@ -15,7 +16,7 @@ class cWindow;
 class cDirectX12;
 class cTimer; 
 
-constexpr float c_pi = 3.1415927f;
+constexpr int c_numberOfRenderItems = 1000;
 
 class cSystem
 {
@@ -32,8 +33,11 @@ class cSystem
 
 	private:
 
-		void Update();
+		void InitializeRenderItems(); 
 
+	private:
+
+		void Update();
 		void HandleInput();
 
 	private:
@@ -53,10 +57,9 @@ class cSystem
 		int m_lastMouseX;
 		int m_lastMouseY;
 
-		std::vector<sVertex>		m_vertices;
-		std::vector<std::int16_t>	m_indices;
-
 		XMFLOAT4X4 m_view;
 		XMFLOAT4X4 m_world;
 		XMFLOAT4X4 m_proj;
+
+		std::array<sRenderItem, c_numberOfRenderItems> m_renderItems;
 };
