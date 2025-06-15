@@ -82,6 +82,19 @@ void cSystem::InitializeRenderItems()
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
+    // Create example materials
+    static sMaterial groundMaterial;
+    groundMaterial.albedo = XMFLOAT3(0.4f, 0.8f, 0.4f);
+    groundMaterial.specularExponent = 16.0f;
+
+    static sMaterial trunkMaterial;
+    trunkMaterial.albedo = XMFLOAT3(0.55f, 0.27f, 0.07f);
+    trunkMaterial.specularExponent = 32.0f;
+
+    static sMaterial foliageMaterial;
+    foliageMaterial.albedo = XMFLOAT3(0.1f, 0.6f, 0.1f);
+    foliageMaterial.specularExponent = 8.0f;
+
     const int groundRows = 20;
     const int groundCols = 20;
     const float spacing = 5.0f;
@@ -98,6 +111,7 @@ void cSystem::InitializeRenderItems()
             // Ground block
             sRenderItem cubeItem;
             cubeItem.pGeometry = pMeshGeo;
+            cubeItem.pMaterial = &groundMaterial;       // Assign ground material
             cubeItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
 
             const auto& submesh = pMeshGeo->drawArguments.at("cube");
@@ -119,6 +133,7 @@ void cSystem::InitializeRenderItems()
                 // Trunk
                 sRenderItem trunkItem;
                 trunkItem.pGeometry = pMeshGeo;
+                trunkItem.pMaterial = &trunkMaterial;   // Assign trunk material
                 trunkItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
 
                 const auto& cylSubmesh = pMeshGeo->drawArguments.at("cylinder");
@@ -127,13 +142,14 @@ void cSystem::InitializeRenderItems()
                 trunkItem.baseVertexLocation = cylSubmesh.startVertexLocation;
 
                 XMMATRIX trunkScale = XMMatrixScaling(0.5f, trunkHeight * 0.5f, 0.5f);
-                XMMATRIX trunkTranslate = XMMatrixTranslation(x * spacing, trunkHeight * 0.25, z * spacing);
+                XMMATRIX trunkTranslate = XMMatrixTranslation(x * spacing, trunkHeight * 0.25f, z * spacing);
                 XMStoreFloat4x4(&trunkItem.worldMatrix, trunkScale * trunkTranslate);
                 m_renderItems.emplace_back(std::move(trunkItem));
 
                 // Foliage
                 sRenderItem foliageItem;
                 foliageItem.pGeometry = pMeshGeo;
+                foliageItem.pMaterial = &foliageMaterial;   // Assign foliage material
                 foliageItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
 
                 const auto& sphereSubmesh = pMeshGeo->drawArguments.at("sphere");
@@ -168,7 +184,10 @@ void cSystem::Update()
     XMMATRIX view = XMMatrixLookAtLH(pos, at, up);
     XMStoreFloat4x4(&m_view, view);
 
-    m_pDirectX12->Update(view, &m_renderItems);
+    XMFLOAT3 camPos;
+    XMStoreFloat3(&camPos, pos);
+
+    m_pDirectX12->Update(view, &m_renderItems, camPos);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

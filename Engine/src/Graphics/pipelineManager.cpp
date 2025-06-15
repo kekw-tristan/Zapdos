@@ -37,30 +37,35 @@ ID3D12RootSignature* cPipelineManager::GetRootSignature() const
 
 void cPipelineManager::InitializeRootSignature()
 {
-    // Define the root parameter array     
-    CD3DX12_ROOT_PARAMETER slotRootParameter[2] = {};
+    // Define the root parameter array - now 3 entries
+    CD3DX12_ROOT_PARAMETER slotRootParameter[3] = {};
 
-
-    // Define a descriptor range for a Constant Buffer View (CBV)
+    // Define descriptor ranges for each CBV
     CD3DX12_DESCRIPTOR_RANGE cbvTable0;
     cbvTable0.Init(
-        D3D12_DESCRIPTOR_RANGE_TYPE_CBV, // Type: Constant Buffer View
-        1,                               // Number of descriptors in the range (1 CBV)
-        0                                // Base shader register (register b0)
+        D3D12_DESCRIPTOR_RANGE_TYPE_CBV, // CBV type
+        1,                               // One CBV
+        0                                // Register b0
     );
 
     CD3DX12_DESCRIPTOR_RANGE cbvTable1;
-
     cbvTable1.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
         1,
-        1
+        1                                // Register b1
     );
 
-    // Initialize the root parameter as a descriptor table
+    CD3DX12_DESCRIPTOR_RANGE cbvTable2;
+    cbvTable2.Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+        1,
+        2                                // Register b2 (for directional light)
+    );
+
+    // Initialize root parameters as descriptor tables for each CBV
     slotRootParameter[0].InitAsDescriptorTable(
-        1,              // Number of descriptor ranges in the table (only one range)
-        &cbvTable0       // Pointer to the descriptor range
+        1,
+        &cbvTable0
     );
 
     slotRootParameter[1].InitAsDescriptorTable(
@@ -68,32 +73,36 @@ void cPipelineManager::InitializeRootSignature()
         &cbvTable1
     );
 
-    // Create a root signature descriptor with the above root parameter
-    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-        2,                              // Number of root parameters 
-        slotRootParameter,              // Pointer to root parameters
-        0,                              // Number of static samplers (none in this case)
-        nullptr,                        // Pointer to static samplers (nullptr since none)
-        D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT // Allow input layout for vertex data
+    slotRootParameter[2].InitAsDescriptorTable(
+        1,
+        &cbvTable2
     );
 
-    // Serialize the root signature to a binary blob
+    // Create the root signature descriptor with 3 parameters now
+    CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
+        3,                              // Number of root parameters
+        slotRootParameter,              // Pointer to root parameters array
+        0,                              // No static samplers
+        nullptr,
+        D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+    );
+
+    // Serialize and create root signature as before
     ComPtr<ID3DBlob> serializedRootSig = nullptr;
     ComPtr<ID3DBlob> errorBlob = nullptr;
 
     cDirectX12Util::ThrowIfFailed(D3D12SerializeRootSignature(
-        &rootSigDesc,                       // Pointer to the root signature descriptor
-        D3D_ROOT_SIGNATURE_VERSION_1,       // Root signature version
-        &serializedRootSig,                 // Output serialized signature
-        &errorBlob                          // Output error messages if any
+        &rootSigDesc,
+        D3D_ROOT_SIGNATURE_VERSION_1,
+        &serializedRootSig,
+        &errorBlob
     ));
 
-    // Create the actual root signature object on the GPU device
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDevice()->CreateRootSignature(
-        0,                                      // Node mask (0 for single-GPU)
-        serializedRootSig->GetBufferPointer(),  // Serialized signature bytecode
-        serializedRootSig->GetBufferSize(),     // Size of the bytecode
-        IID_PPV_ARGS(&m_pRootSignature)         // Output root signature object
+        0,
+        serializedRootSig->GetBufferPointer(),
+        serializedRootSig->GetBufferSize(),
+        IID_PPV_ARGS(&m_pRootSignature)
     ));
 }
 
@@ -106,8 +115,8 @@ void cPipelineManager::InitializeShader()
 
     m_InputLayouts =
     {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "COLOR",    0, DXGI_FORMAT_R32G32B32A32_FLOAT,  0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
 }
 

@@ -10,12 +10,13 @@ class cUploadBuffer;
 
 struct sObjectConstants;
 struct sPassConstants;
+struct sDirectionalLightConstants;
 
 struct sFrameResource
 {
 	public:
 
-		sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount);
+		sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount, UINT _DirectionalLightCount);
 		~sFrameResource();
 
 	public:
@@ -24,6 +25,7 @@ struct sFrameResource
 
 		cUploadBuffer<sObjectConstants>*	pObjectCB;
 		cUploadBuffer<sPassConstants>*		pPassCB;
+		cUploadBuffer<sDirectionalLightConstants>* pDirectLightCB;
 		
 		UINT64 fence;
 };

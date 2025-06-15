@@ -53,7 +53,7 @@ class cDirectX12
 		void InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::string& _rName, XMFLOAT4 _rColor);
 		sMeshGeometry* InitializeGeometryBuffer(); 
 
-		void Update(XMMATRIX _view, std::vector<sRenderItem>* _pRenderItems);
+		void Update(XMMATRIX _view, std::vector<sRenderItem>* _pRenderItems, XMFLOAT3 _eyePos);
 		void Draw(); 
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
@@ -63,6 +63,7 @@ class cDirectX12
 
 		void UpdateObjectCB();
 		void UpdatePassCB();
+		void UpdateDirectionalLightCB();
 
 	private:
 
@@ -84,13 +85,15 @@ class cDirectX12
 		XMFLOAT4X4 m_view;
 		XMFLOAT4X4 m_world;
 
+		XMFLOAT3 m_eyePos;
+
 		cSwapChainManager*	m_pSwapChainManager;
 		cDeviceManager*		m_pDeviceManager;
 		cBufferManager*		m_pBufferManager;
 		cPipelineManager*	m_pPipelineManager;
 
 		std::vector<sFrameResource*>	m_frameResources;
-		std::vector<sRenderItem>* m_pRenderItems;
+		std::vector<sRenderItem>*		m_pRenderItems;
 
 		sFrameResource*	m_pCurrentFrameResource;
 		int m_currentFrameResourceIndex; 

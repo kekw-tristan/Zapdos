@@ -18,6 +18,8 @@ using namespace DirectX;
 struct sObjectConstants
 {
 	XMFLOAT4X4 world;
+	XMFLOAT3 albedo;    
+	float specularExponent;
 	sObjectConstants() { XMStoreFloat4x4(&world, XMMatrixIdentity()); }
 };
 
