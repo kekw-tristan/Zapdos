@@ -197,7 +197,7 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cDirectX12::Update(XMMATRIX _view, std::array<sRenderItem, 1000>* _pRenderItems)
+void cDirectX12::Update(XMMATRIX _view, std::vector<sRenderItem>* _pRenderItems)
 {
     m_pRenderItems = _pRenderItems; 
     
@@ -345,7 +345,7 @@ void cDirectX12::Draw()
     m_pCurrentFrameResource->fence = currentFence;
 
     // === Present frame ===
-    cDirectX12Util::ThrowIfFailed(pSwapChain->Present(1, 0));
+    cDirectX12Util::ThrowIfFailed(pSwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING));
 }
 
 

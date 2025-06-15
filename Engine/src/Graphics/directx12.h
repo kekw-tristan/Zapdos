@@ -31,7 +31,7 @@ class cPipelineManager;
 template<typename T>
 class cUploadBuffer;
 
-constexpr int c_NumberOfFrameResources = 3; 
+constexpr int c_NumberOfFrameResources = 2; 
 
 class cDirectX12
 {
@@ -53,7 +53,7 @@ class cDirectX12
 		void InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::string& _rName, XMFLOAT4 _rColor);
 		sMeshGeometry* InitializeGeometryBuffer(); 
 
-		void Update(XMMATRIX _view, std::array<sRenderItem, 1000>* _pRenderItems);
+		void Update(XMMATRIX _view, std::vector<sRenderItem>* _pRenderItems);
 		void Draw(); 
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
@@ -90,7 +90,7 @@ class cDirectX12
 		cPipelineManager*	m_pPipelineManager;
 
 		std::vector<sFrameResource*>	m_frameResources;
-		std::array<sRenderItem, 1000>* m_pRenderItems;
+		std::vector<sRenderItem>* m_pRenderItems;
 
 		sFrameResource*	m_pCurrentFrameResource;
 		int m_currentFrameResourceIndex; 

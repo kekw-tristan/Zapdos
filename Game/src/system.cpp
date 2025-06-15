@@ -12,6 +12,7 @@
 
 #include "graphics/directx12.h"
 #include "graphics/directx12Util.h"
+#include "Graphics/renderItem.h"
 #include "graphics/vertex.h"
 #include "graphics/meshGeometry.h"
 
@@ -74,74 +75,82 @@ void cSystem::InitializeRenderItems()
 {
     cMeshGenerator meshGenerator;
 
-    // Initialize meshes with distinct keys
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateCube(), std::string("cube"), XMFLOAT4(0.f, 0.f, 1.f, 1.f));
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateSphere(1.0f, 20, 20), std::string("sphere"), XMFLOAT4(0.f, 1.f, 1.f, 1.f));
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateCylinder(0.3, 0.5, 5.f, 20, 20), std::string("cylinder"), XMFLOAT4(1.f, 0.f, 1.f, 1.f));
+    // Initialize mesh shapes
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateCube(), std::string("cube"), XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));       // green ground
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateSphere(1.0f, 20, 20), std::string("sphere"), XMFLOAT4(0.1f, 0.6f, 0.1f, 1.f)); // foliage
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateCylinder(0.3, 0.3, 1.2f, 20, 20), std::string("cylinder"), XMFLOAT4(0.55f, 0.27f, 0.07f, 1.f)); // trunk
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
-    const int   totalItems      = 1000;
-    const float spacing         = 4.0f;     
-	const int   itemsPerRow     = 20;
-    const int   itemsPerLayer   = 20;
+    const int groundRows = 50;
+    const int groundCols = 50;
+    const float spacing = 5.0f;
 
-    for (int i = 0; i < totalItems; ++i)
+    m_renderItems.clear();
+    m_renderItems.reserve(groundRows * groundCols + 5000);
+    std::cout << groundRows * groundCols + 5000 << std::endl;
+
+    // Generate ground + trees
+    for (int z = 0; z < groundRows; ++z)
     {
-        sRenderItem renderItem;
-        renderItem.pGeometry = pMeshGeo;
-        renderItem.objCBIndex = static_cast<UINT>(i);
-
-        // Cycle through cube, sphere, cylinder
-        int typeIndex = i % 3;
-
-        // Calculate 3D grid position:
-        int xIndex = i % itemsPerRow;
-        int yIndex = (i / itemsPerRow) % itemsPerLayer;
-        int zIndex = i / (itemsPerRow * itemsPerLayer);
-
-        float xPos = (xIndex - itemsPerRow / 2) * spacing;
-        float yPos = (yIndex - itemsPerLayer / 2) * spacing;
-        float zPos = (zIndex - (totalItems / (itemsPerRow * itemsPerLayer)) / 2) * spacing;
-
-        XMMATRIX scale          = XMMatrixScaling(2.f, 2.f, 2.f);
-        XMMATRIX translation    = XMMatrixTranslation(xPos, yPos, zPos);
-        XMMATRIX world          = scale * translation;
-
-        switch (typeIndex)
+        for (int x = 0; x < groundCols; ++x)
         {
-            case 0: // cube
-            {
-                const sSubmeshGeometry& submesh = pMeshGeo->drawArguments.at("cube");
-                renderItem.indexCount           = submesh.indexCount;
-                renderItem.startIndexLocation   = submesh.startIndexLocation;
-                renderItem.baseVertexLocation   = submesh.startVertexLocation;
-                break;
-            }
-            case 1: // sphere
-            {
-                const sSubmeshGeometry& submesh = pMeshGeo->drawArguments.at("sphere");
-                renderItem.indexCount           = submesh.indexCount;
-                renderItem.startIndexLocation   = submesh.startIndexLocation;
-                renderItem.baseVertexLocation   = submesh.startVertexLocation;
-                break;
-            }
-            case 2: // cylinder
-            {
-                const sSubmeshGeometry& submesh     = pMeshGeo->drawArguments.at("cylinder");
-                renderItem.indexCount               = submesh.indexCount;
-                renderItem.startIndexLocation       = submesh.startIndexLocation;
-                renderItem.baseVertexLocation       = submesh.startVertexLocation;
-                break;
-            }
-            default:
-                break;
-        }
+            // Ground block
+            sRenderItem cubeItem;
+            cubeItem.pGeometry = pMeshGeo;
+            cubeItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
 
-        XMStoreFloat4x4(&renderItem.worldMatrix, world);
-        m_renderItems[i] = renderItem;
+            const auto& submesh = pMeshGeo->drawArguments.at("cube");
+            cubeItem.indexCount = submesh.indexCount;
+            cubeItem.startIndexLocation = submesh.startIndexLocation;
+            cubeItem.baseVertexLocation = submesh.startVertexLocation;
+
+            XMMATRIX scale = XMMatrixScaling(5.0f, 0.5f, 5.0f);
+            XMMATRIX translate = XMMatrixTranslation(x * spacing, -0.25f, z * spacing);
+            XMStoreFloat4x4(&cubeItem.worldMatrix, scale * translate);
+            m_renderItems.emplace_back(std::move(cubeItem));
+
+            // Place trees densely, e.g. every other tile
+            if ((x + z) % 2 == 0)
+            {
+                float trunkHeight = 1.5f;
+                float foliageHeight = 1.5f;
+
+                // Trunk
+                sRenderItem trunkItem;
+                trunkItem.pGeometry = pMeshGeo;
+                trunkItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
+
+                const auto& cylSubmesh = pMeshGeo->drawArguments.at("cylinder");
+                trunkItem.indexCount = cylSubmesh.indexCount;
+                trunkItem.startIndexLocation = cylSubmesh.startIndexLocation;
+                trunkItem.baseVertexLocation = cylSubmesh.startVertexLocation;
+
+                XMMATRIX trunkScale = XMMatrixScaling(0.5f, trunkHeight * 0.5f, 0.5f);
+                XMMATRIX trunkTranslate = XMMatrixTranslation(x * spacing, trunkHeight * 0.25, z * spacing);
+                XMStoreFloat4x4(&trunkItem.worldMatrix, trunkScale * trunkTranslate);
+                m_renderItems.emplace_back(std::move(trunkItem));
+
+                // Foliage
+                sRenderItem foliageItem;
+                foliageItem.pGeometry = pMeshGeo;
+                foliageItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
+
+                const auto& sphereSubmesh = pMeshGeo->drawArguments.at("sphere");
+                foliageItem.indexCount = sphereSubmesh.indexCount;
+                foliageItem.startIndexLocation = sphereSubmesh.startIndexLocation;
+                foliageItem.baseVertexLocation = sphereSubmesh.startVertexLocation;
+
+                XMMATRIX foliageScale = XMMatrixScaling(foliageHeight, foliageHeight, foliageHeight);
+                XMMATRIX foliageTranslate = XMMatrixTranslation(x * spacing, trunkHeight + foliageHeight * 0.5f, z * spacing);
+                XMStoreFloat4x4(&foliageItem.worldMatrix, foliageScale * foliageTranslate);
+                m_renderItems.emplace_back(std::move(foliageItem));
+            }
+        }
     }
 }
+
+
 
 // --------------------------------------------------------------------------------------------------------------------------
 

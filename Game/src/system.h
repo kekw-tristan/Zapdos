@@ -1,12 +1,11 @@
 #pragma once 
 
-#include <array>
 #include <cstdint>
 #include <windows.h>
 #include <DirectXMath.h>
 #include <vector>
 
-#include "Graphics/renderItem.h"
+#include <Graphics/renderItem.h>
 
 using namespace DirectX;
 
@@ -16,7 +15,7 @@ class cWindow;
 class cDirectX12;
 class cTimer; 
 
-constexpr int c_numberOfRenderItems = 1000;
+constexpr int c_numberOfRenderItems = 10000;
 
 class cSystem
 {
@@ -61,7 +60,7 @@ class cSystem
 		XMFLOAT4X4 m_world;
 		XMFLOAT4X4 m_proj;
 
-		std::array<sRenderItem, c_numberOfRenderItems> m_renderItems;
+		std::vector<sRenderItem> m_renderItems;
 
 		XMFLOAT3	m_position	= XMFLOAT3(0.0f, 0.0f, -30.0f);
 		float		m_yaw		= 0.0f;    

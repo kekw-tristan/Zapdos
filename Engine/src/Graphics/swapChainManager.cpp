@@ -30,7 +30,6 @@ void cSwapChainManager::Initialize()
 {
     InitializeSwapChain();
     InitializeDescriptorHeaps();
-    //InitializeRenderTargetView();
     InitializeDepthStencilView();
     InitializeViewPort();
 }
@@ -58,7 +57,7 @@ void cSwapChainManager::OnResize()
         m_pWindow->GetWidth(),
         m_pWindow->GetHeight(),
         scDesc.Format,  
-        0
+        DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING
     ));
 
     // recreate render target view
@@ -145,7 +144,7 @@ void cSwapChainManager::InitializeSwapChain()
     swapChainDesc.SampleDesc.Count      = m_pDeviceManager->Get4xMSAAQuality() ? 4 : 1;                                             // Enable 4x MSAA if supported, otherwise no MSAA.
     swapChainDesc.SampleDesc.Quality    = m_pDeviceManager->Get4xMSAAQuality() ? (m_pDeviceManager->Get4xMSAAQuality() - 1) : 0;    // Use highest supported MSAA quality.
     swapChainDesc.AlphaMode             = DXGI_ALPHA_MODE_UNSPECIFIED;                                                              // No specific alpha mode (not used in standard swapchains).
-    swapChainDesc.Flags                 = 0;                                                                                        // Allow fullscreen toggle with Alt+Enter.
+    swapChainDesc.Flags                 = swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;;                                                                                        // Allow fullscreen toggle with Alt+Enter.
 
     ComPtr<IDXGISwapChain1> swapChain;
 
