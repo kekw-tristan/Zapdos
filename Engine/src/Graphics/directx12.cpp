@@ -345,7 +345,7 @@ void cDirectX12::Draw()
     m_pCurrentFrameResource->fence = currentFence;
 
     // === Present frame ===
-    cDirectX12Util::ThrowIfFailed(pSwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING));
+    cDirectX12Util::ThrowIfFailed(pSwapChain->Present(0, 0));
 }
 
 

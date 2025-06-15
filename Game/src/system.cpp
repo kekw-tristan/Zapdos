@@ -82,8 +82,8 @@ void cSystem::InitializeRenderItems()
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
-    const int groundRows = 50;
-    const int groundCols = 50;
+    const int groundRows = 20;
+    const int groundCols = 20;
     const float spacing = 5.0f;
 
     m_renderItems.clear();
