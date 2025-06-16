@@ -76,9 +76,9 @@ void cSystem::InitializeRenderItems()
     cMeshGenerator meshGenerator;
 
     // Initialize mesh shapes
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateCube(), std::string("cube"), XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));       // green ground
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateSphere(1.0f, 20, 20), std::string("sphere"), XMFLOAT4(0.1f, 0.6f, 0.1f, 1.f)); // foliage
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateCylinder(0.3, 0.3, 1.2f, 20, 20), std::string("cylinder"), XMFLOAT4(0.55f, 0.27f, 0.07f, 1.f)); // trunk
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateCube(), std::string("cube"), XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));                                     // green ground
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateSphere(1.0f, 20, 20), std::string("sphere"), XMFLOAT4(0.1f, 0.6f, 0.1f, 1.f));                     // foliage
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateCylinder(0.3, 0.3, 1.2f, 20, 20), std::string("cylinder"), XMFLOAT4(0.55f, 0.27f, 0.07f, 1.f));    // trunk
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
@@ -97,7 +97,7 @@ void cSystem::InitializeRenderItems()
 
     const int groundRows = 20;
     const int groundCols = 20;
-    const float spacing = 5.0f;
+    const float spacing  = 5.0f;
 
     m_renderItems.clear();
     m_renderItems.reserve(groundRows * groundCols + 5000);
@@ -141,8 +141,8 @@ void cSystem::InitializeRenderItems()
                 trunkItem.startIndexLocation = cylSubmesh.startIndexLocation;
                 trunkItem.baseVertexLocation = cylSubmesh.startVertexLocation;
 
-                XMMATRIX trunkScale = XMMatrixScaling(0.5f, trunkHeight * 0.5f, 0.5f);
-                XMMATRIX trunkTranslate = XMMatrixTranslation(x * spacing, trunkHeight * 0.25f, z * spacing);
+                XMMATRIX trunkScale = XMMatrixScaling(0.5f, trunkHeight - 0.25f, 0.5f);
+                XMMATRIX trunkTranslate = XMMatrixTranslation(x * spacing, trunkHeight * 0.5f, z * spacing);
                 XMStoreFloat4x4(&trunkItem.worldMatrix, trunkScale * trunkTranslate);
                 m_renderItems.emplace_back(std::move(trunkItem));
 
@@ -158,7 +158,7 @@ void cSystem::InitializeRenderItems()
                 foliageItem.baseVertexLocation = sphereSubmesh.startVertexLocation;
 
                 XMMATRIX foliageScale = XMMatrixScaling(foliageHeight, foliageHeight, foliageHeight);
-                XMMATRIX foliageTranslate = XMMatrixTranslation(x * spacing, trunkHeight + foliageHeight * 0.5f, z * spacing);
+                XMMATRIX foliageTranslate = XMMatrixTranslation(x * spacing, trunkHeight + foliageHeight , z * spacing);
                 XMStoreFloat4x4(&foliageItem.worldMatrix, foliageScale * foliageTranslate);
                 m_renderItems.emplace_back(std::move(foliageItem));
             }

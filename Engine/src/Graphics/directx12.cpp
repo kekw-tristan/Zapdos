@@ -33,6 +33,7 @@ constexpr float c_pi = 3.1415927f;
 
 // --------------------------------------------------------------------------------------------------------------------------
 
+/*
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 {
     LPWSTR programFilesPath = nullptr;
@@ -61,16 +62,19 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
+*/
 
 // --------------------------------------------------------------------------------------------------------------------------
 // initializes all the directx12 components
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems)
 {
+    /*
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
     {
         LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
     }
+    */
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -514,9 +518,9 @@ void cDirectX12::InitializeFrameResources()
     {
         sFrameResource* frameResource = m_frameResources[frameIndex];
 
-        UINT objCBByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));
-        UINT passCBByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(sPassConstants));
-        UINT lightCBByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(sDirectionalLightConstants));
+        UINT objCBByteSize      = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));
+        UINT passCBByteSize     = cDirectX12Util::CalculateBufferByteSize(sizeof(sPassConstants));
+        UINT lightCBByteSize    = cDirectX12Util::CalculateBufferByteSize(sizeof(sDirectionalLightConstants));
 
         // === Object CBVs (b0) ===
         D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = frameResource->pObjectCB->GetResource()->GetGPUVirtualAddress();
