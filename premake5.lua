@@ -26,7 +26,8 @@ project "Engine"
 
     files {
         "Engine/src/**.h",
-        "Engine/src/**.cpp"
+        "Engine/src/**.cpp",
+        "Assets/Shader/**.hlsl"  -- Add HLSL files for IDE visibility
     }
 
     includedirs {
@@ -44,6 +45,11 @@ project "Engine"
         ["Graphics/*"]  = "Engine/src/graphics/**",
         ["Shaders/*"]   = "Assets/Shader/**",
     }
+
+    -- Exclude HLSL files from compilation
+    filter { "files:**.hlsl" }
+        flags { "ExcludeFromBuild" }
+    filter {}
 
     filter "configurations:Debug"
         symbols "On"

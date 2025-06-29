@@ -68,10 +68,10 @@ sVertexOut VS(sVertexIn vin)
 // === Pixel Shader ===
 float4 PS(sVertexOut pin) : SV_Target
 {
-    float3 N = normalize(pin.normalW);
-    float3 L = normalize(-gLightDirW);
-    float3 V = normalize(gEyePosW - pin.posW);
-    float3 H = normalize(L + V);
+    float3 N = normalize(pin.normalW);              // Surface normal at the pixel
+    float3 L = normalize(-gLightDirW);              // Vector from pixel to light
+    float3 V = normalize(gEyePosW - pin.posW);      // Vector from pixel to eye
+    float3 H = normalize(L + V);                    // Half vector = normalize(L + V)
 
     // Ambient
     float3 ambient = gAlbedo * 0.3f;
