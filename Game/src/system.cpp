@@ -76,34 +76,48 @@ void cSystem::InitializeRenderItems()
     cMeshGenerator meshGenerator;
 
     // Initialize mesh shapes
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateCube(), std::string("cube"), XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));                                     // green ground
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateSphere(1.0f, 20, 20), std::string("sphere"), XMFLOAT4(0.1f, 0.6f, 0.1f, 1.f));                     // foliage
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateCylinder(0.3, 0.3, 1.2f, 20, 20), std::string("cylinder"), XMFLOAT4(0.55f, 0.27f, 0.07f, 1.f));    // trunk
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateCube(), std::string("cube"), XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f)); // ground
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateSphere(1.0f, 20, 20), std::string("cube"), XMFLOAT4(0.1f, 0.6f, 0.1f, 1.f)); // foliage
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateCylinder(0.3, 0.3, 1.2f, 20, 20), std::string("cube"), XMFLOAT4(0.55f, 0.27f, 0.07f, 1.f)); // trunk
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
-    // Create example materials
-    static sMaterial groundMaterial;
-    groundMaterial.albedo = XMFLOAT3(0.4f, 0.8f, 0.4f);
-    groundMaterial.specularExponent = 16.0f;
+    // **Build m_materials with direct sMaterial instances**
+    m_materials.clear();
 
-    static sMaterial trunkMaterial;
-    trunkMaterial.albedo = XMFLOAT3(0.55f, 0.27f, 0.07f);
-    trunkMaterial.specularExponent = 32.0f;
+    sMaterial groundMat;
+    groundMat.name = "ground";
+    groundMat.matCBIndex = 0;
+    groundMat.materialConstants.diffuseAlbedo = XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f);
+    groundMat.materialConstants.frenselR0 = XMFLOAT3(0.01f, 0.01f, 0.01f);
+    groundMat.materialConstants.roughness = 0.25f;
+    m_materials["ground"] = groundMat;
 
-    static sMaterial foliageMaterial;
-    foliageMaterial.albedo = XMFLOAT3(0.1f, 0.6f, 0.1f);
-    foliageMaterial.specularExponent = 8.0f;
+    sMaterial trunkMat;
+    trunkMat.name = "trunk";
+    trunkMat.matCBIndex = 1;
+    trunkMat.materialConstants.diffuseAlbedo = XMFLOAT4(0.55f, 0.27f, 0.07f, 1.f);
+    trunkMat.materialConstants.frenselR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
+    trunkMat.materialConstants.roughness = 0.8f;
+    m_materials["trunk"] = trunkMat;
 
+    sMaterial foliageMat;
+    foliageMat.name = "foliage";
+    foliageMat.matCBIndex = 2;
+    foliageMat.materialConstants.diffuseAlbedo = XMFLOAT4(0.1f, 0.6f, 0.1f, 1.f);
+    foliageMat.materialConstants.frenselR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+    foliageMat.materialConstants.roughness = 0.3f;
+    m_materials["foliage"] = foliageMat;
+
+    // -------------------------------
     const int groundRows = 20;
     const int groundCols = 20;
-    const float spacing  = 5.0f;
+    const float spacing = 5.0f;
 
     m_renderItems.clear();
     m_renderItems.reserve(groundRows * groundCols + 5000);
     std::cout << groundRows * groundCols + 5000 << std::endl;
 
-    // Generate ground + trees
     for (int z = 0; z < groundRows; ++z)
     {
         for (int x = 0; x < groundCols; ++x)
@@ -111,7 +125,7 @@ void cSystem::InitializeRenderItems()
             // Ground block
             sRenderItem cubeItem;
             cubeItem.pGeometry = pMeshGeo;
-            cubeItem.pMaterial = &groundMaterial;       // Assign ground material
+            cubeItem.pMaterial = &m_materials["ground"]; // get pointer to material in map
             cubeItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
 
             const auto& submesh = pMeshGeo->drawArguments.at("cube");
@@ -124,7 +138,7 @@ void cSystem::InitializeRenderItems()
             XMStoreFloat4x4(&cubeItem.worldMatrix, scale * translate);
             m_renderItems.emplace_back(std::move(cubeItem));
 
-            // Place trees densely, e.g. every other tile
+            // Trees
             if ((x + z) % 2 == 0)
             {
                 float trunkHeight = 1.5f;
@@ -133,7 +147,7 @@ void cSystem::InitializeRenderItems()
                 // Trunk
                 sRenderItem trunkItem;
                 trunkItem.pGeometry = pMeshGeo;
-                trunkItem.pMaterial = &trunkMaterial;   // Assign trunk material
+                trunkItem.pMaterial = &m_materials["trunk"];
                 trunkItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
 
                 const auto& cylSubmesh = pMeshGeo->drawArguments.at("cylinder");
@@ -149,7 +163,7 @@ void cSystem::InitializeRenderItems()
                 // Foliage
                 sRenderItem foliageItem;
                 foliageItem.pGeometry = pMeshGeo;
-                foliageItem.pMaterial = &foliageMaterial;   // Assign foliage material
+                foliageItem.pMaterial = &m_materials["foliage"];
                 foliageItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
 
                 const auto& sphereSubmesh = pMeshGeo->drawArguments.at("sphere");
@@ -158,15 +172,13 @@ void cSystem::InitializeRenderItems()
                 foliageItem.baseVertexLocation = sphereSubmesh.startVertexLocation;
 
                 XMMATRIX foliageScale = XMMatrixScaling(foliageHeight, foliageHeight, foliageHeight);
-                XMMATRIX foliageTranslate = XMMatrixTranslation(x * spacing, trunkHeight + foliageHeight , z * spacing);
+                XMMATRIX foliageTranslate = XMMatrixTranslation(x * spacing, trunkHeight + foliageHeight, z * spacing);
                 XMStoreFloat4x4(&foliageItem.worldMatrix, foliageScale * foliageTranslate);
                 m_renderItems.emplace_back(std::move(foliageItem));
             }
         }
     }
 }
-
-
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -187,7 +199,7 @@ void cSystem::Update()
     XMFLOAT3 camPos;
     XMStoreFloat3(&camPos, pos);
 
-    m_pDirectX12->Update(view, &m_renderItems, camPos);
+    m_pDirectX12->Update(view, camPos, &m_renderItems, &m_m_m_materials);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

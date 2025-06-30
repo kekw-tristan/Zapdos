@@ -202,7 +202,7 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cDirectX12::Update(XMMATRIX _view, std::vector<sRenderItem>* _pRenderItems, XMFLOAT3 _eyePos)
+void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderItem>* _pRenderItems, std::unordered_map<std::string, sMaterial>* _pMaterials)
 {
     m_pRenderItems = _pRenderItems; 
     m_eyePos = _eyePos;
@@ -254,9 +254,12 @@ void cDirectX12::Draw()
     ID3D12DescriptorHeap*       pCbvHeap            = m_pBufferManager->GetCbvHeap();
     ID3D12Fence*                pFence              = m_pDeviceManager->GetFence();
 
+    // === Reset command allocator and list ===
+    cDirectX12Util::ThrowIfFailed(pDirectCmdListAlloc->Reset());
+    cDirectX12Util::ThrowIfFailed(pCommandList->Reset(pDirectCmdListAlloc, pPso));
+
     // === Set viewport and scissor ===
     pCommandList->RSSetViewports(1, &rViewport);
-
     D3D12_RECT scissorRect = { 0, 0, m_pWindow->GetWidth(), m_pWindow->GetHeight() };
     pCommandList->RSSetScissorRects(1, &scissorRect);
 
@@ -296,33 +299,41 @@ void cDirectX12::Draw()
     // === Set root signature ===
     pCommandList->SetGraphicsRootSignature(pRootSignature);
 
-    // === Compute per-frame descriptor offset ===
-    UINT descriptorsPerFrame    = static_cast<UINT>(m_maxNumberOfRenderItems) + 2; // +1 for pass CBV
-    UINT baseOffset             = m_currentFrameResourceIndex * descriptorsPerFrame;
-    UINT descriptorSize         = m_pDeviceManager->GetDescriptorSizes().cbvSrvUav;
-
     // === Set Pass CBV (root param 1, register b1) ===
+    UINT descriptorsPerFrame = static_cast<UINT>(m_maxNumberOfRenderItems) + 2; // +1 for pass CBV
+    UINT baseOffset = m_currentFrameResourceIndex * descriptorsPerFrame;
+    UINT descriptorSize = m_pDeviceManager->GetDescriptorSizes().cbvSrvUav;
+
     CD3DX12_GPU_DESCRIPTOR_HANDLE passCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
     passCbvHandle.Offset(baseOffset + m_maxNumberOfRenderItems, descriptorSize);
     pCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
 
     // === Set Directional Light CBV (root param 2, register b2) ===
     CD3DX12_GPU_DESCRIPTOR_HANDLE lightCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    lightCbvHandle.Offset(baseOffset + m_maxNumberOfRenderItems + 1, descriptorSize); 
+    lightCbvHandle.Offset(baseOffset + m_maxNumberOfRenderItems + 1, descriptorSize);
     pCommandList->SetGraphicsRootDescriptorTable(2, lightCbvHandle);
 
+    // === Prepare constant buffer pointers ===
+    auto objectCB = m_pCurrentFrameResource->pObjectCB->GetResource();
+    auto matCB = m_pCurrentFrameResource->pMaterialCB->GetResource();
+    UINT objCBByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(sObjectConstants));
+    UINT matCBByteSize = cDirectX12Util::CalculateBufferByteSize(sizeof(sMaterialConstants));
 
-    for (auto& renderItem : *m_pRenderItems) 
+    // === Draw each render item ===
+    for (auto& renderItem : *m_pRenderItems)
     {
         // Set vertex/index buffers and primitive topology
         pCommandList->IASetVertexBuffers(0, 1, &renderItem.pGeometry->GetVertexBufferView());
         pCommandList->IASetIndexBuffer(&renderItem.pGeometry->GetIndexBufferView());
         pCommandList->IASetPrimitiveTopology(renderItem.primitiveType);
 
-        // === Set Oject CBV (root param 0, register b0) ===
-        CD3DX12_GPU_DESCRIPTOR_HANDLE objCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-        objCbvHandle.Offset(baseOffset + renderItem.objCBIndex, descriptorSize); // Per-frame offset
-        pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle);
+        // === Set Object CBV (root param 0, register b0) ===
+        D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = objectCB->GetGPUVirtualAddress() + renderItem.objCBIndex * objCBByteSize;
+        pCommandList->SetGraphicsRootConstantBufferView(0, objCBAddress);
+
+        // === Set Material CBV (root param 1, register b1) ===
+        D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + renderItem.pMaterial->matCBIndex * matCBByteSize;
+        pCommandList->SetGraphicsRootConstantBufferView(1, matCBAddress);
 
         // === Draw the object ===
         pCommandList->DrawIndexedInstanced(
@@ -332,7 +343,6 @@ void cDirectX12::Draw()
             renderItem.baseVertexLocation,
             0
         );
-
     }
 
     // === Transition back buffer from RENDER_TARGET to PRESENT ===
@@ -488,6 +498,34 @@ void cDirectX12::UpdateDirectionalLightCB()
 
     // Copy data to GPU buffer
     currLightCB->CopyData(0, dirLightConstants);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::UpdateMaterialCB(std::unordered_map<std::string, sMaterial>* _pMaterials)
+{
+    auto currMaterialCB = m_pCurrentFrameResource->pMaterialCB;
+
+    for (auto& e : *_pMaterials)
+    {
+        sMaterial& mat = e.second;
+        if (mat.numberOfFramesDirty > 0)
+        {
+            XMMATRIX matTransform = XMLoadFloat4x4(&mat.materialConstants.matTransform);
+
+            sMaterialConstants matConstants;
+            matConstants.diffuseAlbedo = mat.materialConstants.diffuseAlbedo;
+            matConstants.frenselR0 = mat.materialConstants.frenselR0;
+            matConstants.roughness = mat.materialConstants.roughness;
+            XMStoreFloat4x4(&matConstants.matTransform, XMMatrixTranspose(matTransform));
+
+            // Copy to the current frame resource constant buffer at correct CB index
+            currMaterialCB->CopyData(mat.matCBIndex, matConstants);
+
+            // Mark as one frame less dirty
+            mat.numberOfFramesDirty--;
+        }
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

@@ -53,7 +53,7 @@ class cDirectX12
 		void InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::string& _rName, XMFLOAT4 _rColor);
 		sMeshGeometry* InitializeGeometryBuffer(); 
 
-		void Update(XMMATRIX _view, std::vector<sRenderItem>* _pRenderItems, XMFLOAT3 _eyePos);
+		void Update(XMMATRIX _view,  XMFLOAT3 _eyePos, std::vector<sRenderItem>* _pRenderItems, std::unordered_map<std::string, sMaterial>* _pMaterials);
 		void Draw(); 
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
@@ -64,6 +64,7 @@ class cDirectX12
 		void UpdateObjectCB();
 		void UpdatePassCB();
 		void UpdateDirectionalLightCB();
+		void UpdateMaterialCB(std::unordered_map<std::string, sMaterial>* _pMaterials); 
 
 	private:
 

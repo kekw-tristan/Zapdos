@@ -61,6 +61,7 @@ class cSystem
 		XMFLOAT4X4 m_proj;
 
 		std::vector<sRenderItem> m_renderItems;
+		std::unordered_map<std::string, sMaterial> m_materials;
 
 		XMFLOAT3	m_position	= XMFLOAT3(0.0f, 0.0f, -30.0f);
 		float		m_yaw		= 0.0f;    
