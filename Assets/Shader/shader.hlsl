@@ -62,11 +62,38 @@ sVertexOut VS(sVertexIn vin)
     vout.pos = mul(posW, gViewProj);
 
     // World normal
-    vout.normalW = normalize(mul((float3x3)gWorld, vin.normal));
+    vout.normalW = normalize(mul((float3x3) gWorld, -vin.normal));
 
     return vout;
 }
-
+/*
+// === Debug Pixel Shader ===
+float4 PS(sVertexOut pin) : SV_Target
+{
+    float3 N = normalize(pin.normalW); // Surface normal at the pixel
+    float3 L = normalize(-gDirection); // Directional light vector
+    
+    // Debug: Show normals as colors (Red = X, Green = Y, Blue = Z)
+    // Normals range from -1 to 1, so we convert to 0-1 for color display
+    float3 normalColor = N * 0.5f + 0.5f;
+    
+    // Debug: Show light direction influence
+    float NdotL = dot(N, L);
+    float NdotL_clamped = saturate(NdotL);
+    
+    // You can switch between these debug modes:
+    
+    // MODE 1: Show normals as colors
+    return float4(normalColor, 1.0f);
+    
+    // MODE 2: Show light influence (uncomment to use)
+    // return float4(NdotL_clamped, NdotL_clamped, NdotL_clamped, 1.0f);
+    
+    // MODE 3: Show raw NdotL (including negative values in red)
+    // float3 debugColor = NdotL > 0 ? float3(NdotL, NdotL, NdotL) : float3(-NdotL, 0, 0);
+    // return float4(debugColor, 1.0f);
+}
+*/
 // === Pixel Shader ===
 float4 PS(sVertexOut pin) : SV_Target
 {
@@ -75,6 +102,8 @@ float4 PS(sVertexOut pin) : SV_Target
     float3 V = normalize(gEyePosW - pin.posW);      // Vector from pixel to eye
     float3 H = normalize(L + V);                    // Half vector = normalize(L + V)
 
+
+    
     // Ambient
     float3 ambient = gAlbedo * 0.3f;
 
@@ -90,3 +119,4 @@ float4 PS(sVertexOut pin) : SV_Target
     float3 finalColor = ambient + diffuse + specular;
     return float4(finalColor, 1.0f);
 }
+

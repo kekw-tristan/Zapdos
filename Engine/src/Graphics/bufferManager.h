@@ -50,7 +50,7 @@ class cBufferManager
 
 	public:
 		
-		void Initialize(unsigned int _maxNumberOfRenderItems);
+		void Initialize(unsigned int _maxNumberOfRenderItems, unsigned int m_maxNumberOfLights);
 
 	public:
 
@@ -58,12 +58,15 @@ class cBufferManager
 
 	private:
 
-		void InitializeDescriptorHeaps(unsigned int _maxNumberOfRenderItems);
+		void InitializeDescriptorHeaps();
 
 	private:
 
 		cDeviceManager*		m_pDeviceManager;
 		cSwapChainManager*	m_pSwapChainManager;
+
+		unsigned int m_maxNumberOfRenderItems; 
+		unsigned int m_maxNumberOfLights; 
 
 		ComPtr<ID3D12DescriptorHeap> m_pCbvHeap;
 };

@@ -3,18 +3,15 @@
 #include "array"
 
 // --------------------------------------------------------------------------------------------------------------------------
-
 cMeshGenerator::sMeshData cMeshGenerator::CreateCylinder(float _bottomRadius, float _topRadius, float _height, uint32 _sliceCount, uint32 _stackCount)
 {
-	sMeshData meshData; 
+	sMeshData meshData;
 
-	float stackHeight = _height / _stackCount; 
-
+	float stackHeight = _height / _stackCount;
 	float radiusStep = (_topRadius - _bottomRadius) / _stackCount;
+	uint32 ringCount = _stackCount + 1;
 
-	uint32 ringCount = _stackCount + 1; 
-
-	// compute vertecies
+	// Compute vertices
 	for (uint32 stackIndex = 0; stackIndex < ringCount; stackIndex++)
 	{
 		float y = -0.5f * _height + stackIndex * stackHeight;
@@ -30,8 +27,8 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateCylinder(float _bottomRadius, fl
 
 			vertex.position = XMFLOAT3(r * c, y, r * s);
 
-			vertex.texC.x = static_cast<float>(sliceIndex / _sliceCount);
-			vertex.texC.y = 1.f - static_cast<float>(stackIndex / _stackCount);
+			vertex.texC.x = static_cast<float>(sliceIndex) / _sliceCount;
+			vertex.texC.y = 1.f - static_cast<float>(stackIndex) / _stackCount;
 
 			vertex.tangentU = XMFLOAT3(-s, 0.f, c);
 
@@ -48,7 +45,8 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateCylinder(float _bottomRadius, fl
 	}
 
 	uint32 ringVertexCount = _sliceCount + 1;
-	
+
+	// Side indices (corrected to CW)
 	for (uint32 stackIndex = 0; stackIndex < _stackCount; ++stackIndex)
 	{
 		for (uint32 sliceIndex = 0; sliceIndex < _sliceCount; ++sliceIndex)
@@ -56,12 +54,12 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateCylinder(float _bottomRadius, fl
 			uint32 current = stackIndex * ringVertexCount + sliceIndex;
 			uint32 next = (stackIndex + 1) * ringVertexCount + sliceIndex;
 
-			// Triangle 1
+			// Triangle 1 (CW)
 			meshData.indices32.push_back(current);
 			meshData.indices32.push_back(next);
 			meshData.indices32.push_back(next + 1);
 
-			// Triangle 2
+			// Triangle 2 (CW)
 			meshData.indices32.push_back(current);
 			meshData.indices32.push_back(next + 1);
 			meshData.indices32.push_back(current + 1);
@@ -93,7 +91,7 @@ void cMeshGenerator::BuildCylinderTopCap(float _topRadius, float _height, uint32
 		sVertex vertex;
 		vertex.position = XMFLOAT3(x, y, z);
 		vertex.normal = XMFLOAT3(0.f, 1.f, 0.f);
-		vertex.tangentU = XMFLOAT3(1.f, 0.f, 0.f); // arbitrary direction in tangent plane
+		vertex.tangentU = XMFLOAT3(1.f, 0.f, 0.f);
 		vertex.texC = XMFLOAT2(u, v);
 
 		meshData.vertecies.push_back(vertex);
@@ -110,6 +108,7 @@ void cMeshGenerator::BuildCylinderTopCap(float _topRadius, float _height, uint32
 
 	uint32 centerIndex = static_cast<uint32>(meshData.vertecies.size() - 1);
 
+	// Indices (CW winding)
 	for (uint32 sliceIndex = 0; sliceIndex < _sliceCount; ++sliceIndex)
 	{
 		meshData.indices32.push_back(centerIndex);
@@ -131,8 +130,8 @@ void cMeshGenerator::BuildCylinderBottomCap(float _bottomRadius, float _height, 
 		float x = _bottomRadius * cosf(sliceIndex * dTheta);
 		float z = _bottomRadius * sinf(sliceIndex * dTheta);
 
-		float u = x / _height + 0.5f;
-		float v = z / _height + 0.5f;
+		float u = x / (2.0f * _bottomRadius) + 0.5f;
+		float v = z / (2.0f * _bottomRadius) + 0.5f;
 
 		sVertex vertex;
 		vertex.position = XMFLOAT3(x, y, z);
@@ -143,6 +142,7 @@ void cMeshGenerator::BuildCylinderBottomCap(float _bottomRadius, float _height, 
 		meshData.vertecies.push_back(vertex);
 	}
 
+	// Center vertex
 	sVertex centerVertex;
 	centerVertex.position = XMFLOAT3(0.f, y, 0.f);
 	centerVertex.normal = XMFLOAT3(0.f, -1.f, 0.f);
@@ -153,6 +153,7 @@ void cMeshGenerator::BuildCylinderBottomCap(float _bottomRadius, float _height, 
 
 	uint32 centerIndex = static_cast<uint32>(meshData.vertecies.size() - 1);
 
+	// Indices (CW winding)
 	for (uint32 sliceIndex = 0; sliceIndex < _sliceCount; ++sliceIndex)
 	{
 		meshData.indices32.push_back(centerIndex);
@@ -214,21 +215,19 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateCube()
 			meshData.vertecies.push_back(v);
 		}
 
-		// 2 triangles: (0, 1, 2) and (0, 2, 3)
 		meshData.indices32.push_back(start + 0);
-		meshData.indices32.push_back(start + 1);
 		meshData.indices32.push_back(start + 2);
+		meshData.indices32.push_back(start + 1);
 
 		meshData.indices32.push_back(start + 0);
-		meshData.indices32.push_back(start + 2);
 		meshData.indices32.push_back(start + 3);
+		meshData.indices32.push_back(start + 2);
 	}
 
 	return meshData;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
-
 cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sliceCount, uint32_t stackCount)
 {
 	sMeshData meshData;
@@ -286,15 +285,15 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 
 	// --- Indices ---
 
-	// Top cap indices (triangle fan)
+	// Top cap indices (triangle fan) - switched to CW
 	for (uint32_t i = 1; i <= sliceCount; ++i)
 	{
+		meshData.indices32.push_back(i % sliceCount + 1);   // next vertex
+		meshData.indices32.push_back(i);                    // current vertex
 		meshData.indices32.push_back(0);                    // top vertex
-		meshData.indices32.push_back(i);
-		meshData.indices32.push_back(i % sliceCount + 1);  // wrap around slice
 	}
 
-	// Body indices (quads split into two triangles)
+	// Body indices (quads split into two triangles) - CW
 	uint32_t baseIndex = 1;
 	uint32_t ringVertexCount = sliceCount + 1;
 
@@ -302,25 +301,27 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 	{
 		for (uint32_t j = 0; j < sliceCount; ++j)
 		{
-			meshData.indices32.push_back(baseIndex + i * ringVertexCount + j);
+			// Triangle 1 (CW)
+			meshData.indices32.push_back(baseIndex + (i + 1) * ringVertexCount + j + 1);
 			meshData.indices32.push_back(baseIndex + (i + 1) * ringVertexCount + j);
-			meshData.indices32.push_back(baseIndex + (i + 1) * ringVertexCount + j + 1);
-
 			meshData.indices32.push_back(baseIndex + i * ringVertexCount + j);
-			meshData.indices32.push_back(baseIndex + (i + 1) * ringVertexCount + j + 1);
+
+			// Triangle 2 (CW)
 			meshData.indices32.push_back(baseIndex + i * ringVertexCount + j + 1);
+			meshData.indices32.push_back(baseIndex + (i + 1) * ringVertexCount + j + 1);
+			meshData.indices32.push_back(baseIndex + i * ringVertexCount + j);
 		}
 	}
 
-	// Bottom cap indices (triangle fan)
+	// Bottom cap indices (triangle fan) - switched to CW
 	uint32_t southPoleIndex = static_cast<uint32_t>(meshData.vertecies.size()) - 1;
 	baseIndex = southPoleIndex - ringVertexCount;
 
 	for (uint32_t i = 0; i < sliceCount; ++i)
 	{
-		meshData.indices32.push_back(southPoleIndex);
-		meshData.indices32.push_back(baseIndex + (i + 1) % ringVertexCount);
-		meshData.indices32.push_back(baseIndex + i);
+		meshData.indices32.push_back(baseIndex + i);                          // current vertex
+		meshData.indices32.push_back(baseIndex + (i + 1) % ringVertexCount);  // next vertex
+		meshData.indices32.push_back(southPoleIndex);                        // bottom vertex
 	}
 
 	return meshData;

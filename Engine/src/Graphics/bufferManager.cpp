@@ -10,6 +10,8 @@
 cBufferManager::cBufferManager(cDeviceManager* _pDeviceManager, cSwapChainManager* _pSwapChainManager)
     : m_pDeviceManager(_pDeviceManager)
     , m_pSwapChainManager(_pSwapChainManager)
+    , m_maxNumberOfRenderItems(0)
+    , m_maxNumberOfLights(0)
 {
 }
 
@@ -21,9 +23,12 @@ cBufferManager::~cBufferManager()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cBufferManager::Initialize(unsigned int _maxNumberOfRenderItems)
+void cBufferManager::Initialize(unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights)
 {
-    InitializeDescriptorHeaps(_maxNumberOfRenderItems);
+    m_maxNumberOfRenderItems    = _maxNumberOfRenderItems;
+    m_maxNumberOfLights         = _maxNumberOfLights;
+
+    InitializeDescriptorHeaps();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -35,13 +40,13 @@ ID3D12DescriptorHeap* cBufferManager::GetCbvHeap() const
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cBufferManager::InitializeDescriptorHeaps(unsigned int _maxNumberOfRenderItems)
+void cBufferManager::InitializeDescriptorHeaps()
 {
     D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
 
     cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  
-    cbvHeapDesc.NumDescriptors = c_NumberOfFrameResources * (_maxNumberOfRenderItems + 1 + 1 + 5); // 1 is for passconstants
+    cbvHeapDesc.NumDescriptors = c_NumberOfFrameResources * (m_maxNumberOfRenderItems + m_maxNumberOfLights + 1); // 1 is for passconstants
     cbvHeapDesc.NodeMask = 0;
 
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDevice()->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_pCbvHeap)));

@@ -8,8 +8,8 @@
 #include <unordered_map>
 #include <vector>
 #include <wrl.h>
-#include "Graphics/material.h"
 
+#include "graphics/material.h"
 #include "graphics/meshGenerator.h"
 
 using namespace DirectX;
@@ -46,7 +46,7 @@ class cDirectX12
 
 	public:
 
-		void Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems);
+		void Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights);
 		void Finalize();
 		
 	public:
@@ -64,7 +64,7 @@ class cDirectX12
 
 		void UpdateObjectCB();
 		void UpdatePassCB();
-		void UpdateDirectionalLightCB();
+		void UpdateLightCB();
 
 	private:
 

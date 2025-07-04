@@ -67,7 +67,7 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 // --------------------------------------------------------------------------------------------------------------------------
 // initializes all the directx12 components
 
-void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems)
+void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights)
 {
     /*
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
@@ -99,7 +99,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _ma
 
     m_pDeviceManager    ->Initialize();
     m_pSwapChainManager ->Initialize();
-    m_pBufferManager    ->Initialize(_maxNumberOfRenderItems);
+    m_pBufferManager    ->Initialize(_maxNumberOfRenderItems, _maxNumberOfLights);
     m_pPipelineManager  ->Initialize(); 
     
     InitializeFrameResources();
@@ -236,7 +236,7 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
     // === Upload data to GPU buffers ===
     UpdateObjectCB();  // Writes m_renderItems[*]->worldMatrix to per-object CB
     UpdatePassCB();    // Writes m_mainPassCB to per-pass CB
-    UpdateDirectionalLightCB();
+    UpdateLightCB();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -471,7 +471,7 @@ void cDirectX12::UpdatePassCB()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cDirectX12::UpdateDirectionalLightCB()
+void cDirectX12::UpdateLightCB()
 {
     // Get the current frame's directional light constant buffer resource
     auto currLightCB = m_pCurrentFrameResource->pDirectLightCB;
@@ -481,8 +481,7 @@ void cDirectX12::UpdateDirectionalLightCB()
     // Directional light color intensity (white * 0.8)
     dirLightConstants.strength = XMFLOAT3(0.8f, 0.8f, 0.8f);
 
-    // Direction pointing down and slightly to the right
-    XMVECTOR lightDir = XMVector3Normalize(XMVectorSet(0.5f, -1.0f, 0.3f, 0.0f));
+    XMVECTOR lightDir = XMVector3Normalize(XMVectorSet(0.5f, 1.0f, 0.5f, 0.0f));
     XMStoreFloat3(&dirLightConstants.direction, lightDir);
 
     // Unused fields for directional light, initialize to safe defaults

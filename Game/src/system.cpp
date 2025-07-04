@@ -31,7 +31,7 @@ void cSystem::Initialize()
 	m_pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720, m_pTimer);
 
 	m_pDirectX12 = new cDirectX12();
-	m_pDirectX12->Initialize(m_pWindow, m_pTimer, c_numberOfRenderItems);
+	m_pDirectX12->Initialize(m_pWindow, m_pTimer, c_numberOfRenderItems, 1);
 
 	InitializeRenderItems();
 }
@@ -95,8 +95,8 @@ void cSystem::InitializeRenderItems()
     foliageMaterial.albedo = XMFLOAT3(0.1f, 0.6f, 0.1f);
     foliageMaterial.specularExponent = 8.0f;
 
-    const int groundRows = 20;
-    const int groundCols = 20;
+    const int groundRows = 70;
+    const int groundCols = 70;
     const float spacing = 5.0f;
 
     m_renderItems.clear();
@@ -119,7 +119,7 @@ void cSystem::InitializeRenderItems()
             cubeItem.startIndexLocation = submesh.startIndexLocation;
             cubeItem.baseVertexLocation = submesh.startVertexLocation;
 
-            XMMATRIX scale = XMMatrixScaling(5.0f, 0.5f, 5.0f);
+            XMMATRIX scale = XMMatrixScaling(2.5f, 0.5f, 2.5f);
             XMMATRIX translate = XMMatrixTranslation(x * spacing, -0.25f, z * spacing);
             XMStoreFloat4x4(&cubeItem.worldMatrix, scale * translate);
             m_renderItems.emplace_back(std::move(cubeItem));
@@ -141,7 +141,7 @@ void cSystem::InitializeRenderItems()
                 trunkItem.startIndexLocation = cylSubmesh.startIndexLocation;
                 trunkItem.baseVertexLocation = cylSubmesh.startVertexLocation;
 
-                XMMATRIX trunkScale = XMMatrixScaling(0.5f, trunkHeight * 0.5f, 0.5f);
+                XMMATRIX trunkScale = XMMatrixScaling(0.5f, trunkHeight * 0.25f, 0.5f);
                 XMMATRIX trunkTranslate = XMMatrixTranslation(x * spacing, trunkHeight * 0.25, z * spacing);
                 XMStoreFloat4x4(&trunkItem.worldMatrix, trunkScale * trunkTranslate);
                 m_renderItems.emplace_back(std::move(trunkItem));
