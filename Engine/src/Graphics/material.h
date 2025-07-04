@@ -1,6 +1,24 @@
 #pragma once
 
 #include <DirectXMath.h>
+
+using namespace DirectX;
+
+struct sMaterial
+{
+    DirectX::XMFLOAT3 albedo;
+    float specularExponent;
+
+    sMaterial()
+        : albedo()
+        , specularExponent()
+    {}
+};
+
+/*
+#pragma once
+
+#include <DirectXMath.h>
 #include <string>
 #include "directx12.h"
 
@@ -43,3 +61,4 @@ struct sMaterial
     {
     }
 };
+*/

@@ -4,12 +4,12 @@
 
 using namespace DirectX; 
 
-class cLight
+struct sLightConstants
 {
-	XMFLOAT3 Strength;
-	float FalloffStart;
-	XMFLOAT3 Direction;
-	float FalloffEnd;	
-	XMFLOAT3 Position;
-	float SpotPower;
+	XMFLOAT3	strength;
+	float		falloffStart;
+	XMFLOAT3	direction;
+	float		falloffEnd;	
+	XMFLOAT3	position;
+	float		spotPower;
 };

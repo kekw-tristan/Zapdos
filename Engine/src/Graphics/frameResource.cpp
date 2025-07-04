@@ -1,15 +1,14 @@
 #include "frameResource.h"
 
 #include "bufferManager.h"
-#include "directLight.h"
 #include "directx12Util.h"
+#include "light.h"
 #include "material.h"
 #include "uploadBuffer.h"
 
-
 // --------------------------------------------------------------------------------------------------------------------------
 
-sFrameResource::sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount, UINT _directionalLightCount, UINT _materialCount)
+sFrameResource::sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount, UINT _directionalLightCount)
 	: fence(0)
 	, pCmdListAlloc(nullptr)
 	, pObjectCB(nullptr)
@@ -24,8 +23,7 @@ sFrameResource::sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _ob
 
 	pObjectCB		= new cUploadBuffer<sObjectConstants>(_pDevice, _objectCount, true);
 	pPassCB			= new cUploadBuffer<sPassConstants>(_pDevice, _passCount, true);
-	pDirectLightCB	= new cUploadBuffer<sDirectionalLightConstants>(_pDevice, _directionalLightCount, true);
-	pMaterialCB		= new cUploadBuffer<sMaterialConstants>(_pDevice, _materialCount, true);
+	pDirectLightCB	= new cUploadBuffer<sLightConstants>(_pDevice, _directionalLightCount, true);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -35,7 +33,6 @@ sFrameResource::~sFrameResource()
 	delete pObjectCB;
 	delete pPassCB;
 	delete pDirectLightCB;
-	delete pMaterialCB;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

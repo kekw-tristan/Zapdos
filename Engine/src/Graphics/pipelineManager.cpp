@@ -37,42 +37,39 @@ ID3D12RootSignature* cPipelineManager::GetRootSignature() const
 
 void cPipelineManager::InitializeRootSignature()
 {
-    // Define the root parameter array - now 3 entries
     CD3DX12_ROOT_PARAMETER slotRootParameter[3] = {};
 
-    // Define descriptor ranges for each CBV
+    // Per-object CBV (register b0)
     CD3DX12_DESCRIPTOR_RANGE cbvTable0;
     cbvTable0.Init(
-        D3D12_DESCRIPTOR_RANGE_TYPE_CBV, // CBV type
-        1,                               // One CBV
-        0                                // Register b0
-    );
-
-    CD3DX12_DESCRIPTOR_RANGE cbvTable1;
-    cbvTable1.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
         1,
-        1                                // Register b1
+        0 // Register b0
     );
-
-    CD3DX12_DESCRIPTOR_RANGE cbvTable2;
-    cbvTable2.Init(
-        D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
-        1,
-        2                                // Register b2 (for directional light)
-    );
-
-    // Initialize root parameters as descriptor tables for each CBV
     slotRootParameter[0].InitAsDescriptorTable(
         1,
         &cbvTable0
     );
 
+    // Light CBV (register b1)
+    CD3DX12_DESCRIPTOR_RANGE cbvTable1;
+    cbvTable1.Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+        1,
+        1 // Register b1
+    );
     slotRootParameter[1].InitAsDescriptorTable(
         1,
         &cbvTable1
     );
 
+    // Pass constants CBV (register b2)
+    CD3DX12_DESCRIPTOR_RANGE cbvTable2;
+    cbvTable2.Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+        1,
+        2 // Register b2
+    );
     slotRootParameter[2].InitAsDescriptorTable(
         1,
         &cbvTable2
@@ -124,7 +121,7 @@ void cPipelineManager::InitializeShader()
 
 void cPipelineManager::InitializePipelineStateObject()
 {
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {}; // Zero-initialize the PSO descriptor
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {}; 
 
     psoDesc.InputLayout             = { m_InputLayouts.data(), static_cast<UINT>(m_InputLayouts.size()) };                              // Set input layout for vertex data
     psoDesc.pRootSignature          = m_pRootSignature.Get();                                                                           // Assign root signature used by the shaders
