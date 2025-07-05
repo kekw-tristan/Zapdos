@@ -76,9 +76,9 @@ void cSystem::InitializeRenderItems()
     cMeshGenerator meshGenerator;
 
     // Initialize mesh shapes
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateCube(), std::string("cube"), XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));       // green ground
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateSphere(1.0f, 20, 20), std::string("sphere"), XMFLOAT4(0.1f, 0.6f, 0.1f, 1.f)); // foliage
-    m_pDirectX12->InitializeMesh(meshGenerator.CreateCylinder(0.3, 0.3, 1.2f, 20, 20), std::string("cylinder"), XMFLOAT4(0.55f, 0.27f, 0.07f, 1.f)); // trunk
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateCube(), std::string("cube"), XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));                                     // green ground
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateSphere(1.0f, 20, 20), std::string("sphere"), XMFLOAT4(0.1f, 0.6f, 0.1f, 1.f));                     // foliage
+    m_pDirectX12->InitializeMesh(meshGenerator.CreateCylinder(0.3, 0.3, 1.2f, 20, 20), std::string("cylinder"), XMFLOAT4(0.55f, 0.27f, 0.07f, 1.f));    // trunk
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
@@ -95,8 +95,8 @@ void cSystem::InitializeRenderItems()
     foliageMaterial.albedo = XMFLOAT3(0.1f, 0.6f, 0.1f);
     foliageMaterial.specularExponent = 8.0f;
 
-    const int groundRows = 70;
-    const int groundCols = 70;
+    const int groundRows = 40;
+    const int groundCols = 40;
     const float spacing = 5.0f;
 
     m_renderItems.clear();
@@ -111,7 +111,7 @@ void cSystem::InitializeRenderItems()
             // Ground block
             sRenderItem cubeItem;
             cubeItem.pGeometry = pMeshGeo;
-            cubeItem.pMaterial = &groundMaterial;       // Assign ground material
+            cubeItem.pMaterial = &groundMaterial;       
             cubeItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
 
             const auto& submesh = pMeshGeo->drawArguments.at("cube");
@@ -119,7 +119,7 @@ void cSystem::InitializeRenderItems()
             cubeItem.startIndexLocation = submesh.startIndexLocation;
             cubeItem.baseVertexLocation = submesh.startVertexLocation;
 
-            XMMATRIX scale = XMMatrixScaling(2.5f, 0.5f, 2.5f);
+            XMMATRIX scale = XMMatrixScaling(5.f, 0.5f, 5.f);
             XMMATRIX translate = XMMatrixTranslation(x * spacing, -0.25f, z * spacing);
             XMStoreFloat4x4(&cubeItem.worldMatrix, scale * translate);
             m_renderItems.emplace_back(std::move(cubeItem));
@@ -141,7 +141,7 @@ void cSystem::InitializeRenderItems()
                 trunkItem.startIndexLocation = cylSubmesh.startIndexLocation;
                 trunkItem.baseVertexLocation = cylSubmesh.startVertexLocation;
 
-                XMMATRIX trunkScale = XMMatrixScaling(0.5f, trunkHeight * 0.25f, 0.5f);
+                XMMATRIX trunkScale = XMMatrixScaling(0.5f, trunkHeight * 0.5f, 0.5f);
                 XMMATRIX trunkTranslate = XMMatrixTranslation(x * spacing, trunkHeight * 0.25, z * spacing);
                 XMStoreFloat4x4(&trunkItem.worldMatrix, trunkScale * trunkTranslate);
                 m_renderItems.emplace_back(std::move(trunkItem));
