@@ -1,5 +1,7 @@
 #include "bufferManager.h"
 
+#include <iostream>
+
 #include "deviceManager.h"
 #include "directx12Util.h"
 #include "uploadBuffer.h"
@@ -46,6 +48,7 @@ void cBufferManager::InitializeDescriptorHeaps()
 
     cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  
+    std::cout << "lol: " << m_maxNumberOfLights << std::endl;
     cbvHeapDesc.NumDescriptors = c_NumberOfFrameResources * (m_maxNumberOfRenderItems + m_maxNumberOfLights + 1); // 1 is for passconstants
     cbvHeapDesc.NodeMask = 0;
 

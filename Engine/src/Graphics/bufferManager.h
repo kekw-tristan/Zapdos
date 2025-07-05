@@ -25,20 +25,20 @@ struct sObjectConstants
 
 struct sPassConstants
 {
-	XMFLOAT4X4 view;
-	XMFLOAT4X4 invView; 
-	XMFLOAT4X4 proj;
-	XMFLOAT4X4 invProj;
-	XMFLOAT4X4 viewProj; 
-	XMFLOAT4X4 invViewProj;
-	XMFLOAT3 eyePos; 
-	float cbPerObjectPad1;
-	XMFLOAT2 renderTargetSize;
-	XMFLOAT2 invRenderTargetSize;
-	float nearZ; 
-	float farZ;
-	float totalTime;
-	float deltaTime;
+	XMFLOAT4X4	view;
+	XMFLOAT4X4	invView; 
+	XMFLOAT4X4	proj;
+	XMFLOAT4X4	invProj;
+	XMFLOAT4X4	viewProj; 
+	XMFLOAT4X4	invViewProj;
+	XMFLOAT3	eyePos; 
+	int			lightCount;
+	XMFLOAT2	renderTargetSize;
+	XMFLOAT2	invRenderTargetSize;
+	float		nearZ; 
+	float		farZ;
+	float		totalTime;
+	float		deltaTime;
 };
 
 class cBufferManager

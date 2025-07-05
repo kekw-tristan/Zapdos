@@ -17,7 +17,7 @@ struct sFrameResource
 {
 	public:
 
-		sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount, UINT _directionalLightCount);
+		sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount, UINT _lightCount);
 		~sFrameResource();
 
 	public:
@@ -26,7 +26,7 @@ struct sFrameResource
 
 		cUploadBuffer<sObjectConstants>*			pObjectCB;
 		cUploadBuffer<sPassConstants>*				pPassCB;
-		cUploadBuffer<sLightConstants>*				pDirectLightCB;
+		cUploadBuffer<sLightConstants>*				pLightBuffer;
 		cUploadBuffer<sMaterialConstants>*			pMaterialCB;
 		
 		UINT64 fence;

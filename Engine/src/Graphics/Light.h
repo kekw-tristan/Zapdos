@@ -12,4 +12,7 @@ struct sLightConstants
 	float		falloffEnd;	
 	XMFLOAT3	position;
 	float		spotPower;
+	int			type; 
+	XMFLOAT3	padding;
+
 };

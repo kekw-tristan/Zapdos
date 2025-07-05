@@ -8,12 +8,12 @@
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-sFrameResource::sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount, UINT _directionalLightCount)
+sFrameResource::sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _objectCount, UINT _lightCount)
 	: fence(0)
 	, pCmdListAlloc(nullptr)
 	, pObjectCB(nullptr)
 	, pPassCB(nullptr)
-	, pDirectLightCB(nullptr)
+	, pLightBuffer(nullptr)
 	, pMaterialCB(nullptr)
 {
 	cDirectX12Util::ThrowIfFailed(_pDevice->CreateCommandAllocator(
@@ -23,7 +23,7 @@ sFrameResource::sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _ob
 
 	pObjectCB		= new cUploadBuffer<sObjectConstants>(_pDevice, _objectCount, true);
 	pPassCB			= new cUploadBuffer<sPassConstants>(_pDevice, _passCount, true);
-	pDirectLightCB	= new cUploadBuffer<sLightConstants>(_pDevice, _directionalLightCount, true);
+	pLightBuffer	= new cUploadBuffer<sLightConstants>(_pDevice, _lightCount, false);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -32,7 +32,7 @@ sFrameResource::~sFrameResource()
 {
 	delete pObjectCB;
 	delete pPassCB;
-	delete pDirectLightCB;
+	delete pLightBuffer;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

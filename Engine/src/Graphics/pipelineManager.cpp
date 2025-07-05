@@ -39,47 +39,47 @@ void cPipelineManager::InitializeRootSignature()
 {
     CD3DX12_ROOT_PARAMETER slotRootParameter[3] = {};
 
-    // Per-object CBV (register b0)
+    // 1) Per-object CBV (register b0)
     CD3DX12_DESCRIPTOR_RANGE cbvTable0;
     cbvTable0.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
         1,
-        0 // Register b0
+        0 // b0
     );
     slotRootParameter[0].InitAsDescriptorTable(
         1,
         &cbvTable0
     );
 
-    // Light CBV (register b1)
+    // 2) Pass CBV (register b1)  <-- hier geändert von b2 auf b1
     CD3DX12_DESCRIPTOR_RANGE cbvTable1;
     cbvTable1.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
         1,
-        1 // Register b1
+        1 // b1
     );
     slotRootParameter[1].InitAsDescriptorTable(
         1,
         &cbvTable1
     );
 
-    // Pass constants CBV (register b2)
-    CD3DX12_DESCRIPTOR_RANGE cbvTable2;
-    cbvTable2.Init(
-        D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+    // 3) Lights StructuredBuffer SRV (register t0)
+    CD3DX12_DESCRIPTOR_RANGE srvTable0;
+    srvTable0.Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
         1,
-        2 // Register b2
+        0 // t0
     );
     slotRootParameter[2].InitAsDescriptorTable(
         1,
-        &cbvTable2
+        &srvTable0
     );
 
     // Create the root signature descriptor with 3 parameters now
     CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
         3,                              // Number of root parameters
         slotRootParameter,              // Pointer to root parameters array
-        0,                              // No static samplers
+        0,                             // No static samplers
         nullptr,
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
     );

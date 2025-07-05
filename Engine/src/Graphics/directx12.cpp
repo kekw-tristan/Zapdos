@@ -33,7 +33,6 @@ constexpr float c_pi = 3.1415927f;
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-/*
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 {
     LPWSTR programFilesPath = nullptr;
@@ -62,19 +61,16 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
-*/
 
 // --------------------------------------------------------------------------------------------------------------------------
 // initializes all the directx12 components
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights)
 {
-    /*
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
     {
         LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
     }
-    */
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -90,6 +86,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _ma
     m_pWindow                   = _pWindow;
     m_pTimer                    = _pTimer;
     m_maxNumberOfRenderItems    = _maxNumberOfRenderItems; 
+    m_maxNumberOfLights         = _maxNumberOfLights;
 
     m_pDeviceManager    = new cDeviceManager();
     m_pSwapChainManager = new cSwapChainManager(m_pDeviceManager, m_pWindow);
@@ -202,10 +199,12 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderItem>* _pRenderItems) 
+void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderItem>* _pRenderItems, std::vector<sLightConstants>* _pLights)
 {
-    m_pRenderItems = _pRenderItems; 
-    m_eyePos = _eyePos;
+    m_pRenderItems  = _pRenderItems; 
+    m_pLights       = _pLights;
+    m_eyePos        = _eyePos;
+
     // Advance frame resource
     m_currentFrameResourceIndex = (m_currentFrameResourceIndex + 1) % c_NumberOfFrameResources;
     m_pCurrentFrameResource     = m_frameResources[m_currentFrameResourceIndex];
@@ -254,13 +253,13 @@ void cDirectX12::Draw()
     ID3D12DescriptorHeap*       pCbvHeap            = m_pBufferManager->GetCbvHeap();
     ID3D12Fence*                pFence              = m_pDeviceManager->GetFence();
 
-    // === Set viewport and scissor ===
+    // Set viewport and scissor
     pCommandList->RSSetViewports(1, &rViewport);
 
     D3D12_RECT scissorRect = { 0, 0, m_pWindow->GetWidth(), m_pWindow->GetHeight() };
     pCommandList->RSSetScissorRects(1, &scissorRect);
 
-    // === Transition back buffer from PRESENT to RENDER_TARGET ===
+    // Transition back buffer PRESENT -> RENDER_TARGET
     pCommandList->ResourceBarrier(
         1, &CD3DX12_RESOURCE_BARRIER::Transition(
             m_pSwapChainManager->GetCurrentBackBuffer(),
@@ -269,72 +268,64 @@ void cDirectX12::Draw()
         )
     );
 
-    // === Clear render target ===
-    float clearColor[] = { 0.f, 0.f, 0.f, 1.f }; // Black
+    // Clear RTV and DSV
+    float clearColor[] = { 0.f, 0.f, 0.f, 1.f };
     pCommandList->ClearRenderTargetView(m_pSwapChainManager->GetCurrentBackBufferView(), clearColor, 0, nullptr);
-
-    // === Clear depth/stencil buffer ===
     pCommandList->ClearDepthStencilView(
         m_pSwapChainManager->GetDepthStencilView(),
         D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-        1.0f, 0,
-        0, nullptr
-    );
+        1.0f, 0, 0, nullptr);
 
-    // === Set render targets ===
+    // Set render targets
     pCommandList->OMSetRenderTargets(
-        1,
-        &m_pSwapChainManager->GetCurrentBackBufferView(),
-        TRUE,
-        &m_pSwapChainManager->GetDepthStencilView()
-    );
+        1, &m_pSwapChainManager->GetCurrentBackBufferView(), TRUE,
+        &m_pSwapChainManager->GetDepthStencilView());
 
-    // === Bind descriptor heap ===
+    // Bind descriptor heap
     ID3D12DescriptorHeap* descriptorHeaps[] = { pCbvHeap };
     pCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
-    // === Set root signature ===
+    // Set root signature
     pCommandList->SetGraphicsRootSignature(pRootSignature);
 
-    // === Compute per-frame descriptor offset ===
-    UINT descriptorsPerFrame = static_cast<UINT>(m_maxNumberOfRenderItems) + 2; // +1 light +1 pass
-    UINT baseOffset = m_currentFrameResourceIndex * descriptorsPerFrame;
     UINT descriptorSize = m_pDeviceManager->GetDescriptorSizes().cbvSrvUav;
 
-    // === Set Light CBV (root param 1, register b1) ===
-    CD3DX12_GPU_DESCRIPTOR_HANDLE lightCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    lightCbvHandle.Offset(baseOffset + m_maxNumberOfRenderItems, descriptorSize); // Light CBV index
-    pCommandList->SetGraphicsRootDescriptorTable(1, lightCbvHandle);
+    // Update descriptors per frame to include render items, pass CBV, and lights SRV
+    UINT descriptorsPerFrame = m_maxNumberOfRenderItems + 1 + 1; // +1 for pass CBV, +1 for lights SRV
 
-    // === Set Pass CBV (root param 2, register b2) ===
+    UINT baseOffset = m_currentFrameResourceIndex * descriptorsPerFrame;
+
+    // Set Light StructuredBuffer SRV (root param 2, t0)
+    CD3DX12_GPU_DESCRIPTOR_HANDLE lightSrvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
+    // Light SRV is after object CBVs and pass CBV in the descriptor heap
+    lightSrvHandle.Offset(baseOffset + m_maxNumberOfRenderItems + 1, descriptorSize);
+    pCommandList->SetGraphicsRootDescriptorTable(2, lightSrvHandle);
+
+    // Set Pass CBV (root param 1, b1)
     CD3DX12_GPU_DESCRIPTOR_HANDLE passCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    passCbvHandle.Offset(baseOffset + m_maxNumberOfRenderItems + 1, descriptorSize); // Pass CBV index
-    pCommandList->SetGraphicsRootDescriptorTable(2, passCbvHandle);
+    passCbvHandle.Offset(baseOffset + m_maxNumberOfRenderItems, descriptorSize);
+    pCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
 
-    // === Draw all render items ===
+    // Draw all render items
     for (auto& renderItem : *m_pRenderItems)
     {
-        // Set vertex/index buffers and primitive topology
         pCommandList->IASetVertexBuffers(0, 1, &renderItem.pGeometry->GetVertexBufferView());
         pCommandList->IASetIndexBuffer(&renderItem.pGeometry->GetIndexBufferView());
         pCommandList->IASetPrimitiveTopology(renderItem.primitiveType);
 
-        // === Set Per-object CBV (root param 0, register b0) ===
         CD3DX12_GPU_DESCRIPTOR_HANDLE objCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
         objCbvHandle.Offset(baseOffset + renderItem.objCBIndex, descriptorSize);
         pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle);
 
-        // === Draw ===
         pCommandList->DrawIndexedInstanced(
             renderItem.indexCount,
             1,
             renderItem.startIndexLocation,
             renderItem.baseVertexLocation,
-            0
-        );
+            0);
     }
 
-    // === Transition back buffer from RENDER_TARGET to PRESENT ===
+    // Transition back buffer RENDER_TARGET -> PRESENT
     pCommandList->ResourceBarrier(
         1, &CD3DX12_RESOURCE_BARRIER::Transition(
             m_pSwapChainManager->GetCurrentBackBuffer(),
@@ -343,19 +334,19 @@ void cDirectX12::Draw()
         )
     );
 
-    // === Close and execute command list ===
+    // Close and execute command list
     cDirectX12Util::ThrowIfFailed(pCommandList->Close());
 
     ID3D12CommandList* cmdLists[] = { pCommandList };
     pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
-    // === Signal fence for current frame ===
+    // Signal fence
     UINT64 currentFence = m_pDeviceManager->GetFenceValue() + 1;
     pCommandQueue->Signal(pFence, currentFence);
     m_pDeviceManager->SetFenceValue(currentFence);
     m_pCurrentFrameResource->fence = currentFence;
 
-    // === Present frame ===
+    // Present frame
     cDirectX12Util::ThrowIfFailed(pSwapChain->Present(0, 0));
 }
 
@@ -405,6 +396,13 @@ void cDirectX12::OnResize()
 
     XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi, GetAspectRatio(), 0.1f, 1000.0f);
     XMStoreFloat4x4(&m_proj, P);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+sMeshGeometry* cDirectX12::GetGeometry()
+{
+    return m_pGeometry;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -464,6 +462,8 @@ void cDirectX12::UpdatePassCB()
     passConstants.totalTime             = m_pTimer->GetTotalTime();
     passConstants.deltaTime             = m_pTimer->GetDeltaTime();
 
+    passConstants.lightCount            = m_pLights->size(); 
+
     auto currPassCB = m_pCurrentFrameResource->pPassCB;
 
     currPassCB->CopyData(0, passConstants);
@@ -473,25 +473,15 @@ void cDirectX12::UpdatePassCB()
 
 void cDirectX12::UpdateLightCB()
 {
-    // Get the current frame's directional light constant buffer resource
-    auto currLightCB = m_pCurrentFrameResource->pDirectLightCB;
+    auto currLightCB = m_pCurrentFrameResource->pLightBuffer;
 
-    sLightConstants dirLightConstants = {};
+    if (!m_pLights)
+        return;
 
-    // Directional light color intensity (white * 0.8)
-    dirLightConstants.strength = XMFLOAT3(0.8f, 0.8f, 0.8f);
-
-    XMVECTOR lightDir = XMVector3Normalize(XMVectorSet(0.5f, 1.0f, 0.5f, 0.0f));
-    XMStoreFloat3(&dirLightConstants.direction, lightDir);
-
-    // Unused fields for directional light, initialize to safe defaults
-    dirLightConstants.falloffStart = 1.0f;
-    dirLightConstants.falloffEnd = 10.0f;
-    dirLightConstants.position = XMFLOAT3(0.0f, 0.0f, 0.0f);
-    dirLightConstants.spotPower = 1.0f;
-
-    // Copy data to GPU buffer
-    currLightCB->CopyData(0, dirLightConstants);
+    for (size_t i = 0; i < m_pLights->size(); ++i)
+    {
+        currLightCB->CopyData(static_cast<int>(i), (*m_pLights)[i]);
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -512,7 +502,7 @@ void cDirectX12::InitializeFrameResources()
                 pDevice,
                 1,                        // pass count
                 m_maxNumberOfRenderItems, // object count
-                1                         // light count
+                m_maxNumberOfLights       // light count
             )
         );
     }
@@ -547,12 +537,21 @@ void cDirectX12::InitializeFrameResources()
         pDevice->CreateConstantBufferView(&passCbvDesc, cbvHandle);
         cbvHandle.ptr += descriptorSize;
 
-        // === Directional light CBV (b2) ===
-        D3D12_CONSTANT_BUFFER_VIEW_DESC lightCbvDesc = {};
-        lightCbvDesc.BufferLocation = frameResource->pDirectLightCB->GetResource()->GetGPUVirtualAddress();
-        lightCbvDesc.SizeInBytes = lightCBByteSize;
+        D3D12_SHADER_RESOURCE_VIEW_DESC lightSrvDesc = {};
+        lightSrvDesc.Format = DXGI_FORMAT_UNKNOWN; // Structured buffer has no format
+        lightSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+        lightSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        lightSrvDesc.Buffer.FirstElement = 0;
+        std::cout << "m_maxNumberOfLights" << m_maxNumberOfLights << std::endl;
+        lightSrvDesc.Buffer.NumElements = m_maxNumberOfLights; // number of lights
+        lightSrvDesc.Buffer.StructureByteStride = sizeof(sLightConstants);
+        lightSrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 
-        pDevice->CreateConstantBufferView(&lightCbvDesc, cbvHandle);
+        pDevice->CreateShaderResourceView(
+            frameResource->pLightBuffer->GetResource(),
+            &lightSrvDesc,
+            cbvHandle);
+
         cbvHandle.ptr += descriptorSize;
     }
 }

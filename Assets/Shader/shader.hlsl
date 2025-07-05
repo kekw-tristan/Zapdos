@@ -2,8 +2,8 @@
 cbuffer cbPerObject : register(b0)
 {
     float4x4 gWorld;
-    float3   gAlbedo;
-    float    gSpecularExponent;
+    float3 gAlbedo;
+    float gSpecularExponent;
 };
 
 cbuffer cbPass : register(b1)
@@ -14,39 +14,43 @@ cbuffer cbPass : register(b1)
     float4x4 gInvProj;
     float4x4 gViewProj;
     float4x4 gInvViewProj;
-    float3   gEyePosW;
-    float    cbPassPad1;  // Padding
-    float2   gRenderTargetSize;
-    float2   gInvRenderTargetSize;
-    float    gNearZ;
-    float    gFarZ;
-    float    gTotalTime;
-    float    gDeltaTime;
+    float3 gEyePosW;
+    int gLightCount;
+    float2 gRenderTargetSize;
+    float2 gInvRenderTargetSize;
+    float gNearZ;
+    float gFarZ;
+    float gTotalTime;
+    float gDeltaTime;
 };
 
-cbuffer cbLight : register(b2)
+struct sLight
 {
-    float3  gStrength;
-    float   gFalloffStart;
-    float3  gDirection;
-    float   gFalloffEnd;
-    float3  gPosition;
-    float   gSpotPower;
-}
+    float3 strength;
+    float falloffStart;
+    float3 direction;
+    float falloffEnd;
+    float3 position;
+    float spotPower;
+    int type; // 0 = directional, 1 = point, 2 = spot
+    float3 padding;
+};
+
+StructuredBuffer<sLight> gLights : register(t0);
 
 // === Vertex Input ===
 struct sVertexIn
 {
-    float3 pos    : POSITION;
+    float3 pos : POSITION;
     float3 normal : NORMAL;
 };
 
 // === Vertex Output ===
 struct sVertexOut
 {
-    float4 pos     : SV_POSITION;
+    float4 pos : SV_POSITION;
     float3 normalW : NORMAL;
-    float3 posW    : POSITION1;
+    float3 posW : POSITION1;
 };
 
 // === Vertex Shader ===
@@ -62,61 +66,76 @@ sVertexOut VS(sVertexIn vin)
     vout.pos = mul(posW, gViewProj);
 
     // World normal
-    vout.normalW = normalize(mul((float3x3) gWorld, -vin.normal));
+    vout.normalW = normalize(mul((float3x3) gWorld, vin.normal));
 
     return vout;
 }
-/*
-// === Debug Pixel Shader ===
-float4 PS(sVertexOut pin) : SV_Target
-{
-    float3 N = normalize(pin.normalW); // Surface normal at the pixel
-    float3 L = normalize(-gDirection); // Directional light vector
-    
-    // Debug: Show normals as colors (Red = X, Green = Y, Blue = Z)
-    // Normals range from -1 to 1, so we convert to 0-1 for color display
-    float3 normalColor = N * 0.5f + 0.5f;
-    
-    // Debug: Show light direction influence
-    float NdotL = dot(N, L);
-    float NdotL_clamped = saturate(NdotL);
-    
-    // You can switch between these debug modes:
-    
-    // MODE 1: Show normals as colors
-    return float4(normalColor, 1.0f);
-    
-    // MODE 2: Show light influence (uncomment to use)
-    // return float4(NdotL_clamped, NdotL_clamped, NdotL_clamped, 1.0f);
-    
-    // MODE 3: Show raw NdotL (including negative values in red)
-    // float3 debugColor = NdotL > 0 ? float3(NdotL, NdotL, NdotL) : float3(-NdotL, 0, 0);
-    // return float4(debugColor, 1.0f);
-}
-*/
+
 // === Pixel Shader ===
 float4 PS(sVertexOut pin) : SV_Target
 {
-    float3 N = normalize(pin.normalW);              // Surface normal at the pixel
-    float3 L = normalize(-gDirection);              // Directional light vector (note: negative of gDirection)
-    float3 V = normalize(gEyePosW - pin.posW);      // Vector from pixel to eye
-    float3 H = normalize(L + V);                    // Half vector = normalize(L + V)
+    float3 N = normalize(pin.normalW);
+    float3 V = normalize(gEyePosW - pin.posW);
 
-
-    
-    // Ambient
     float3 ambient = gAlbedo * 0.3f;
+    float3 diffuse = float3(0, 0, 0);
+    float3 specular = float3(0, 0, 0);
 
-    // Diffuse (Lambert)
-    float NdotL = saturate(dot(N, L));
-    float3 diffuse = gAlbedo * gStrength * NdotL;
+    for (int i = 0; i < gLightCount; ++i)
+    {
+        sLight light = gLights[i];
+        
+        float3 L = float3(0, 0, 0);
+        float attenuation = 1.0f;
+        float spotEffect = 1.0f;
 
-    // Specular (Blinn-Phong)
-    float NdotH = saturate(dot(N, H));
-    float spec = pow(NdotH, max(gSpecularExponent, 1.0f));
-    float3 specular = gStrength * spec * 0.3f;
+        if (light.type == 0) // Directional Light
+        {
+            // Directional lights have a direction TO the surface
+            L = normalize(-light.direction);
+            attenuation = 1.0f; // No falloff for directional lights
+        }
+        else
+        {
+            // For point and spot lights: vector from pixel to light position
+            float3 lightVec = light.position - pin.posW;
+            float dist = length(lightVec);
+            L = normalize(lightVec);
+
+            // Attenuation based on distance falloff
+            float falloffRange = max(light.falloffEnd - light.falloffStart, 0.001f);
+            attenuation = saturate(1.0f - saturate((dist - light.falloffStart) / falloffRange));
+            attenuation *= attenuation; // quadratic falloff
+
+            if (light.type == 2) // Spot Light
+            {
+                // For spotlights, direction is from light position OUTWARD along light.direction
+                float3 spotDir = normalize(light.direction);
+                
+                // Calculate angle between light direction and vector to pixel (pointing back at light)
+                float spotCos = dot(-L, spotDir); // L points from pixel to light, invert for cone check
+                
+                // Apply spotlight cone attenuation
+                spotEffect = saturate(pow(spotCos, light.spotPower));
+                attenuation *= spotEffect;
+            }
+        }
+
+        // Lambert Diffuse
+        float NdotL = saturate(dot(N, L));
+        float3 diff = gAlbedo * light.strength * NdotL;
+
+        // Blinn-Phong Specular
+        float3 H = normalize(L + V);
+        float NdotH = saturate(dot(N, H));
+        float specIntensity = pow(NdotH, max(gSpecularExponent, 1.0f));
+        float3 specularComponent = light.strength * specIntensity * 0.3f;
+
+        // Accumulate
+        diffuse += diff * attenuation;
+        specular += specularComponent * attenuation;
+    }
 
     float3 finalColor = ambient + diffuse + specular;
     return float4(finalColor, 1.0f);
 }
-

@@ -17,7 +17,8 @@ using namespace Microsoft::WRL;
 
 struct sVertex;
 struct sMeshGeometry;
-struct sFrameResource; 
+struct sFrameResource;
+struct sLightConstants;
 struct sRenderItem; 
 struct sPassConstants;
 
@@ -54,11 +55,13 @@ class cDirectX12
 		void InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::string& _rName, XMFLOAT4 _rColor);
 		sMeshGeometry* InitializeGeometryBuffer(); 
 
-		void Update(XMMATRIX _view,  XMFLOAT3 _eyePos, std::vector<sRenderItem>* _renderItems);
+		void Update(XMMATRIX _view,  XMFLOAT3 _eyePos, std::vector<sRenderItem>* _renderItems, std::vector<sLightConstants>* _pLights);
 		void Draw(); 
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
 		void OnResize();
+
+		sMeshGeometry* GetGeometry(); 
 
 	private:
 
@@ -80,6 +83,7 @@ class cDirectX12
 	private:
 
 		unsigned int m_maxNumberOfRenderItems; 
+		unsigned int m_maxNumberOfLights; 
 		sMeshGeometry* m_pGeometry;
 		
 		XMFLOAT4X4 m_proj;
@@ -95,6 +99,7 @@ class cDirectX12
 
 		std::vector<sFrameResource*>	m_frameResources;
 		std::vector<sRenderItem>*		m_pRenderItems;
+		std::vector<sLightConstants>*	m_pLights;
 
 		sFrameResource*	m_pCurrentFrameResource;
 		int m_currentFrameResourceIndex; 

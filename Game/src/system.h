@@ -5,7 +5,8 @@
 #include <DirectXMath.h>
 #include <vector>
 
-#include <Graphics/renderItem.h>
+#include <graphics/renderItem.h>
+#include <graphics/light.h>
 
 using namespace DirectX;
 
@@ -33,6 +34,8 @@ class cSystem
 	private:
 
 		void InitializeRenderItems(); 
+		void InitializeLights();
+		void InitializeLightVisualizations();
 
 	private:
 
@@ -61,9 +64,12 @@ class cSystem
 		XMFLOAT4X4 m_proj;
 
 		std::vector<sRenderItem> m_renderItems;
+		std::vector<sLightConstants> m_lights;
 		std::unordered_map<std::string, sMaterial> m_materials;
 
 		XMFLOAT3	m_position	= XMFLOAT3(0.0f, 0.0f, -30.0f);
 		float		m_yaw		= 0.0f;    
 		float		m_pitch		= 0.0f;
+
+		size_t m_lightVisStartIndex = 0; 
 };
