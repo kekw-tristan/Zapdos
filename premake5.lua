@@ -10,6 +10,7 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 IncludeDir = {}
 IncludeDir["DirectXTK12"] = "External/DirectXTK12/Inc"
 IncludeDir["D3DX"]        = "External/d3dx"
+IncludeDir["tinygltf"]    = "External/tinygltf"
 
 -- ================================
 -- Engine Project
@@ -27,13 +28,14 @@ project "Engine"
     files {
         "Engine/src/**.h",
         "Engine/src/**.cpp",
-        "Assets/Shader/**.hlsl"  -- Add HLSL files for IDE visibility
+        "Assets/Shader/**.hlsl" 
     }
 
     includedirs {
         "Engine/src",
         IncludeDir["DirectXTK12"],
-        IncludeDir["D3DX"]
+        IncludeDir["D3DX"],
+        IncludeDir["tinygltf"]
     }
 
     links {

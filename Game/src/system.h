@@ -35,7 +35,6 @@ class cSystem
 
 		void InitializeRenderItems(); 
 		void InitializeLights();
-		void InitializeLightVisualizations();
 
 	private:
 

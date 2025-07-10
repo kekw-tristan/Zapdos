@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <DirectXMath.h>
+#include <string>
 #include <vector>
 
 using namespace DirectX; 
@@ -35,24 +36,20 @@ class cMeshGenerator
 		struct sMeshData
 		{
 			public:
-				std::vector<sVertex> vertecies;
+				std::vector<sVertex> vertices;
 				std::vector<uint32> indices32;
+				std::vector<uint16> indices16;
 
 				std::vector<uint16>& GetIndices16()
 				{
-					if (m_indices16.empty())
+					if (indices16.empty())
 					{
-						m_indices16.resize(indices32.size());
+						indices16.resize(indices32.size());
 						for (size_t i = 0; i < indices32.size(); ++i)
-							m_indices16[i] = static_cast<uint16>(indices32[i]);
+							indices16[i] = static_cast<uint16>(indices32[i]);
 					}
-					return m_indices16;
+					return indices16;
 				}
-
-			private:
-
-				std::vector<uint16> m_indices16;
-
 		};
 
 	public:
@@ -61,6 +58,7 @@ class cMeshGenerator
 		sMeshData CreateCube();
 		sMeshData CreateSphere(float radius, uint32_t sliceCount, uint32_t stackCount);
 		
+		void LoadModelFromGLTF(std::string& _rFilePath, sMeshData& _rOutMeshData);
 
 	private:
 

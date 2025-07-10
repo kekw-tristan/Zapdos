@@ -131,12 +131,11 @@ void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::stri
 {
     sSubmeshGeometry subMesh;
 
-    subMesh.indexCount              = _rMeshData.indices32.size();
+    subMesh.indexCount              = _rMeshData.GetIndices16().size();
     subMesh.startIndexLocation      = m_indices.size();
     subMesh.startVertexLocation     = m_vertecis.size();
 
-    // todo: rename vertecies 
-    for (auto v : _rMeshData.vertecies)
+    for (auto v : _rMeshData.vertices)
     {
         sVertex vOut; 
 
@@ -162,7 +161,6 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
     m_pGeometry->name = "shapeGeo";
 
     cDirectX12Util::ThrowIfFailed(D3DCreateBlob(vbByteSize, &m_pGeometry->vertexBufferCPU));
-    std::cout << m_vertecis[100].pos.z  << std::endl;
     CopyMemory(m_pGeometry->vertexBufferCPU->GetBufferPointer(), m_vertecis.data(), vbByteSize);
 
     cDirectX12Util::ThrowIfFailed(D3DCreateBlob(ibByteSize, &m_pGeometry->indexBufferCPU));
