@@ -10,6 +10,11 @@ using namespace DirectX;
 using uint16 = std::uint16_t;
 using uint32 = std::uint32_t;
 
+namespace tinygltf
+{
+	class Model;
+}
+
 class cMeshGenerator
 {
 	public:
@@ -52,6 +57,13 @@ class cMeshGenerator
 				}
 		};
 
+		struct sTransform
+		{
+			XMFLOAT3 scale;
+			XMFLOAT3 rotation;
+			XMFLOAT3 translation; 
+		};
+
 	public:
 
 		sMeshData CreateCylinder(float _bottomRadius, float _topRadius, float _height, uint32 _sliceCount, uint32 _stackCount); 
@@ -59,6 +71,12 @@ class cMeshGenerator
 		sMeshData CreateSphere(float radius, uint32_t sliceCount, uint32_t stackCount);
 		
 		void LoadModelFromGLTF(std::string& _rFilePath, sMeshData& _rOutMeshData);
+		void LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<XMMATRIX>& _rOutWorldMatrix);
+
+	private:
+
+		void ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMATRIX _parentWorldMatrix, std::vector<sMeshData>& _rOutMeshData, std::vector<XMMATRIX>& _rOutWorldMatrix);
+		void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sMeshData& outMeshData);
 
 	private:
 

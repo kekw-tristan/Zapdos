@@ -73,78 +73,107 @@ void cSystem::Finalize()
 // --------------------------------------------------------------------------------------------------------------------------
 void cSystem::InitializeRenderItems()
 {
+
     cMeshGenerator meshGenerator; 
 
-    cMeshGenerator::sMeshData meshData; 
+    std::vector<cMeshGenerator::sMeshData> meshes; 
+    std::vector<XMMATRIX> worldMatrices; 
 
-    std::string path = "C:\\Users\\Tristan\\source\\repos\\Zapdos\\Assets\\Objects\\Untitled.gltf";
-    meshGenerator.LoadModelFromGLTF(path, meshData);
+    std::string path = "..\\Assets\\Objects\\scene.gltf";
+    meshGenerator.LoadModelFromGLTF(path ,meshes, worldMatrices);
 
-    for (auto value : meshData.indices16)
-        std::cout << value << "\n";
+    std::cout << meshes.size() << "\n";
+    std::cout << worldMatrices.size() << "\n";
 
-    for (auto v : meshData.vertices)
+    for (int index = 0; index < meshes.size(); index++)
     {
-        std::cout << v.position.x << ", " << v.position.y << ", " << v.position.z << "\n";
+        std::string name = "scene_" + std::to_string(index);
+        m_pDirectX12->InitializeMesh(meshes[index], name, XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));
     }
-
-    
-    m_pDirectX12->InitializeMesh(meshData, std::string("cube"), XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
     static sMaterial groundMaterial;
-    groundMaterial.albedo = XMFLOAT3(0.4f, 0.8f, 0.4f);
+    groundMaterial.albedo = XMFLOAT3(0.7f, 0.7f, 0.7f);
     groundMaterial.specularExponent = 16.0f;
 
-    sRenderItem renderItem;
-    renderItem.pGeometry = pMeshGeo;
-    renderItem.pMaterial = &groundMaterial;
-    renderItem.objCBIndex = static_cast<UINT>(m_renderItems.size());
+    for (int index = 0; index < meshes.size(); index++)
+    {
+        sRenderItem renderItem;
+        std::string name = "scene_" + std::to_string(index);
+        renderItem.pGeometry = pMeshGeo;
+        renderItem.pMaterial = &groundMaterial;
+        renderItem.objCBIndex = static_cast<UINT>(index);
 
-    const auto& submesh = pMeshGeo->drawArguments.at("cube");
-    renderItem.indexCount = submesh.indexCount;
-    renderItem.startIndexLocation = submesh.startIndexLocation;
-    renderItem.baseVertexLocation = submesh.startVertexLocation;
+        const auto& submesh = pMeshGeo->drawArguments.at(name);
+        renderItem.indexCount = submesh.indexCount;
+        renderItem.startIndexLocation = submesh.startIndexLocation;
+        renderItem.baseVertexLocation = submesh.startVertexLocation;
+        XMStoreFloat4x4(&renderItem.worldMatrix, worldMatrices[index]);
 
-    m_renderItems.emplace_back(std::move(renderItem));
+        m_renderItems.emplace_back(std::move(renderItem));
 
-    XMMATRIX trunkScale = XMMatrixScaling(3.f,   3.f, 3.f);
-    XMMATRIX trunkTranslate = XMMatrixTranslation(3, 0.25,2);
-    XMStoreFloat4x4(&renderItem.worldMatrix, trunkScale * trunkTranslate);
+        
+    }
 
-    std::cout << "mesh initialized\n";
-}
+    std::cout << "meshes initialize\n";
+
+ }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cSystem::InitializeLights()
 {
+    // Erstelle zuerst den Directional Light wie gehabt
     sLightConstants directionalLight = {};
 
-    // Strength (RGB Intensity)
-    directionalLight.strength = XMFLOAT3(1.0f, 1.0f, 1.0f); // white light
-
-    // FalloffStart and FalloffEnd irrelevant for directional, but initialise safely
+    directionalLight.strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
     directionalLight.falloffStart = 1.0f;
     directionalLight.falloffEnd = 10.0f;
-
-    // Direction (pointing downwards and slightly forward for example)
     directionalLight.direction = XMFLOAT3(0.0f, -1.0f, 0.0f);
-
-    // Position irrelevant for directional, initialise to zero
     directionalLight.position = XMFLOAT3(0.0f, 0.0f, 0.0f);
-
-    // SpotPower irrelevant for directional, initialise to zero
     directionalLight.spotPower = 0.0f;
-
-    // Type: assuming 0 = directional, 1 = point, 2 = spot (define per your engine)
     directionalLight.type = 0;
-
-    // Padding (if used for 16-byte alignment)
     directionalLight.padding = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
     m_lights.push_back(directionalLight);
+
+    // Jetzt 4 Pointlights im Kreis, Höhe y=50, Radius=100
+    const int pointLightCount = 4;
+    const float radius = 30.0f;
+    const float yHeight = 20.0f;
+
+    for (int i = 0; i < pointLightCount; ++i)
+    {
+        sLightConstants pointLight = {};
+
+        // Weiße Lichtstärke (kannst du anpassen)
+        pointLight.strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
+
+        // Falloff (typisch für Punktlicht, z.B. Start bei 10, Ende bei 50)
+        pointLight.falloffStart = 10.0f;
+        pointLight.falloffEnd = 50.0f;
+
+        // Position auf Kreis verteilen
+        float angle = XM_2PI * i / pointLightCount; // XM_2PI = 2*Pi (360°)
+        float x = radius * cosf(angle);
+        float z = radius * sinf(angle);
+
+        pointLight.position = XMFLOAT3(x, yHeight, z);
+
+        // Richtung bei Punktlicht nicht so wichtig, setzen wir auf 0
+        pointLight.direction = XMFLOAT3(0.0f, 0.0f, 0.0f);
+
+        // SpotPower 0, da kein Spotlicht
+        pointLight.spotPower = 0.0f;
+
+        // Type = 1 für Pointlight
+        pointLight.type = 1;
+
+        pointLight.padding = XMFLOAT3(0.0f, 0.0f, 0.0f);
+
+        m_lights.push_back(pointLight);
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

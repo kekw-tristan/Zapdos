@@ -2,7 +2,8 @@
 
 #include <iostream>
 
-#include "array"
+#include <array>
+#include <unordered_map>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -468,6 +469,233 @@ void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, sMeshData& _rOut
 				}
 			}
 
+		}
+	}
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<XMMATRIX>& _rOutWorldMatrix)
+{
+	tinygltf::Model model;
+	tinygltf::TinyGLTF loader;
+	std::string err, warn;
+
+	bool ret;
+	if (_rFilePath.substr(_rFilePath.size() - 4) == ".glb")
+	{
+		ret = loader.LoadBinaryFromFile(&model, &err, &warn, _rFilePath);
+	}
+	else
+	{
+		ret = loader.LoadASCIIFromFile(&model, &err, &warn, _rFilePath);
+	}
+
+	if (!warn.empty())
+		std::cout << "GLTF Warning: " << warn << std::endl;
+	if (!err.empty())
+		std::cerr << "GLTF Error: " << err << std::endl;
+	if (!ret)
+	{
+		std::cerr << "Failed to load GLTF: " << _rFilePath << std::endl;
+		return;
+	}
+
+	std::cout << "Number of Nodes: " << model.nodes.size() << "\n";
+
+	// Process each root node in the default scene
+	if (model.scenes.empty())
+	{
+		std::cerr << "GLTF Error: No scenes found.\n";
+		return;
+	}
+
+	const tinygltf::Scene& scene = model.scenes[model.defaultScene >= 0 ? model.defaultScene : 0];
+
+	for (int rootNodeIndex : scene.nodes)
+	{
+		// Start with identity matrix for each root node
+		XMMATRIX identity = XMMatrixIdentity();
+
+		// Recursively process the node hierarchy
+		ProcessNode(model, rootNodeIndex, identity, _rOutMeshData, _rOutWorldMatrix);
+	}
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cMeshGenerator::ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMATRIX _parentWorldMatrix, std::vector<sMeshData>& _rOutMeshData, std::vector<XMMATRIX>& _rOutWorldMatrix)
+{
+	const tinygltf::Node& node = _rModel.nodes[_nodeIndex];
+
+	// Compute local transform matrix from matrix or TRS
+	XMMATRIX localMatrix = XMMatrixIdentity();
+
+	if (node.matrix.size() == 16)
+	{
+		localMatrix = XMMatrixSet(
+			static_cast<float>(node.matrix[0]), static_cast<float>(node.matrix[1]), static_cast<float>(node.matrix[2]), static_cast<float>(node.matrix[3]),
+			static_cast<float>(node.matrix[4]), static_cast<float>(node.matrix[5]), static_cast<float>(node.matrix[6]), static_cast<float>(node.matrix[7]),
+			static_cast<float>(node.matrix[8]), static_cast<float>(node.matrix[9]), static_cast<float>(node.matrix[10]), static_cast<float>(node.matrix[11]),
+			static_cast<float>(node.matrix[12]), static_cast<float>(node.matrix[13]), static_cast<float>(node.matrix[14]), static_cast<float>(node.matrix[15])
+		);
+	}
+	else
+	{
+		XMVECTOR translation = XMVectorSet(
+			node.translation.size() > 0 ? static_cast<float>(node.translation[0]) : 0.f,
+			node.translation.size() > 1 ? static_cast<float>(node.translation[1]) : 0.f,
+			node.translation.size() > 2 ? static_cast<float>(node.translation[2]) : 0.f,
+			0.f);
+
+		XMVECTOR rotation = XMQuaternionIdentity();
+		if (node.rotation.size() == 4)
+		{
+			rotation = XMVectorSet(
+				static_cast<float>(node.rotation[0]),
+				static_cast<float>(node.rotation[1]),
+				static_cast<float>(node.rotation[2]),
+				static_cast<float>(node.rotation[3]));
+		}
+
+		XMVECTOR scale = XMVectorSet(
+			node.scale.size() > 0 ? static_cast<float>(node.scale[0]) : 1.f,
+			node.scale.size() > 1 ? static_cast<float>(node.scale[1]) : 1.f,
+			node.scale.size() > 2 ? static_cast<float>(node.scale[2]) : 1.f,
+			0.f);
+
+		localMatrix = XMMatrixAffineTransformation(scale, XMVectorZero(), rotation, translation);
+	}
+
+	// Combine with parent transform to get world matrix
+	XMMATRIX worldMatrix = localMatrix * _parentWorldMatrix;
+
+	// If node has mesh, extract and store mesh data with its world matrix
+	if (node.mesh >= 0)
+	{
+		sMeshData meshData;
+		ExtractPrimitives(_rModel, node.mesh, meshData);
+
+		_rOutMeshData.push_back(std::move(meshData));
+		_rOutWorldMatrix.push_back(worldMatrix);
+	}
+
+	// Recursively process children with current world matrix
+	for (int childIndex : node.children)
+	{
+		ProcessNode(_rModel, childIndex, worldMatrix, _rOutMeshData, _rOutWorldMatrix);
+	}
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sMeshData& outMeshData)
+{
+	const tinygltf::Mesh& mesh = model.meshes[meshIndex];
+
+	for (const auto& primitive : mesh.primitives)
+	{
+		// --- Extract indices (only uint16 supported here) ---
+		if (primitive.indices >= 0)
+		{
+			const tinygltf::Accessor& accessor = model.accessors[primitive.indices];
+			const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+
+			const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
+			size_t indexCount = static_cast<size_t>(accessor.count);
+
+			std::cout << "number of indices: " << indexCount << "\n";
+
+			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+			{
+				const uint16_t* indices = reinterpret_cast<const uint16_t*>(pData);
+				// Append indices, adjusting for current vertex count
+				size_t vertexOffset = outMeshData.vertices.size();
+				outMeshData.indices16.reserve(outMeshData.indices16.size() + indexCount);
+				for (size_t i = 0; i < indexCount; ++i)
+				{
+					outMeshData.indices16.push_back(indices[i] + static_cast<uint16_t>(vertexOffset));
+				}
+			}
+			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+			{
+				const uint32_t* indices = reinterpret_cast<const uint32_t*>(pData);
+				// Append indices, adjusting for current vertex count
+				size_t vertexOffset = outMeshData.vertices.size();
+				outMeshData.indices32.reserve(outMeshData.indices32.size() + indexCount);
+				for (size_t i = 0; i < indexCount; ++i)
+				{
+					outMeshData.indices32.push_back(indices[i] + static_cast<uint32_t>(vertexOffset));
+				}
+			}
+			else
+			{
+				std::cout << "Index type not supported. Has to be uint16!\n";
+			}
+		}
+
+		// --- Extract positions ---
+		auto posIt = primitive.attributes.find("POSITION");
+		if (posIt != primitive.attributes.end())
+		{
+			int accessorIndex = posIt->second;
+
+			const tinygltf::Accessor& accessor = model.accessors[accessorIndex];
+			const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+
+			const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
+
+			size_t vertexCount = static_cast<size_t>(accessor.count);
+
+			std::cout << "positions count " << vertexCount << "\n";
+
+			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+			{
+				const float* positions = reinterpret_cast<const float*>(pData);
+				// Append vertices (resize once for new vertices)
+				size_t oldVertexCount = outMeshData.vertices.size();
+				outMeshData.vertices.resize(oldVertexCount + vertexCount);
+
+				for (size_t i = 0; i < vertexCount; ++i)
+				{
+					outMeshData.vertices[oldVertexCount + i].position.x = positions[i * 3 + 0];
+					outMeshData.vertices[oldVertexCount + i].position.y = positions[i * 3 + 1];
+					outMeshData.vertices[oldVertexCount + i].position.z = positions[i * 3 + 2];
+				}
+			}
+		}
+
+		// --- Extract normals ---
+		auto normIt = primitive.attributes.find("NORMAL");
+		if (normIt != primitive.attributes.end())
+		{
+			int accessorIndex = normIt->second;
+
+			const tinygltf::Accessor& accessor = model.accessors[accessorIndex];
+			const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+
+			const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
+
+			size_t normalCount = static_cast<size_t>(accessor.count);
+
+			std::cout << "normals count " << normalCount << "\n";
+
+			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+			{
+				const float* normals = reinterpret_cast<const float*>(pData);
+
+				// Assume normals count matches vertex count and append accordingly
+				size_t startIndex = outMeshData.vertices.size() - normalCount;
+				for (size_t i = 0; i < normalCount; ++i)
+				{
+					outMeshData.vertices[startIndex + i].normal.x = normals[i * 3 + 0];
+					outMeshData.vertices[startIndex + i].normal.y = normals[i * 3 + 1];
+					outMeshData.vertices[startIndex + i].normal.z = normals[i * 3 + 2];
+				}
+			}
 		}
 	}
 }
