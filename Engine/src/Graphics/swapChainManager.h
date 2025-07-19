@@ -42,7 +42,6 @@ class cSwapChainManager
 
 		void InitializeSwapChain();
 		void InitializeDescriptorHeaps();
-	//	void InitializeRenderTargetView();
 		void InitializeDepthStencilView();
 		void InitializeViewPort();
 

@@ -24,10 +24,9 @@ struct sFrameResource
 
 		ComPtr<ID3D12CommandAllocator> pCmdListAlloc;
 
-		cUploadBuffer<sObjectConstants>*			pObjectCB;
-		cUploadBuffer<sPassConstants>*				pPassCB;
-		cUploadBuffer<sLightConstants>*				pLightBuffer;
-		cUploadBuffer<sMaterialConstants>*			pMaterialCB;
+		cUploadBuffer<sObjectConstants>*	pObjectCB;
+		cUploadBuffer<sPassConstants>*		pPassCB;
+		cUploadBuffer<sLightConstants>*		pLightBuffer;
 		
 		UINT64 fence;
 };

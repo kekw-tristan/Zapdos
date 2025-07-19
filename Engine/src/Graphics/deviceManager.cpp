@@ -5,7 +5,6 @@
 #include "directx12Util.h"
 
 // --------------------------------------------------------------------------------------------------------------------------
-// Constructor
 
 cDeviceManager::cDeviceManager()
 		:	m_pDevice		    (nullptr)
@@ -20,7 +19,6 @@ cDeviceManager::cDeviceManager()
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
-// Initialized all the components
 
 void cDeviceManager::Initialize()
 {
@@ -35,32 +33,22 @@ void cDeviceManager::Initialize()
 
 void cDeviceManager::FlushCommandQueue()
 {
-    // Increment the fence value to mark the current set of GPU commands.
     m_currentFence++;
 
-    // Signal the fence with the current fence value. This tells the GPU to set the fence to this value when it has finished processing all commands up to this point.
     cDirectX12Util::ThrowIfFailed(m_pCommandQueue->Signal(m_pFence.Get(), m_currentFence));
 
-    // If the GPU has not yet reached the current fence value, wait for it.
     if (m_pFence->GetCompletedValue() < m_currentFence)
     {
-        // Create an event handle for GPU synchronization.
         HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
 
-        // Instruct the fence to trigger the event when it reaches the current fence value.
         cDirectX12Util::ThrowIfFailed(m_pFence->SetEventOnCompletion(m_currentFence, eventHandle));
         
         if (eventHandle == nullptr)
         {
-            // Handle the error — for example, log it and/or throw
             throw std::runtime_error("Failed to create event handle.");
         }
 
-
-        // Wait for the GPU to complete execution up to the current fence value.
         WaitForSingleObject(eventHandle, INFINITE);
-
-        // Clean up the event handle.
         CloseHandle(eventHandle);
     }
 }
@@ -136,7 +124,6 @@ void cDeviceManager::SetFenceValue(UINT64 _fenceValue)
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
-// Initializes Device and Factory
 
 void cDeviceManager::InitializeDeviceAndFactory()
 {
@@ -169,7 +156,6 @@ void cDeviceManager::InitializeDeviceAndFactory()
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
-// Initializes Fence and rtv, dsv, cbvSrvUav, sampler descriptor sizes
 
 void cDeviceManager::InitializeFenceAndDescriptorSize()
 {
@@ -188,7 +174,6 @@ void cDeviceManager::InitializeFenceAndDescriptorSize()
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
-// Checks the 4xmsaa quality support level
 
 void cDeviceManager::Check4XMSAAQualitySupport()
 {
@@ -208,7 +193,7 @@ void cDeviceManager::Check4XMSAAQualitySupport()
     if (FAILED(hr))
     {
         std::cerr << "Failed to query MSAA quality support." << std::endl;
-        return; // Early exit in case of failure
+        return;
     }
 
     // Ensure the quality level is valid

@@ -39,7 +39,7 @@ void cPipelineManager::InitializeRootSignature()
 {
     CD3DX12_ROOT_PARAMETER slotRootParameter[3] = {};
 
-    // 1) Per-object CBV (register b0)
+    // per object 
     CD3DX12_DESCRIPTOR_RANGE cbvTable0;
     cbvTable0.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
@@ -51,7 +51,7 @@ void cPipelineManager::InitializeRootSignature()
         &cbvTable0
     );
 
-    // 2) Pass CBV (register b1)  <-- hier geändert von b2 auf b1
+    // pass constants 
     CD3DX12_DESCRIPTOR_RANGE cbvTable1;
     cbvTable1.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
@@ -63,7 +63,7 @@ void cPipelineManager::InitializeRootSignature()
         &cbvTable1
     );
 
-    // 3) Lights StructuredBuffer SRV (register t0)
+    // lights 
     CD3DX12_DESCRIPTOR_RANGE srvTable0;
     srvTable0.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
@@ -75,16 +75,14 @@ void cPipelineManager::InitializeRootSignature()
         &srvTable0
     );
 
-    // Create the root signature descriptor with 3 parameters now
     CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
         3,                              // Number of root parameters
         slotRootParameter,              // Pointer to root parameters array
-        0,                             // No static samplers
+        0,                              // No static samplers
         nullptr,
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
     );
 
-    // Serialize and create root signature as before
     ComPtr<ID3DBlob> serializedRootSig = nullptr;
     ComPtr<ID3DBlob> errorBlob = nullptr;
 

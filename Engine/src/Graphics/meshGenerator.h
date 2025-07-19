@@ -70,7 +70,6 @@ class cMeshGenerator
 		sMeshData CreateCube();
 		sMeshData CreateSphere(float radius, uint32_t sliceCount, uint32_t stackCount);
 		
-		void LoadModelFromGLTF(std::string& _rFilePath, sMeshData& _rOutMeshData);
 		void LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<XMMATRIX>& _rOutWorldMatrix);
 
 	private:

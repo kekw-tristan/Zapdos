@@ -9,7 +9,6 @@
 #include "deviceManager.h"
 
 // --------------------------------------------------------------------------------------------------------------------------
-// Constructor
 
 cSwapChainManager::cSwapChainManager(cDeviceManager* _pDeviceManager, cWindow* _pWindow)
 	: m_pDeviceManager      (_pDeviceManager)
@@ -132,7 +131,6 @@ D3D12_VIEWPORT& cSwapChainManager::GetViewport()
 
 void cSwapChainManager::InitializeSwapChain()
 {
-    // Setup a DXGI_SWAP_CHAIN_DESC1 structure with swap chain properties.
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 
     swapChainDesc.BufferCount           = c_swapChainBufferCount;                                                                   // Total number of buffers in the swap chain.
@@ -140,15 +138,14 @@ void cSwapChainManager::InitializeSwapChain()
     swapChainDesc.Height                = m_pWindow->GetHeight();                                                                   // Match the height of the client window.
     swapChainDesc.Format                = DXGI_FORMAT_R8G8B8A8_UNORM;                                                               // Use 32-bit RGBA format.
     swapChainDesc.BufferUsage           = DXGI_USAGE_RENDER_TARGET_OUTPUT;                                                          // Buffers are used as render targets.
-    swapChainDesc.SwapEffect            = DXGI_SWAP_EFFECT_FLIP_DISCARD;                                                            // Recommended swap effect for modern hardware.
+    swapChainDesc.SwapEffect            = DXGI_SWAP_EFFECT_FLIP_DISCARD;                                                            
     swapChainDesc.SampleDesc.Count      = m_pDeviceManager->Get4xMSAAQuality() ? 4 : 1;                                             // Enable 4x MSAA if supported, otherwise no MSAA.
     swapChainDesc.SampleDesc.Quality    = m_pDeviceManager->Get4xMSAAQuality() ? (m_pDeviceManager->Get4xMSAAQuality() - 1) : 0;    // Use highest supported MSAA quality.
     swapChainDesc.AlphaMode             = DXGI_ALPHA_MODE_UNSPECIFIED;                                                              // No specific alpha mode (not used in standard swapchains).
-    swapChainDesc.Flags                 = swapChainDesc.Flags = 0;                                                                                        // Allow fullscreen toggle with Alt+Enter.
+    swapChainDesc.Flags                 = swapChainDesc.Flags = 0;                                                                 
 
     ComPtr<IDXGISwapChain1> swapChain;
 
-    // Create a swap chain tied to the application's window.
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDxgiFactory()->CreateSwapChainForHwnd(
         m_pDeviceManager->GetCommandQueue(),    // Command queue used for presentation.
         m_pWindow->GetHWND(),                   // Handle to the output window.
@@ -160,17 +157,14 @@ void cSwapChainManager::InitializeSwapChain()
 
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDxgiFactory()->MakeWindowAssociation(m_pWindow->GetHWND(), DXGI_MWA_NO_ALT_ENTER));
 
-    // Convert the created swap chain to IDXGISwapChain4 for access to newer DXGI features.
     cDirectX12Util::ThrowIfFailed(swapChain.As(&m_pSwapChain));
-
-
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cSwapChainManager::InitializeDescriptorHeaps()
 {
-    // Describe the RTV (Render Target View) descriptor heap.
+    // rtv
     D3D12_DESCRIPTOR_HEAP_DESC rtvHD = {};
     rtvHD.NumDescriptors = c_swapChainBufferCount;  // One descriptor per swap chain buffer.
     rtvHD.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;    // Heap type is RTV.
@@ -183,7 +177,6 @@ void cSwapChainManager::InitializeDescriptorHeaps()
         IID_PPV_ARGS(m_pRtvHeap.GetAddressOf())
     ));
 
-    // Now we need to create the RTVs (Render Target Views) in the heap.
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_pRtvHeap->GetCPUDescriptorHandleForHeapStart());
     UINT rtvDescriptorSize = m_pDeviceManager->GetDevice()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
@@ -204,7 +197,7 @@ void cSwapChainManager::InitializeDescriptorHeaps()
         rtvHandle.Offset(1, rtvDescriptorSize);
     }
 
-    // Describe the DSV (Depth Stencil View) descriptor heap.
+    // dsv
     D3D12_DESCRIPTOR_HEAP_DESC dsvHD = {};
     dsvHD.NumDescriptors = 1;                       // Only one DSV needed.
     dsvHD.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;    // Heap type is DSV.

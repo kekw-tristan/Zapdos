@@ -105,13 +105,6 @@ ComPtr<ID3DBlob> cDirectX12Util::CompileShader(const std::wstring& _rFilename,
     ComPtr<ID3DBlob> pByteCode = nullptr;
     ComPtr<ID3DBlob> pErrors = nullptr;
 
-    /*
-    if (!std::filesystem::exists(std::filesystem::path(_rFilename)))
-    {
-        std::cout << "Absolute path: " << std::filesystem::absolute(_rFilename) << "\n";
-        throw std::runtime_error("Shader file not found: " + std::string(_rFilename.begin(), _rFilename.end()));
-    }
-    */
     HRESULT hr = D3DCompileFromFile(
         _rFilename.c_str(),
         _pDefines,

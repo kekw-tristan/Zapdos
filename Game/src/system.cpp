@@ -112,19 +112,15 @@ void cSystem::InitializeRenderItems()
         XMStoreFloat4x4(&renderItem.worldMatrix, worldMatrices[index]);
 
         m_renderItems.emplace_back(std::move(renderItem));
-
-        
     }
-
     std::cout << "meshes initialize\n";
-
  }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cSystem::InitializeLights()
 {
-    // Erstelle zuerst den Directional Light wie gehabt
+    // directional light
     sLightConstants directionalLight = {};
 
     directionalLight.strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
@@ -138,7 +134,7 @@ void cSystem::InitializeLights()
 
     m_lights.push_back(directionalLight);
 
-    // Jetzt 4 Pointlights im Kreis, Höhe y=50, Radius=100
+    // point lights
     const int pointLightCount = 4;
     const float radius = 30.0f;
     const float yHeight = 20.0f;
@@ -147,27 +143,21 @@ void cSystem::InitializeLights()
     {
         sLightConstants pointLight = {};
 
-        // Weiße Lichtstärke (kannst du anpassen)
         pointLight.strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
 
-        // Falloff (typisch für Punktlicht, z.B. Start bei 10, Ende bei 50)
         pointLight.falloffStart = 10.0f;
         pointLight.falloffEnd = 50.0f;
 
-        // Position auf Kreis verteilen
-        float angle = XM_2PI * i / pointLightCount; // XM_2PI = 2*Pi (360°)
+        float angle = XM_2PI * i / pointLightCount; 
         float x = radius * cosf(angle);
         float z = radius * sinf(angle);
 
         pointLight.position = XMFLOAT3(x, yHeight, z);
 
-        // Richtung bei Punktlicht nicht so wichtig, setzen wir auf 0
         pointLight.direction = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
-        // SpotPower 0, da kein Spotlicht
         pointLight.spotPower = 0.0f;
 
-        // Type = 1 für Pointlight
         pointLight.type = 1;
 
         pointLight.padding = XMFLOAT3(0.0f, 0.0f, 0.0f);
@@ -205,7 +195,6 @@ void cSystem::HandleInput()
     float speed = 0.1f;
     constexpr float rotSpeed = XMConvertToRadians(1.0f);
 
-    // Create rotation matrix from yaw and pitch to compute directions
     XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_pitch, m_yaw, 0.0f);
 
     XMVECTOR forward = XMVector3TransformCoord(XMVectorSet(0, 0, 1, 0), rot);

@@ -25,13 +25,13 @@ struct sRenderItem
     }
 
     XMFLOAT4X4                  worldMatrix;
-    int                         numberOfFramesDirty;  // Tracks how many frames need constant buffer updates
-    UINT                        objCBIndex;           // Index into the constant buffer for this object
-    sMeshGeometry*              pGeometry;            // Pointer to geometry data
-    sMaterial*                  pMaterial;            // Pointer to material used by this render item
+    int                         numberOfFramesDirty;  
+    UINT                        objCBIndex;          
+    sMeshGeometry*              pGeometry;          
+    sMaterial*                  pMaterial;         
 
-    D3D12_PRIMITIVE_TOPOLOGY    primitiveType;        // Usually triangle list
-    UINT                        indexCount;           // Number of indices to draw
-    UINT                        startIndexLocation;   // Start index location in the index buffer
-    int                         baseVertexLocation;   // Base vertex location for indexed drawing
+    D3D12_PRIMITIVE_TOPOLOGY    primitiveType;    
+    UINT                        indexCount;      
+    UINT                        startIndexLocation;   
+    int                         baseVertexLocation;  
 };

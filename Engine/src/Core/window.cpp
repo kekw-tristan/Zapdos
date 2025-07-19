@@ -226,12 +226,9 @@ LRESULT cWindow::WindowProc(UINT _uMsg, WPARAM _wParam, LPARAM _lParam)
 			cInput::OnMouseButtonUp(_wParam);
 			break;
 
-		case WM_SYSCHAR:
-			// Suppress beep for system characters (like Alt+Enter)
-			// Fullscreen toggled with f11 (only borderless fullscreen)
+		case WM_SYSCHAR:			
 			if (_wParam == VK_RETURN)
 			{
-				// skips default proc so no windows sound
 				return 0; 			
 			}
 			break;
@@ -247,12 +244,10 @@ void cWindow::EnterFullscreen()
 	m_isFullscreen	= true;
 	m_hasResized	= true;
 
-	// Save current window placement before changing
 	MONITORINFO mi = { sizeof(mi) };
 	if (GetWindowPlacement(m_hwnd, &m_prevWindowPlacement) &&
 		GetMonitorInfo(MonitorFromWindow(m_hwnd, MONITOR_DEFAULTTOPRIMARY), &mi))
 	{
-		// Change to borderless fullscreen
 		SetWindowLong(m_hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
 		SetWindowPos(
 			m_hwnd, HWND_TOP,
@@ -265,8 +260,8 @@ void cWindow::EnterFullscreen()
 
 	RECT rect;
 	GetClientRect(m_hwnd, &rect);
-	m_width = rect.right - rect.left;
-	m_height = rect.bottom - rect.top;
+	m_width		= rect.right  - rect.left;
+	m_height	= rect.bottom - rect.top;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -275,7 +270,6 @@ void cWindow::ExitFullscreen()
 {
 	m_isFullscreen	= false;
 	m_hasResized	= true;
-
 
 	// Restore window style and placement
 	SetWindowLong(m_hwnd, GWL_STYLE, m_windowStyle);

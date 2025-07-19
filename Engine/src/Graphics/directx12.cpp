@@ -29,10 +29,9 @@
 #include "meshGeometry.h"
 #include "meshGenerator.h"
 
-constexpr float c_pi = 3.1415927f;
-
 // --------------------------------------------------------------------------------------------------------------------------
 
+/*
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 {
     LPWSTR programFilesPath = nullptr;
@@ -61,16 +60,18 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
-
+*/
 // --------------------------------------------------------------------------------------------------------------------------
 // initializes all the directx12 components
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights)
 {
+    /*
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
     {
         LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
     }
+    */
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -231,8 +232,8 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
     XMStoreFloat4x4(&m_view, _view);
 
     // === Upload data to GPU buffers ===
-    UpdateObjectCB();  // Writes m_renderItems[*]->worldMatrix to per-object CB
-    UpdatePassCB();    // Writes m_mainPassCB to per-pass CB
+    UpdateObjectCB();  
+    UpdatePassCB();   
     UpdateLightCB();
 }
 
@@ -351,7 +352,6 @@ void cDirectX12::Draw()
 
 
 // --------------------------------------------------------------------------------------------------------------------------
-// calculates the aspectratio of the window 
 
 float cDirectX12::GetAspectRatio() const
 {
@@ -360,7 +360,6 @@ float cDirectX12::GetAspectRatio() const
 
 
 // --------------------------------------------------------------------------------------------------------------------------
-// computes fps and time to render one frame
 
 void cDirectX12::CalculateFrameStats() const
 {
@@ -383,8 +382,6 @@ void cDirectX12::CalculateFrameStats() const
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
-// handles the resize
-// resizes swapchain buffers and recreates render target view and depth stencil view
 
 void cDirectX12::OnResize()
 {
@@ -392,7 +389,7 @@ void cDirectX12::OnResize()
 
     m_pSwapChainManager->OnResize();
 
-    XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * c_pi, GetAspectRatio(), 0.1f, 1000.0f);
+    XMMATRIX P = XMMatrixPerspectiveFovLH(0.25f * XM_PI, GetAspectRatio(), 0.1f, 1000.0f);
     XMStoreFloat4x4(&m_proj, P);
 }
 
@@ -419,7 +416,7 @@ void cDirectX12::UpdateObjectCB()
             XMStoreFloat4x4(&objConstants.world, XMMatrixTranspose(world));
 
             // Copy albedo and specular from your render item material data
-            objConstants.albedo = pItem.pMaterial->albedo;  // Make sure you have this defined
+            objConstants.albedo = pItem.pMaterial->albedo;  
             objConstants.specularExponent = pItem.pMaterial->specularExponent;
 
             currObjCB->CopyData(pItem.objCBIndex, objConstants);
@@ -434,7 +431,6 @@ void cDirectX12::UpdateObjectCB()
 
 void cDirectX12::UpdatePassCB()
 {
-    
     XMMATRIX view           = XMLoadFloat4x4(&m_view);
     XMMATRIX proj           = XMLoadFloat4x4(&m_proj);
     XMMATRIX viewProj       = XMMatrixMultiply(view, proj);
@@ -451,7 +447,6 @@ void cDirectX12::UpdatePassCB()
     XMStoreFloat4x4(&passConstants.viewProj,    XMMatrixTranspose(viewProj));
     XMStoreFloat4x4(&passConstants.invViewProj, XMMatrixTranspose(invViewProj));
 
-    // todo correct values for eyepos
     passConstants.eyePos                = m_eyePos;
     passConstants.renderTargetSize      = XMFLOAT2((float)m_pWindow->GetWidth() , (float)m_pWindow->GetHeight());
     passConstants.invRenderTargetSize   = XMFLOAT2(1.0f / m_pWindow->GetWidth(), 1.0f / m_pWindow->GetHeight());
@@ -529,21 +524,21 @@ void cDirectX12::InitializeFrameResources()
 
         // === Pass CBV (b1) ===
         D3D12_CONSTANT_BUFFER_VIEW_DESC passCbvDesc = {};
-        passCbvDesc.BufferLocation = frameResource->pPassCB->GetResource()->GetGPUVirtualAddress();
-        passCbvDesc.SizeInBytes = passCBByteSize;
+
+        passCbvDesc.BufferLocation  = frameResource->pPassCB->GetResource()->GetGPUVirtualAddress();
+        passCbvDesc.SizeInBytes     = passCBByteSize;
 
         pDevice->CreateConstantBufferView(&passCbvDesc, cbvHandle);
         cbvHandle.ptr += descriptorSize;
 
         D3D12_SHADER_RESOURCE_VIEW_DESC lightSrvDesc = {};
-        lightSrvDesc.Format = DXGI_FORMAT_UNKNOWN; // Structured buffer has no format
-        lightSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-        lightSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        lightSrvDesc.Buffer.FirstElement = 0;
-        std::cout << "m_maxNumberOfLights" << m_maxNumberOfLights << std::endl;
-        lightSrvDesc.Buffer.NumElements = m_maxNumberOfLights; // number of lights
+        lightSrvDesc.Format                     = DXGI_FORMAT_UNKNOWN; // Structured buffer has no format
+        lightSrvDesc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
+        lightSrvDesc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        lightSrvDesc.Buffer.FirstElement        = 0;
+        lightSrvDesc.Buffer.NumElements         = m_maxNumberOfLights; 
         lightSrvDesc.Buffer.StructureByteStride = sizeof(sLightConstants);
-        lightSrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+        lightSrvDesc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
 
         pDevice->CreateShaderResourceView(
             frameResource->pLightBuffer->GetResource(),

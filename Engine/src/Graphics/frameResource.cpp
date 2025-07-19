@@ -14,7 +14,6 @@ sFrameResource::sFrameResource(ID3D12Device* _pDevice, UINT _passCount, UINT _ob
 	, pObjectCB(nullptr)
 	, pPassCB(nullptr)
 	, pLightBuffer(nullptr)
-	, pMaterialCB(nullptr)
 {
 	cDirectX12Util::ThrowIfFailed(_pDevice->CreateCommandAllocator(
 		D3D12_COMMAND_LIST_TYPE_DIRECT,

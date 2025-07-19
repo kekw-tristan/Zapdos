@@ -243,10 +243,11 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 
 	// Top vertex (north pole)
 	sVertex topVertex;
-	topVertex.position = XMFLOAT3(0.0f, +radius, 0.0f);
-	topVertex.normal = XMFLOAT3(0.0f, +1.0f, 0.0f);
-	topVertex.tangentU = XMFLOAT3(1.0f, 0.0f, 0.0f);
-	topVertex.texC = XMFLOAT2(0.0f, 0.0f);
+	topVertex.position	= XMFLOAT3(0.0f, +radius, 0.0f);
+	topVertex.normal	= XMFLOAT3(0.0f, +1.0f, 0.0f);
+	topVertex.tangentU	= XMFLOAT3(1.0f, 0.0f, 0.0f);
+	topVertex.texC		= XMFLOAT2(0.0f, 0.0f);
+
 	meshData.vertices.push_back(topVertex);
 
 	float phiStep = XM_PI / stackCount;
@@ -328,149 +329,12 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 
 	for (uint32_t i = 0; i < sliceCount; ++i)
 	{
-		meshData.indices32.push_back(baseIndex + i);                          // current vertex
-		meshData.indices32.push_back(baseIndex + (i + 1) % ringVertexCount);  // next vertex
-		meshData.indices32.push_back(southPoleIndex);                        // bottom vertex
+		meshData.indices32.push_back(baseIndex + i);							// current vertex
+		meshData.indices32.push_back(baseIndex + (i + 1) % ringVertexCount);	// next vertex
+		meshData.indices32.push_back(southPoleIndex);							// bottom vertex
 	}
 
 	return meshData;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------
-
-void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, sMeshData& _rOutMeshData)
-{
-	tinygltf::Model model;
-	tinygltf::TinyGLTF loader;
-	std::string err, warn;
-
-	bool ret;
-	if (_rFilePath.substr(_rFilePath.size() - 4) == ".glb")
-	{
-		ret = loader.LoadBinaryFromFile(&model, &err, &warn, _rFilePath);
-	}
-	else 
-	{
-		ret = loader.LoadASCIIFromFile(&model, &err, &warn, _rFilePath);
-	}
-
-	if (!warn.empty()) 
-	{
-		std::cout << "GLTF Warning: " << warn << std::endl;
-	}
-	if (!err.empty()) 
-	{
-		std::cerr << "GLTF Error: " << err << std::endl;
-	}
-	if (!ret) 
-	{
-		std::cerr << "Failed to load GLTF: " << _rFilePath << std::endl;
-		return;
-	}
-	
-	std::cout << "number of meshes: " << model.meshes.size() << "\n";
-
-	for (const auto& mesh : model.meshes)
-	{
-	
-	
-		for (const auto& primitive : mesh.primitives)
-		{
-			const tinygltf::Accessor&	accessor	= model.accessors[primitive.indices];
-			const tinygltf::BufferView& bufferView	= model.bufferViews[accessor.bufferView];
-			const tinygltf::Buffer&		buffer		= model.buffers[bufferView.buffer];
-
-			// reading indices
-			if (primitive.indices >= 0)
-			{
-				const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
-				size_t indexCount = static_cast<int>(accessor.count);
-
-				std::cout << "number of indices: " << indexCount << "\n";
-
-				if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
-				{
-					const uint16_t* indices = reinterpret_cast<const uint16_t*>(pData);
-					_rOutMeshData.indices16.reserve(indexCount);
-					_rOutMeshData.indices16.insert(_rOutMeshData.indices16.end(), indices, indices + indexCount);
-				}
-				else
-				{
-					std::cout << "Indextype not supported. Has to be uint16!";
-				}
-			}
-
-			//reading vertecis
-			std::map<std::string, int>::const_iterator posAttribute = primitive.attributes.find("POSITION");
-			if (posAttribute != primitive.attributes.end())
-			{
-				int accessorIndex = posAttribute->second; 
-
-				const tinygltf::Accessor&	accessor	= model.accessors[accessorIndex]; 
-				const tinygltf::BufferView	bufferView	= model.bufferViews[accessor.bufferView];
-				const tinygltf::Buffer&		buffer		= model.buffers[bufferView.buffer];
-
-				const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
-			
-				size_t vertexCount = accessor.count; 
-
-				std::cout << "positions count " << vertexCount << "\n";
-
-				if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
-				{
-					const float* positions = reinterpret_cast<const float*>(pData);
-					
-					_rOutMeshData.vertices.resize(vertexCount);
-
-					for (int index = 0; index < vertexCount; index++)
-					{
-						_rOutMeshData.vertices[index].position.x = positions[index * 3 + 0];
-						_rOutMeshData.vertices[index].position.y = positions[index * 3 + 1];
-						_rOutMeshData.vertices[index].position.z = positions[index * 3 + 2];
-
-						std::cout << positions[index * 3 + 0] << ", " << positions[index * 3 + 1] << ", " << positions[index * 3 + 2] << "\n";
-					}
-				}
-			}
-
-
-			// reading normals 
-			std::map<std::string, int>::const_iterator normAttribute = primitive.attributes.find("NORMAL");
-			if (normAttribute != primitive.attributes.end())
-			{
-				int accessorIndex = normAttribute->second;
-
-				const tinygltf::Accessor&	accessor	= model.accessors[accessorIndex];
-				const tinygltf::BufferView	bufferView	= model.bufferViews[accessor.bufferView];
-				const tinygltf::Buffer&		buffer		= model.buffers[bufferView.buffer];
-
-				const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
-
-				size_t normalCount = accessor.count;
-
-				std::cout << "positions count " << normalCount << "\n";
-
-				if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
-				{
-					const float* normals = reinterpret_cast<const float*>(pData);
-				
-
-					_rOutMeshData.vertices.resize(normalCount);
-					
-					std::cout << "normals" << std::endl;
-					for (int index = 0; index < normalCount; index++)
-					{
-						_rOutMeshData.vertices[index].normal.x = normals[index * 3 + 0];
-						_rOutMeshData.vertices[index].normal.y = normals[index * 3 + 1];
-						_rOutMeshData.vertices[index].normal.z = normals[index * 3 + 2];
-
-						std::cout << normals[index * 3 + 0] << ", " << normals[index * 3 + 1] << ", " << normals[index * 3 + 2] << "\n";
-					}
-				}
-			}
-
-		}
-	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -500,8 +364,6 @@ void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMes
 		std::cerr << "Failed to load GLTF: " << _rFilePath << std::endl;
 		return;
 	}
-
-	std::cout << "Number of Nodes: " << model.nodes.size() << "\n";
 
 	// Process each root node in the default scene
 	if (model.scenes.empty())
@@ -605,8 +467,6 @@ void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sM
 			const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
 			size_t indexCount = static_cast<size_t>(accessor.count);
 
-			std::cout << "number of indices: " << indexCount << "\n";
-
 			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 			{
 				const uint16_t* indices = reinterpret_cast<const uint16_t*>(pData);
@@ -631,7 +491,7 @@ void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sM
 			}
 			else
 			{
-				std::cout << "Index type not supported. Has to be uint16!\n";
+				std::cout << "Index type not supported! \n";
 			}
 		}
 
@@ -648,8 +508,6 @@ void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sM
 			const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
 
 			size_t vertexCount = static_cast<size_t>(accessor.count);
-
-			std::cout << "positions count " << vertexCount << "\n";
 
 			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
 			{
@@ -681,13 +539,10 @@ void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sM
 
 			size_t normalCount = static_cast<size_t>(accessor.count);
 
-			std::cout << "normals count " << normalCount << "\n";
-
 			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
 			{
 				const float* normals = reinterpret_cast<const float*>(pData);
 
-				// Assume normals count matches vertex count and append accordingly
 				size_t startIndex = outMeshData.vertices.size() - normalCount;
 				for (size_t i = 0; i < normalCount; ++i)
 				{
