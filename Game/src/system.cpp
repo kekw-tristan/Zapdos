@@ -74,6 +74,7 @@ void cSystem::Finalize()
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
+
 void cSystem::InitializeRenderItems()
 {
     cMeshGenerator meshGenerator;
