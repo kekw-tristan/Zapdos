@@ -24,17 +24,20 @@ using namespace Microsoft::WRL;
 
 void cSystem::Initialize()
 {
-	std::cout << "Initialize" << "\n";
-	m_pTimer = new cTimer();
-	m_pTimer->Start();
-	
-	m_pWindow = new cWindow();
-	m_pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720, m_pTimer);
+    std::cout << "Initialize\n";
 
-	m_pDirectX12 = new cDirectX12();
-	m_pDirectX12->Initialize(m_pWindow, m_pTimer, c_numberOfRenderItems, 1000);
+    m_pTimer = new cTimer();
+    m_pTimer->Start();
 
-    InitializeRenderItems(); 
+    m_pWindow = new cWindow();
+    m_pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720, m_pTimer);
+
+    m_pDirectX12 = new cDirectX12();
+    m_pDirectX12->Initialize(m_pWindow, m_pTimer, c_numberOfRenderItems, 1000);
+
+    m_pScene = std::make_unique<cScene>();
+
+    InitializeRenderItems();
     InitializeLights();
 }
 
@@ -73,22 +76,18 @@ void cSystem::Finalize()
 // --------------------------------------------------------------------------------------------------------------------------
 void cSystem::InitializeRenderItems()
 {
+    cMeshGenerator meshGenerator;
 
-    cMeshGenerator meshGenerator; 
-
-    std::vector<cMeshGenerator::sMeshData> meshes; 
-    std::vector<XMMATRIX> worldMatrices; 
+    std::vector<cMeshGenerator::sMeshData> meshes;
+    std::vector<XMMATRIX> worldMatrices;
 
     std::string path = "..\\Assets\\Objects\\scene.gltf";
-    meshGenerator.LoadModelFromGLTF(path ,meshes, worldMatrices);
+    meshGenerator.LoadModelFromGLTF(path, meshes, worldMatrices);
 
-    std::cout << meshes.size() << "\n";
-    std::cout << worldMatrices.size() << "\n";
-
-    for (int index = 0; index < meshes.size(); index++)
+    for (int i = 0; i < meshes.size(); ++i)
     {
-        std::string name = "scene_" + std::to_string(index);
-        m_pDirectX12->InitializeMesh(meshes[index], name, XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));
+        std::string name = "scene_" + std::to_string(i);
+        m_pDirectX12->InitializeMesh(meshes[i], name, XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));
     }
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
@@ -97,72 +96,62 @@ void cSystem::InitializeRenderItems()
     groundMaterial.albedo = XMFLOAT3(0.7f, 0.7f, 0.7f);
     groundMaterial.specularExponent = 16.0f;
 
-    for (int index = 0; index < meshes.size(); index++)
+    for (int i = 0; i < meshes.size(); ++i)
     {
-        sRenderItem renderItem;
-        std::string name = "scene_" + std::to_string(index);
-        renderItem.pGeometry = pMeshGeo;
-        renderItem.pMaterial = &groundMaterial;
-        renderItem.objCBIndex = static_cast<UINT>(index);
+        sRenderItem ri;
+        std::string name = "scene_" + std::to_string(i);
+
+        ri.pGeometry = pMeshGeo;
+        ri.pMaterial = &groundMaterial;
+        ri.objCBIndex = static_cast<UINT>(i);
 
         const auto& submesh = pMeshGeo->drawArguments.at(name);
-        renderItem.indexCount = submesh.indexCount;
-        renderItem.startIndexLocation = submesh.startIndexLocation;
-        renderItem.baseVertexLocation = submesh.startVertexLocation;
-        XMStoreFloat4x4(&renderItem.worldMatrix, worldMatrices[index]);
+        ri.indexCount = submesh.indexCount;
+        ri.startIndexLocation = submesh.startIndexLocation;
+        ri.baseVertexLocation = submesh.startVertexLocation;
 
-        m_renderItems.emplace_back(std::move(renderItem));
+        XMStoreFloat4x4(&ri.worldMatrix, worldMatrices[i]);
+
+        m_pScene->GetRenderItems().emplace_back(std::move(ri));
     }
-    std::cout << "meshes initialize\n";
- }
+
+    std::cout << "Meshes initialized\n";
+}
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cSystem::InitializeLights()
 {
-    // directional light
-    sLightConstants directionalLight = {};
+    auto& lights = m_pScene->GetLight();
 
-    directionalLight.strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
-    directionalLight.falloffStart = 1.0f;
-    directionalLight.falloffEnd = 10.0f;
-    directionalLight.direction = XMFLOAT3(0.0f, -1.0f, 0.0f);
-    directionalLight.position = XMFLOAT3(0.0f, 0.0f, 0.0f);
-    directionalLight.spotPower = 0.0f;
+    sLightConstants directionalLight{};
+    directionalLight.strength = XMFLOAT3(1, 1, 1);
+    directionalLight.direction = XMFLOAT3(0, -1, 0);
     directionalLight.type = 0;
-    directionalLight.padding = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
-    m_lights.push_back(directionalLight);
+    lights.push_back(directionalLight);
 
-    // point lights
     const int pointLightCount = 4;
     const float radius = 30.0f;
     const float yHeight = 20.0f;
 
     for (int i = 0; i < pointLightCount; ++i)
     {
-        sLightConstants pointLight = {};
+        sLightConstants light{};
+        float angle = XM_2PI * i / pointLightCount;
 
-        pointLight.strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
+        light.position = XMFLOAT3(
+            radius * cosf(angle),
+            yHeight,
+            radius * sinf(angle)
+        );
 
-        pointLight.falloffStart = 10.0f;
-        pointLight.falloffEnd = 50.0f;
+        light.strength = XMFLOAT3(1, 1, 1);
+        light.falloffStart = 10.0f;
+        light.falloffEnd = 50.0f;
+        light.type = 1;
 
-        float angle = XM_2PI * i / pointLightCount; 
-        float x = radius * cosf(angle);
-        float z = radius * sinf(angle);
-
-        pointLight.position = XMFLOAT3(x, yHeight, z);
-
-        pointLight.direction = XMFLOAT3(0.0f, 0.0f, 0.0f);
-
-        pointLight.spotPower = 0.0f;
-
-        pointLight.type = 1;
-
-        pointLight.padding = XMFLOAT3(0.0f, 0.0f, 0.0f);
-
-        m_lights.push_back(pointLight);
+        lights.push_back(light);
     }
 }
 
@@ -175,17 +164,21 @@ void cSystem::Update()
     XMVECTOR pos = XMLoadFloat3(&m_position);
     XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_pitch, m_yaw, 0.0f);
 
-    XMVECTOR forward    = XMVector3TransformCoord(XMVectorSet(0, 0, 1, 0), rot);
-    XMVECTOR up         = XMVector3TransformCoord(XMVectorSet(0, 1, 0, 0), rot);
-    XMVECTOR at         = pos + forward;
+    XMVECTOR forward = XMVector3TransformCoord(XMVectorSet(0, 0, 1, 0), rot);
+    XMVECTOR up = XMVector3TransformCoord(XMVectorSet(0, 1, 0, 0), rot);
 
-    XMMATRIX view = XMMatrixLookAtLH(pos, at, up);
+    XMMATRIX view = XMMatrixLookAtLH(pos, pos + forward, up);
     XMStoreFloat4x4(&m_view, view);
 
     XMFLOAT3 camPos;
     XMStoreFloat3(&camPos, pos);
 
-    m_pDirectX12->Update(view, camPos, &m_renderItems, &m_lights);
+    m_pDirectX12->Update(
+        view,
+        camPos,
+        &m_pScene->GetRenderItems(),
+        &m_pScene->GetLight()
+    );
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

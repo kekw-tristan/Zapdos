@@ -43,8 +43,9 @@ project "Engine"
     }
 
     vpaths {
-        ["Core/*"]      = "Engine/src/core/**",
-        ["Graphics/*"]  = "Engine/src/graphics/**",
+        ["Core/*"]      = "Engine/src/Core/**",
+        ["Graphics/*"]  = "Engine/src/Graphics/**",
+        ["Scene/*"]     = "Engine/src/Scene/**",
         ["Shaders/*"]   = "Assets/Shader/**",
     }
 
