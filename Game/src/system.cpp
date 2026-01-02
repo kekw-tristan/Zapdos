@@ -35,7 +35,9 @@ void cSystem::Initialize()
     m_pDirectX12 = new cDirectX12();
     m_pDirectX12->Initialize(m_pWindow, m_pTimer, c_numberOfRenderItems, 1000);
 
-    m_pScene = std::make_unique<cScene>();
+    m_pScene  = std::make_unique<cScene>();
+    m_pCamera = std::make_unique<cCamera>();
+    m_pCamera->SetProjection(XM_PI / 4.f, 1280.f / 720.f, 0.1f, 1000.f);
 
     InitializeRenderItems();
     InitializeLights();
@@ -45,32 +47,35 @@ void cSystem::Initialize()
 
 void cSystem::Run()
 {
-	while (m_pWindow->GetIsRunning())
-	{
-		m_pWindow->MessageHandling();
+    while (m_pWindow->GetIsRunning())
+    {
+        m_pWindow->MessageHandling();
 
-		if (m_pWindow->GetIsWindowPaused())
-			continue;
+        if (m_pWindow->GetIsWindowPaused())
+            continue;
 
-		m_pTimer->Tick();
+        m_pTimer->Tick();
 
-		m_pDirectX12->CalculateFrameStats();
-		Update();
-		m_pDirectX12->Draw();
-	}	
+        m_pDirectX12->CalculateFrameStats();
+
+        float deltaTime = m_pTimer->GetDeltaTime();
+        Update(deltaTime);
+
+        m_pDirectX12->Draw();
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cSystem::Finalize()
 {
-	std::cout << "Finalize" << "\n";
+    std::cout << "Finalize\n";
 
-	m_pDirectX12->Finalize();
+    m_pDirectX12->Finalize();
 
-	delete m_pWindow;
-	delete m_pDirectX12;
-	delete m_pTimer;
+    delete m_pWindow;
+    delete m_pDirectX12;
+    delete m_pTimer;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -78,7 +83,6 @@ void cSystem::Finalize()
 void cSystem::InitializeRenderItems()
 {
     cMeshGenerator meshGenerator;
-
     std::vector<cMeshGenerator::sMeshData> meshes;
     std::vector<XMMATRIX> worldMatrices;
 
@@ -95,7 +99,7 @@ void cSystem::InitializeRenderItems()
 
     static sMaterial groundMaterial;
     groundMaterial.albedo = XMFLOAT3(0.7f, 0.7f, 0.7f);
-    groundMaterial.specularExponent = 16.0f;
+    groundMaterial.specularExponent = 16.f;
 
     for (int i = 0; i < meshes.size(); ++i)
     {
@@ -133,23 +137,18 @@ void cSystem::InitializeLights()
     lights.push_back(directionalLight);
 
     const int pointLightCount = 4;
-    const float radius = 30.0f;
-    const float yHeight = 20.0f;
+    const float radius = 30.f;
+    const float yHeight = 20.f;
 
     for (int i = 0; i < pointLightCount; ++i)
     {
         sLightConstants light{};
         float angle = XM_2PI * i / pointLightCount;
 
-        light.position = XMFLOAT3(
-            radius * cosf(angle),
-            yHeight,
-            radius * sinf(angle)
-        );
-
+        light.position = XMFLOAT3(radius * cosf(angle), yHeight, radius * sinf(angle));
         light.strength = XMFLOAT3(1, 1, 1);
-        light.falloffStart = 10.0f;
-        light.falloffEnd = 50.0f;
+        light.falloffStart = 10.f;
+        light.falloffEnd = 50.f;
         light.type = 1;
 
         lights.push_back(light);
@@ -158,76 +157,39 @@ void cSystem::InitializeLights()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cSystem::Update()
+void cSystem::Update(float deltaTime)
 {
-    HandleInput();
+    HandleInput(deltaTime);
 
-    XMVECTOR pos = XMLoadFloat3(&m_position);
-    XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_pitch, m_yaw, 0.0f);
+    XMMATRIX view = m_pCamera->GetViewMatrix();
+    XMFLOAT3 camPos = m_pCamera->GetPosition();
 
-    XMVECTOR forward = XMVector3TransformCoord(XMVectorSet(0, 0, 1, 0), rot);
-    XMVECTOR up = XMVector3TransformCoord(XMVectorSet(0, 1, 0, 0), rot);
-
-    XMMATRIX view = XMMatrixLookAtLH(pos, pos + forward, up);
-    XMStoreFloat4x4(&m_view, view);
-
-    XMFLOAT3 camPos;
-    XMStoreFloat3(&camPos, pos);
-
-    m_pDirectX12->Update(
-        view,
-        camPos,
-        &m_pScene->GetRenderItems(),
-        &m_pScene->GetLight()
-    );
+    m_pDirectX12->Update(view, camPos, &m_pScene->GetRenderItems(), &m_pScene->GetLight());
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cSystem::HandleInput()
+void cSystem::HandleInput(float deltaTime)
 {
-    float speed = 0.1f;
-    constexpr float rotSpeed = XMConvertToRadians(1.0f);
+    float speed = 30.f * deltaTime;
+    float rotSpeed = (150.0f * XM_PI / 180.0f) * deltaTime;
 
-    XMMATRIX rot = XMMatrixRotationRollPitchYaw(m_pitch, m_yaw, 0.0f);
-
-    XMVECTOR forward = XMVector3TransformCoord(XMVectorSet(0, 0, 1, 0), rot);
-    XMVECTOR right = XMVector3TransformCoord(XMVectorSet(1, 0, 0, 0), rot);
-
-    XMVECTOR pos = XMLoadFloat3(&m_position);
+    XMFLOAT3 moveDelta{ 0.f,0.f,0.f };
+    float pitchDelta = 0.f;
+    float yawDelta = 0.f;
 
     // WASD movement
-    if (cInput::IsKeyDown('W'))
-        pos += speed * forward;
+    if (cInput::IsKeyDown('W')) moveDelta.z += 1.f;
+    if (cInput::IsKeyDown('S')) moveDelta.z -= 1.f;
+    if (cInput::IsKeyDown('A')) moveDelta.x -= 1.f;
+    if (cInput::IsKeyDown('D')) moveDelta.x += 1.f;
 
-    if (cInput::IsKeyDown('S'))
-        pos -= speed * forward;
+    // Arrow rotation
+    if (cInput::IsKeyDown(VK_UP))    pitchDelta -= 1.f;
+    if (cInput::IsKeyDown(VK_DOWN))  pitchDelta += 1.f;
+    if (cInput::IsKeyDown(VK_LEFT))  yawDelta -= 1.f;
+    if (cInput::IsKeyDown(VK_RIGHT)) yawDelta += 1.f;
 
-    if (cInput::IsKeyDown('A'))
-        pos -= speed * right;
-
-    if (cInput::IsKeyDown('D'))
-        pos += speed * right;
-
-    // Arrow key rotation
-    if (cInput::IsKeyDown(VK_LEFT))
-        m_yaw -= rotSpeed;
-
-    if (cInput::IsKeyDown(VK_RIGHT))
-        m_yaw += rotSpeed;
-
-    if (cInput::IsKeyDown(VK_DOWN))
-        m_pitch += rotSpeed;
-
-    if (cInput::IsKeyDown(VK_UP))
-        m_pitch -= rotSpeed;
-
-    // Clamp pitch to avoid gimbal lock
-    m_pitch = std::clamp(m_pitch, -XM_PIDIV2 + 0.1f, XM_PIDIV2 - 0.1f);
-
-    XMStoreFloat3(&m_position, pos);
+    m_pCamera->Move(XMFLOAT3(moveDelta.x * speed, moveDelta.y * speed, moveDelta.z * speed));
+    m_pCamera->Rotate(pitchDelta * rotSpeed, yawDelta * rotSpeed);
 }
-
-// --------------------------------------------------------------------------------------------------------------------------
-
-

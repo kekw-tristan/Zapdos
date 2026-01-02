@@ -1,3 +1,4 @@
+#pragma once
 #include <vector>
 
 #include "Graphics/renderItem.h"
@@ -13,6 +14,4 @@ class cScene
 
 		std::vector<sRenderItem>		m_renderItems;
 		std::vector<sLightConstants>	m_lightConstants; 
-
-
 };
