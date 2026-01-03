@@ -339,7 +339,7 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<XMMATRIX>& _rOutWorldMatrix)
+void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial, std::vector<XMMATRIX>& _rOutWorldMatrix)
 {
 	tinygltf::Model model;
 	tinygltf::TinyGLTF loader;
@@ -380,13 +380,13 @@ void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMes
 		XMMATRIX identity = XMMatrixIdentity();
 
 		// Recursively process the node hierarchy
-		ProcessNode(model, rootNodeIndex, identity, _rOutMeshData, _rOutWorldMatrix);
+		ProcessNode(model, rootNodeIndex, identity, _rOutMeshData, _rOutMaterial, _rOutWorldMatrix);
 	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cMeshGenerator::ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMATRIX _parentWorldMatrix, std::vector<sMeshData>& _rOutMeshData, std::vector<XMMATRIX>& _rOutWorldMatrix)
+void cMeshGenerator::ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMATRIX _parentWorldMatrix, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterials, std::vector<XMMATRIX>& _rOutWorldMatrix)
 {
 	const tinygltf::Node& node = _rModel.nodes[_nodeIndex];
 
@@ -436,7 +436,7 @@ void cMeshGenerator::ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMAT
 	if (node.mesh >= 0)
 	{
 		sMeshData meshData;
-		ExtractPrimitives(_rModel, node.mesh, meshData);
+		ExtractPrimitives(_rModel, node.mesh, meshData, _rOutMaterials);
 
 		_rOutMeshData.push_back(std::move(meshData));
 		_rOutWorldMatrix.push_back(worldMatrix);
@@ -445,13 +445,13 @@ void cMeshGenerator::ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMAT
 	// Recursively process children with current world matrix
 	for (int childIndex : node.children)
 	{
-		ProcessNode(_rModel, childIndex, worldMatrix, _rOutMeshData, _rOutWorldMatrix);
+		ProcessNode(_rModel, childIndex, worldMatrix, _rOutMeshData, _rOutMaterials, _rOutWorldMatrix);
 	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sMeshData& outMeshData)
+void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sMeshData& outMeshData, std::vector<sMaterial>& _rOutMaterials)
 {
 	const tinygltf::Mesh& mesh = model.meshes[meshIndex];
 
@@ -552,5 +552,72 @@ void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sM
 				}
 			}
 		}
+
+		// --- Material ---
+		if (primitive.material >= 0)
+		{
+			sMaterial material = ExtractMaterialFromGLTF(model, primitive.material);
+			outMeshData.materialIndex = static_cast<int>(_rOutMaterials.size());
+			_rOutMaterials.push_back(material);
+		}
+		else
+		{
+			// Default material
+			outMeshData.materialIndex = static_cast<int>(_rOutMaterials.size());
+			_rOutMaterials.emplace_back();
+		}
 	}
 }
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+sMaterial cMeshGenerator::ExtractMaterialFromGLTF(const tinygltf::Model& model, int materialIndex)
+{
+	sMaterial mat;
+
+	if (materialIndex < 0 || materialIndex >= model.materials.size())
+		return mat;
+
+	const tinygltf::Material& gltfMat = model.materials[materialIndex];
+
+	// ---- Base Color + Alpha ----
+	if (gltfMat.values.count("baseColorFactor"))
+	{
+		const auto& c = gltfMat.values.at("baseColorFactor").ColorFactor();
+		mat.albedo = XMFLOAT3(
+			static_cast<float>(c[0]),
+			static_cast<float>(c[1]),
+			static_cast<float>(c[2])
+		);
+		mat.alpha = static_cast<float>(c[3]);
+	}
+
+	// ---- Metallic ----
+	if (gltfMat.values.count("metallicFactor"))
+		mat.metallic = static_cast<float>(
+			gltfMat.values.at("metallicFactor").Factor()
+			);
+
+	// ---- Roughness ----
+	if (gltfMat.values.count("roughnessFactor"))
+		mat.roughness = static_cast<float>(
+			gltfMat.values.at("roughnessFactor").Factor()
+			);
+
+	// ---- Emissive ----
+	if (!gltfMat.emissiveFactor.empty())
+	{
+		mat.emissive = XMFLOAT3(
+			static_cast<float>(gltfMat.emissiveFactor[0]),
+			static_cast<float>(gltfMat.emissiveFactor[1]),
+			static_cast<float>(gltfMat.emissiveFactor[2])
+		);
+	}
+
+	// ---- AO (factor-only for now) ----
+	mat.ao = 1.0f; // glTF AO texture later
+
+	return mat;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------

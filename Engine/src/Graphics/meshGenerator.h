@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "vertex.h"
+#include "material.h"
 
 using namespace DirectX; 
 
@@ -27,6 +28,7 @@ class cMeshGenerator
 				std::vector<sVertex> vertices;
 				std::vector<uint32> indices32;
 				std::vector<uint16> indices16;
+				int materialIndex = -1;
 
 				std::vector<uint16>& GetIndices16()
 				{
@@ -53,12 +55,13 @@ class cMeshGenerator
 		sMeshData CreateCube();
 		sMeshData CreateSphere(float radius, uint32_t sliceCount, uint32_t stackCount);
 		
-		void LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<XMMATRIX>& _rOutWorldMatrix);
+		void LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial,std::vector<XMMATRIX>& _rOutWorldMatrix);
 
 	private:
 
-		void ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMATRIX _parentWorldMatrix, std::vector<sMeshData>& _rOutMeshData, std::vector<XMMATRIX>& _rOutWorldMatrix);
-		void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sMeshData& outMeshData);
+		void ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMATRIX _parentWorldMatrix, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterials, std::vector<XMMATRIX>& _rOutWorldMatrix);
+		void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sMeshData& outMeshData, std::vector<sMaterial>& _rOutMaterials);
+		sMaterial ExtractMaterialFromGLTF(const tinygltf::Model& model, int materialIndex);
 
 	private:
 

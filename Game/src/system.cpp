@@ -83,12 +83,15 @@ void cSystem::Finalize()
 void cSystem::InitializeRenderItems()
 {
     cMeshGenerator meshGenerator;
+
     std::vector<cMeshGenerator::sMeshData> meshes;
     std::vector<XMMATRIX> worldMatrices;
+    std::vector<sMaterial> materials;
 
     std::string path = "..\\Assets\\Objects\\scene.gltf";
-    meshGenerator.LoadModelFromGLTF(path, meshes, worldMatrices);
+    meshGenerator.LoadModelFromGLTF(path, meshes, materials, worldMatrices);
 
+    // Initialize GPU meshes
     for (int i = 0; i < meshes.size(); ++i)
     {
         std::string name = "scene_" + std::to_string(i);
@@ -97,22 +100,25 @@ void cSystem::InitializeRenderItems()
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
-    static sMaterial goldMaterial;
-    goldMaterial.albedo = XMFLOAT3(1.0f, 0.85f, 0.4f); // Brighter gold
-    goldMaterial.alpha = 1.0f;                         // Opaque
-    goldMaterial.metallic = 1.0f;                         // Full metal
-    goldMaterial.roughness = 0.2f;                         // Smooth but not mirror
-    goldMaterial.ao = 1.0f;                         // Full AO
-    goldMaterial.emissive = XMFLOAT3(0.0f, 0.0f, 0.0f);  // No emissive glow
-
+    // Create render items
     for (int i = 0; i < meshes.size(); ++i)
     {
         sRenderItem ri;
         std::string name = "scene_" + std::to_string(i);
 
         ri.pGeometry = pMeshGeo;
-        ri.pMaterial = &goldMaterial;
         ri.objCBIndex = static_cast<UINT>(i);
+
+        int matIndex = meshes[i].materialIndex;
+        if (matIndex >= 0 && matIndex < materials.size())
+        {
+            ri.pMaterial = &materials[matIndex];
+        }
+        else
+        {
+            static sMaterial defaultMaterial;
+            ri.pMaterial = &defaultMaterial;
+        }
 
         const auto& submesh = pMeshGeo->drawArguments.at(name);
         ri.indexCount = submesh.indexCount;
@@ -124,7 +130,7 @@ void cSystem::InitializeRenderItems()
         m_pScene->GetRenderItems().emplace_back(std::move(ri));
     }
 
-    std::cout << "Meshes initialized\n";
+    std::cout << "Meshes & materials initialized (glTF PBR)\n";
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
