@@ -140,7 +140,7 @@ void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::stri
     {
         sVertex vOut; 
 
-        vOut.pos = v.position;
+        vOut.position = v.position;
         vOut.normal = v.normal;
         m_vertecis.push_back(vOut);
     }
@@ -410,17 +410,32 @@ void cDirectX12::UpdateObjectCB()
     {
         if (pItem.numberOfFramesDirty > 0)
         {
+            // Load world matrix
             XMMATRIX world = XMLoadFloat4x4(&pItem.worldMatrix);
 
             sObjectConstants objConstants;
+
+            // Set world and world inverse transpose
             XMStoreFloat4x4(&objConstants.world, XMMatrixTranspose(world));
+            XMStoreFloat4x4(&objConstants.worldInvTranspose, XMMatrixTranspose(XMMatrixInverse(nullptr, world)));
 
-            // Copy albedo and specular from your render item material data
-            objConstants.albedo = pItem.pMaterial->albedo;  
-            objConstants.specularExponent = pItem.pMaterial->specularExponent;
+            // Copy material properties from sMaterial
+            objConstants.baseColor = XMFLOAT4(
+                pItem.pMaterial->albedo.x,
+                pItem.pMaterial->albedo.y,
+                pItem.pMaterial->albedo.z,
+                pItem.pMaterial->alpha
+            );
 
+            objConstants.metallicFactor = pItem.pMaterial->metallic;
+            objConstants.roughnessFactor = pItem.pMaterial->roughness;
+            objConstants.aoFactor = pItem.pMaterial->ao;
+            objConstants.emissive = pItem.pMaterial->emissive;
+
+            // Upload to GPU
             currObjCB->CopyData(pItem.objCBIndex, objConstants);
 
+            // Decrement dirty frames
             pItem.numberOfFramesDirty--;
         }
     }

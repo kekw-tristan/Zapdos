@@ -97,9 +97,13 @@ void cSystem::InitializeRenderItems()
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
-    static sMaterial groundMaterial;
-    groundMaterial.albedo = XMFLOAT3(0.7f, 0.7f, 0.7f);
-    groundMaterial.specularExponent = 16.f;
+    static sMaterial goldMaterial;
+    goldMaterial.albedo = XMFLOAT3(1.0f, 0.85f, 0.4f); // Brighter gold
+    goldMaterial.alpha = 1.0f;                         // Opaque
+    goldMaterial.metallic = 1.0f;                         // Full metal
+    goldMaterial.roughness = 0.2f;                         // Smooth but not mirror
+    goldMaterial.ao = 1.0f;                         // Full AO
+    goldMaterial.emissive = XMFLOAT3(0.0f, 0.0f, 0.0f);  // No emissive glow
 
     for (int i = 0; i < meshes.size(); ++i)
     {
@@ -107,7 +111,7 @@ void cSystem::InitializeRenderItems()
         std::string name = "scene_" + std::to_string(i);
 
         ri.pGeometry = pMeshGeo;
-        ri.pMaterial = &groundMaterial;
+        ri.pMaterial = &goldMaterial;
         ri.objCBIndex = static_cast<UINT>(i);
 
         const auto& submesh = pMeshGeo->drawArguments.at(name);
@@ -136,7 +140,7 @@ void cSystem::InitializeLights()
 
     lights.push_back(directionalLight);
 
-    const int pointLightCount = 4;
+    const int pointLightCount = 10;
     const float radius = 30.f;
     const float yHeight = 20.f;
 

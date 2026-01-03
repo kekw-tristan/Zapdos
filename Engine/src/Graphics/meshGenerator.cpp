@@ -38,12 +38,12 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateCylinder(float _bottomRadius, fl
 			vertex.texC.x = static_cast<float>(sliceIndex) / _sliceCount;
 			vertex.texC.y = 1.f - static_cast<float>(stackIndex) / _stackCount;
 
-			vertex.tangentU = XMFLOAT3(-s, 0.f, c);
+			vertex.tangentU = XMFLOAT4(-s, 0.f, c, 0.f);
 
 			float dr = _bottomRadius - _topRadius;
 			XMFLOAT3 bitangent(dr * c, -_height, dr * s);
 
-			XMVECTOR T = XMLoadFloat3(&vertex.tangentU);
+			XMVECTOR T = XMLoadFloat4(&vertex.tangentU);
 			XMVECTOR B = XMLoadFloat3(&bitangent);
 			XMVECTOR N = XMVector3Normalize(XMVector3Cross(T, B));
 			XMStoreFloat3(&vertex.normal, N);
@@ -99,7 +99,7 @@ void cMeshGenerator::BuildCylinderTopCap(float _topRadius, float _height, uint32
 		sVertex vertex;
 		vertex.position = XMFLOAT3(x, y, z);
 		vertex.normal = XMFLOAT3(0.f, 1.f, 0.f);
-		vertex.tangentU = XMFLOAT3(1.f, 0.f, 0.f);
+		vertex.tangentU = XMFLOAT4(1.f, 0.f, 0.f, 0.f);
 		vertex.texC = XMFLOAT2(u, v);
 
 		meshData.vertices.push_back(vertex);
@@ -109,7 +109,7 @@ void cMeshGenerator::BuildCylinderTopCap(float _topRadius, float _height, uint32
 	sVertex centerVertex;
 	centerVertex.position = XMFLOAT3(0.f, y, 0.f);
 	centerVertex.normal = XMFLOAT3(0.f, 1.f, 0.f);
-	centerVertex.tangentU = XMFLOAT3(1.f, 0.f, 0.f);
+	centerVertex.tangentU = XMFLOAT4(1.f, 0.f, 0.f, 0.f);
 	centerVertex.texC = XMFLOAT2(0.5f, 0.5f);
 
 	meshData.vertices.push_back(centerVertex);
@@ -144,7 +144,7 @@ void cMeshGenerator::BuildCylinderBottomCap(float _bottomRadius, float _height, 
 		sVertex vertex;
 		vertex.position = XMFLOAT3(x, y, z);
 		vertex.normal = XMFLOAT3(0.f, -1.f, 0.f);
-		vertex.tangentU = XMFLOAT3(1.f, 0.f, 0.f);
+		vertex.tangentU = XMFLOAT4(1.f, 0.f, 0.f, 0.f );
 		vertex.texC = XMFLOAT2(u, v);
 
 		meshData.vertices.push_back(vertex);
@@ -154,7 +154,7 @@ void cMeshGenerator::BuildCylinderBottomCap(float _bottomRadius, float _height, 
 	sVertex centerVertex;
 	centerVertex.position = XMFLOAT3(0.f, y, 0.f);
 	centerVertex.normal = XMFLOAT3(0.f, -1.f, 0.f);
-	centerVertex.tangentU = XMFLOAT3(1.f, 0.f, 0.f);
+	centerVertex.tangentU = XMFLOAT4(1.f, 0.f, 0.f, 0.f);
 	centerVertex.texC = XMFLOAT2(0.5f, 0.5f);
 
 	meshData.vertices.push_back(centerVertex);
@@ -218,7 +218,7 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateCube()
 			sVertex v;
 			v.position = verts[i];
 			v.normal = face.normal;
-			v.tangentU = { 1, 0, 0 }; // placeholder
+			v.tangentU = { 1, 0, 0, 0 }; // placeholder
 			v.texC = uvs[i];
 			meshData.vertices.push_back(v);
 		}
@@ -245,7 +245,7 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 	sVertex topVertex;
 	topVertex.position	= XMFLOAT3(0.0f, +radius, 0.0f);
 	topVertex.normal	= XMFLOAT3(0.0f, +1.0f, 0.0f);
-	topVertex.tangentU	= XMFLOAT3(1.0f, 0.0f, 0.0f);
+	topVertex.tangentU	= XMFLOAT4(1.0f, 0.0f, 0.0f, 0.f);
 	topVertex.texC		= XMFLOAT2(0.0f, 0.0f);
 
 	meshData.vertices.push_back(topVertex);
@@ -278,8 +278,8 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 			vertex.texC.y = phi / XM_PI;
 
 			// Tangent (pointing in the theta direction)
-			vertex.tangentU = XMFLOAT3(-radius * sinf(phi) * sinf(theta), 0.0f, radius * sinf(phi) * cosf(theta));
-			XMStoreFloat3(&vertex.tangentU, XMVector3Normalize(XMLoadFloat3(&vertex.tangentU)));
+			vertex.tangentU = XMFLOAT4(-radius * sinf(phi) * sinf(theta), 0.0f, radius * sinf(phi) * cosf(theta), 0.f);
+			XMStoreFloat4(&vertex.tangentU, XMVector3Normalize(XMLoadFloat4(&vertex.tangentU)));
 
 			meshData.vertices.push_back(vertex);
 		}
@@ -289,7 +289,7 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 	sVertex bottomVertex;
 	bottomVertex.position = XMFLOAT3(0.0f, -radius, 0.0f);
 	bottomVertex.normal = XMFLOAT3(0.0f, -1.0f, 0.0f);
-	bottomVertex.tangentU = XMFLOAT3(1.0f, 0.0f, 0.0f);
+	bottomVertex.tangentU = XMFLOAT4(1.0f, 0.0f, 0.0f, 0.0f);
 	bottomVertex.texC = XMFLOAT2(0.0f, 1.0f);
 	meshData.vertices.push_back(bottomVertex);
 

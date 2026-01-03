@@ -6,12 +6,9 @@ using namespace DirectX;
 
 struct sVertex
 {
-    XMFLOAT3 pos;
+    XMFLOAT3 position;
     XMFLOAT3 normal;
-
-    sVertex()
-        : pos(), normal() {}
-
-    sVertex(const XMFLOAT3& _pos, const XMFLOAT3& _normal)
-        : pos(_pos), normal(_normal) {}
+    XMFLOAT4 tangentU;
+    XMFLOAT2 texC;
+    XMFLOAT2 texC2; 
 };

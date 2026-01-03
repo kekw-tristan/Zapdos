@@ -17,10 +17,32 @@ using namespace DirectX;
 
 struct sObjectConstants
 {
-	XMFLOAT4X4 world;
-	XMFLOAT3 albedo;    
-	float specularExponent;
-	sObjectConstants() { XMStoreFloat4x4(&world, XMMatrixIdentity()); }
+	// Transform
+	XMFLOAT4X4 world;               // Object world transform
+	XMFLOAT4X4 worldInvTranspose;   // For normal transforms
+
+	// Material parameters
+	XMFLOAT4 baseColor;             // RGB = Albedo, A = Opacity
+	float metallicFactor;           // 0 = dielectric, 1 = metal
+	float roughnessFactor;          // 0 = smooth, 1 = rough
+	float aoFactor;                 // Ambient occlusion factor (1 = full AO)
+	float padding;                  // padding
+
+	XMFLOAT3 emissive;              // Emissive RGB
+	float padding2;					// padding
+
+	sObjectConstants()
+	{
+		XMStoreFloat4x4(&world, XMMatrixIdentity());
+		XMStoreFloat4x4(&worldInvTranspose, XMMatrixIdentity());
+		baseColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+		metallicFactor = 0.0f;
+		roughnessFactor = 0.5f;
+		aoFactor = 1.0f;
+		emissive = XMFLOAT3(0.0f, 0.0f, 0.0f);
+		padding = 0.0f;
+		padding2 = 0.0f;
+	}
 };
 
 struct sPassConstants

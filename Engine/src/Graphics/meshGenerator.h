@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "vertex.h"
+
 using namespace DirectX; 
 
 using uint16 = std::uint16_t;
@@ -18,25 +20,6 @@ namespace tinygltf
 class cMeshGenerator
 {
 	public:
-
-		struct sVertex
-		{
-			sVertex()
-				: position()
-				, normal()
-				, tangentU()
-				, texC() {};
-			sVertex(const XMFLOAT3& _pos, const XMFLOAT3& _normal, const DirectX::XMFLOAT3& _tangentU, const XMFLOAT2& _uv)
-				: position(_pos)
-				, normal(_normal)
-				, tangentU(_tangentU)
-				, texC(_uv)
-			{}
-			XMFLOAT3 position;
-			XMFLOAT3 normal;
-			XMFLOAT3 tangentU;
-			XMFLOAT2 texC;
-		};
 
 		struct sMeshData
 		{
