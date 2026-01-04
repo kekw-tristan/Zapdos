@@ -8,6 +8,7 @@
 
 #include <graphics/renderItem.h>
 #include <graphics/light.h>
+#include "Graphics/material.h"
 #include <Scene/scene.h>
 #include "Scene/camera.h"
 
@@ -48,6 +49,8 @@ class cSystem
     
         std::unique_ptr<cScene>  m_pScene;
         std::unique_ptr<cCamera> m_pCamera;
+
+        std::vector<sMaterial> m_materials;
     
         XMFLOAT4X4 m_view{};
         XMFLOAT4X4 m_proj{};

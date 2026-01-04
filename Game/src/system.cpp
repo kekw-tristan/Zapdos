@@ -86,39 +86,51 @@ void cSystem::InitializeRenderItems()
 
     std::vector<cMeshGenerator::sMeshData> meshes;
     std::vector<XMMATRIX> worldMatrices;
-    std::vector<sMaterial> materials;
 
     std::string path = "..\\Assets\\Objects\\scene.gltf";
-    meshGenerator.LoadModelFromGLTF(path, meshes, materials, worldMatrices);
+    meshGenerator.LoadModelFromGLTF(path, meshes, m_materials, worldMatrices); 
+
+    // Ensure every material has valid defaults
+    for (auto& mat : m_materials)
+    {
+        mat.alpha = (mat.alpha == 0.f) ? 1.f : mat.alpha;
+        mat.roughness = (mat.roughness == 0.f) ? 0.5f : mat.roughness;
+        mat.ao = (mat.ao == 0.f) ? 1.f : mat.ao;
+        // albedo, metallic, emissive keep loaded values
+    }
 
     // Initialize GPU meshes
     for (int i = 0; i < meshes.size(); ++i)
     {
         std::string name = "scene_" + std::to_string(i);
-        m_pDirectX12->InitializeMesh(meshes[i], name, XMFLOAT4(0.4f, 0.8f, 0.4f, 1.f));
+        m_pDirectX12->InitializeMesh(meshes[i], name, XMFLOAT4(0, 0, 0, 1.f)); // color ignored
     }
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
+    // Default material if missing
+    static sMaterial defaultMaterial;
+    defaultMaterial.albedo = XMFLOAT3(1.f, 1.f, 1.f);
+    defaultMaterial.alpha = 1.f;
+    defaultMaterial.metallic = 0.f;
+    defaultMaterial.roughness = 0.5f;
+    defaultMaterial.ao = 1.f;
+    defaultMaterial.emissive = XMFLOAT3(0.f, 0.f, 0.f);
+
     // Create render items
     for (int i = 0; i < meshes.size(); ++i)
     {
-        sRenderItem ri;
+        sRenderItem ri{};
         std::string name = "scene_" + std::to_string(i);
 
         ri.pGeometry = pMeshGeo;
         ri.objCBIndex = static_cast<UINT>(i);
 
         int matIndex = meshes[i].materialIndex;
-        if (matIndex >= 0 && matIndex < materials.size())
-        {
-            ri.pMaterial = &materials[matIndex];
-        }
+        if (matIndex >= 0 && matIndex < m_materials.size())
+            ri.pMaterial = &m_materials[matIndex]; 
         else
-        {
-            static sMaterial defaultMaterial;
             ri.pMaterial = &defaultMaterial;
-        }
 
         const auto& submesh = pMeshGeo->drawArguments.at(name);
         ri.indexCount = submesh.indexCount;
@@ -127,10 +139,16 @@ void cSystem::InitializeRenderItems()
 
         XMStoreFloat4x4(&ri.worldMatrix, worldMatrices[i]);
 
+
+        ri.numberOfFramesDirty = c_NumberOfFrameResources;
+
         m_pScene->GetRenderItems().emplace_back(std::move(ri));
+
+        const XMFLOAT3& a = ri.pMaterial->albedo;
+        std::cout << "Albedo: " << a.x << ", " << a.y << ", " << a.z << std::endl;
     }
 
-    std::cout << "Meshes & materials initialized (glTF PBR)\n";
+    std::cout << "Meshes & materials initialized safely (glTF PBR, member materials)\n";
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -146,7 +164,7 @@ void cSystem::InitializeLights()
 
     lights.push_back(directionalLight);
 
-    const int pointLightCount = 10;
+    const int pointLightCount = 4;
     const float radius = 30.f;
     const float yHeight = 20.f;
 

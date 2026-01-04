@@ -31,7 +31,7 @@
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-/*
+
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 {
     LPWSTR programFilesPath = nullptr;
@@ -60,18 +60,18 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
-*/
+
 // --------------------------------------------------------------------------------------------------------------------------
 // initializes all the directx12 components
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights)
 {
-    /*
+    
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
     {
         LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
     }
-    */
+    
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -138,10 +138,11 @@ void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::stri
 
     for (auto v : _rMeshData.vertices)
     {
-        sVertex vOut; 
+        sVertex vOut = {};
 
         vOut.position = v.position;
         vOut.normal = v.normal;
+        vOut.tangentU = v.tangentU;
         m_vertecis.push_back(vOut);
     }
 
@@ -410,32 +411,54 @@ void cDirectX12::UpdateObjectCB()
     {
         if (pItem.numberOfFramesDirty > 0)
         {
-            // Load world matrix
-            XMMATRIX world = XMLoadFloat4x4(&pItem.worldMatrix);
+            sObjectConstants objConstants{};
 
-            sObjectConstants objConstants;
+       
+           
+            
+                XMMATRIX world = XMLoadFloat4x4(&pItem.worldMatrix);
+                XMStoreFloat4x4(&objConstants.world, XMMatrixTranspose(world));
 
-            // Set world and world inverse transpose
-            XMStoreFloat4x4(&objConstants.world, XMMatrixTranspose(world));
-            XMStoreFloat4x4(&objConstants.worldInvTranspose, XMMatrixTranspose(XMMatrixInverse(nullptr, world)));
+                XMMATRIX worldNoTranslation = world;
+                worldNoTranslation.r[3] = XMVectorSet(0.f, 0.f, 0.f, 1.f);
+                XMStoreFloat4x4(&objConstants.worldInvTranspose, XMMatrixTranspose(XMMatrixInverse(nullptr, worldNoTranslation)));
+            
 
-            // Copy material properties from sMaterial
-            objConstants.baseColor = XMFLOAT4(
-                pItem.pMaterial->albedo.x,
-                pItem.pMaterial->albedo.y,
-                pItem.pMaterial->albedo.z,
-                pItem.pMaterial->alpha
-            );
+            // Material
+            if (pItem.pMaterial)
+            {
+                // Validate numbers
+                auto& mat = *pItem.pMaterial;
+                if (std::isfinite(mat.albedo.x) && std::isfinite(mat.albedo.y) && std::isfinite(mat.albedo.z) && std::isfinite(mat.alpha))
+                    objConstants.baseColor = XMFLOAT4(mat.albedo.x, mat.albedo.y, mat.albedo.z, mat.alpha);
+                else
+                    objConstants.baseColor = XMFLOAT4(1, 1, 1, 1);
 
-            objConstants.metallicFactor = pItem.pMaterial->metallic;
-            objConstants.roughnessFactor = pItem.pMaterial->roughness;
-            objConstants.aoFactor = pItem.pMaterial->ao;
-            objConstants.emissive = pItem.pMaterial->emissive;
+                objConstants.metallicFactor = std::isfinite(mat.metallic) ? mat.metallic : 0.f;
+                objConstants.roughnessFactor = std::isfinite(mat.roughness) ? mat.roughness : 0.5f;
+                objConstants.aoFactor = std::isfinite(mat.ao) ? mat.ao : 1.f;
+                objConstants.emissive = mat.emissive; // optional: check finite
+            }
+            else
+            {
+                objConstants.baseColor = XMFLOAT4(1, 1, 1, 1);
+                objConstants.metallicFactor = 0.f;
+                objConstants.roughnessFactor = 0.5f;
+                objConstants.aoFactor = 1.f;
+                objConstants.emissive = XMFLOAT3(0, 0, 0);
+            }
 
-            // Upload to GPU
-            currObjCB->CopyData(pItem.objCBIndex, objConstants);
+            // Index safety
+            if (pItem.objCBIndex >= 0 && pItem.objCBIndex < (int)m_maxNumberOfRenderItems)
+            {
+                currObjCB->CopyData(pItem.objCBIndex, objConstants);
+            }
+            else
+            {
+                // Debug warning
+                OutputDebugString(L"Warning: objCBIndex out of bounds!\n");
+            }
 
-            // Decrement dirty frames
             pItem.numberOfFramesDirty--;
         }
     }
