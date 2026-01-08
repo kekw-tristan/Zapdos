@@ -11,6 +11,7 @@ IncludeDir = {}
 IncludeDir["DirectXTK12"] = "External/DirectXTK12/Inc"
 IncludeDir["D3DX"]        = "External/d3dx"
 IncludeDir["tinygltf"]    = "External/tinygltf"
+IncludeDir["DDSTextureLoader"] = "External/DirectXTex/DDSTextureLoader" 
 
 -- ================================
 -- Engine Project
@@ -28,14 +29,15 @@ project "Engine"
     files {
         "Engine/src/**.h",
         "Engine/src/**.cpp",
-        "Assets/Shader/**.hlsl" 
+        "External/DirectXTex/DDSTextureLoader/DDSTextureLoader12.cpp", 
     }
 
     includedirs {
         "Engine/src",
         IncludeDir["DirectXTK12"],
         IncludeDir["D3DX"],
-        IncludeDir["tinygltf"]
+        IncludeDir["tinygltf"],
+        IncludeDir["DDSTextureLoader"], 
     }
 
     links {
@@ -82,7 +84,8 @@ project "Game"
         "Game/src",
         "Engine/src",
         IncludeDir["DirectXTK12"],
-        IncludeDir["D3DX"]
+        IncludeDir["D3DX"],
+        IncludeDir["DDSTextureLoader"], 
     }
 
     links {

@@ -403,6 +403,13 @@ sMeshGeometry* cDirectX12::GetGeometry()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
+ID3D12Device* cDirectX12::GetDevice()
+{
+    return m_pDeviceManager->GetDevice();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
 void cDirectX12::UpdateObjectCB()
 {
     auto currObjCB = m_pCurrentFrameResource->pObjectCB;

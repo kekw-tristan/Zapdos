@@ -62,6 +62,7 @@ class cDirectX12
 		void OnResize();
 
 		sMeshGeometry* GetGeometry(); 
+		ID3D12Device* GetDevice(); 
 
 	private:
 

@@ -1,12 +1,15 @@
 #pragma once
 
 #include <cstdint>
+#include <d3d12.h>
 #include <DirectXMath.h>
 #include <string>
 #include <vector>
 
 #include "vertex.h"
 #include "material.h"
+#include "texture.h"
+
 
 using namespace DirectX; 
 
@@ -55,13 +58,14 @@ class cMeshGenerator
 		sMeshData CreateCube();
 		sMeshData CreateSphere(float radius, uint32_t sliceCount, uint32_t stackCount);
 		
-		void LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial,std::vector<XMMATRIX>& _rOutWorldMatrix);
+		void LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial,std::vector<XMMATRIX>& _rOutWorldMatrix, std::vector<cTexture>& _rOutTextures, ID3D12Device* _pDevice);
 
 	private:
 
 		void ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMATRIX _parentWorldMatrix, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterials, std::vector<XMMATRIX>& _rOutWorldMatrix);
 		void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sMeshData& outMeshData, std::vector<sMaterial>& _rOutMaterials);
 		sMaterial ExtractMaterialFromGLTF(const tinygltf::Model& model, int materialIndex);
+		void CreateTextures(const tinygltf::Model& _rModel, ID3D12Device* _pDevice, std::vector<cTexture>& _rOutTextures);
 
 	private:
 

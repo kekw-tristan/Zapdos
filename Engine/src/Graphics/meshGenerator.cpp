@@ -339,7 +339,7 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial, std::vector<XMMATRIX>& _rOutWorldMatrix)
+void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial, std::vector<XMMATRIX>& _rOutWorldMatrix, std::vector<cTexture>& _rOutTextures, ID3D12Device* _pDevice)
 {
 	tinygltf::Model model;
 	tinygltf::TinyGLTF loader;
@@ -382,6 +382,8 @@ void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMes
 		// Recursively process the node hierarchy
 		ProcessNode(model, rootNodeIndex, identity, _rOutMeshData, _rOutMaterial, _rOutWorldMatrix);
 	}
+
+	CreateTextures(model, _pDevice, _rOutTextures);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -518,7 +520,7 @@ void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sM
 
 				for (size_t i = 0; i < vertexCount; ++i)
 				{
-					outMeshData.vertices[oldVertexCount + i].position.x = positions[i * 3 + 0];
+					outMeshData.vertices[oldVertexCount + i].position.x = positions[i * 3 + 0] * -1;
 					outMeshData.vertices[oldVertexCount + i].position.y = positions[i * 3 + 1];
 					outMeshData.vertices[oldVertexCount + i].position.z = positions[i * 3 + 2];
 				}
@@ -546,7 +548,7 @@ void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sM
 				size_t startIndex = outMeshData.vertices.size() - normalCount;
 				for (size_t i = 0; i < normalCount; ++i)
 				{
-					outMeshData.vertices[startIndex + i].normal.x = normals[i * 3 + 0];
+					outMeshData.vertices[startIndex + i].normal.x = normals[i * 3 + 0] * -1;
 					outMeshData.vertices[startIndex + i].normal.y = normals[i * 3 + 1];
 					outMeshData.vertices[startIndex + i].normal.z = normals[i * 3 + 2];
 				}
@@ -618,6 +620,44 @@ sMaterial cMeshGenerator::ExtractMaterialFromGLTF(const tinygltf::Model& model, 
 	mat.ao = 1.0f; // glTF AO texture later
 
 	return mat;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cMeshGenerator::CreateTextures(const tinygltf::Model& _rModel, ID3D12Device* _pDevice, std::vector<cTexture>& _rOutTextures)
+{
+	for (size_t i = 0; i < _rModel.images.size(); ++i) {
+		const tinygltf::Image& img = _rModel.images[i];
+
+		std::wstring texturePath;
+
+		if (!img.uri.empty()) {
+			// Nur den Dateinamen extrahieren
+			std::string uri = img.uri;
+			size_t lastSlash = uri.find_last_of("/\\");
+			std::string filename;
+			if (lastSlash != std::string::npos)
+				filename = uri.substr(lastSlash + 1);
+			else
+				filename = uri;
+
+			// Endung auf .dds ändern
+			size_t dotPos = filename.find_last_of('.');
+			if (dotPos != std::string::npos)
+				filename = filename.substr(0, dotPos); // Entferne alte Endung
+			filename += ".dds";
+
+			// In wstring umwandeln und Pfad davor setzen
+			texturePath = L"..\\Assets\\Runtime\\Textures\\" + std::wstring(filename.begin(), filename.end());
+
+			cTexture texture(i, texturePath);
+			texture.LoadTexture(_pDevice);
+		}
+		else {
+			std::wcout << L"Image Index " << i << L": embedded (binär)\n";
+		}
+	}
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
