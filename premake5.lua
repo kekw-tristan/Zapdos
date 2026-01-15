@@ -11,7 +11,7 @@ IncludeDir = {}
 IncludeDir["DirectXTK12"] = "External/DirectXTK12/Inc"
 IncludeDir["D3DX"]        = "External/d3dx"
 IncludeDir["tinygltf"]    = "External/tinygltf"
-IncludeDir["DDSTextureLoader"] = "External/DirectXTex/DDSTextureLoader" 
+IncludeDir["DDSTextureLoader"] = "External/DirectXTex" 
 
 -- ================================
 -- Engine Project
@@ -29,7 +29,7 @@ project "Engine"
     files {
         "Engine/src/**.h",
         "Engine/src/**.cpp",
-        "External/DirectXTex/DDSTextureLoader/DDSTextureLoader12.cpp", 
+        "External/DirectXTex/DDSTextureLoader12.cpp", 
     }
 
     includedirs {
