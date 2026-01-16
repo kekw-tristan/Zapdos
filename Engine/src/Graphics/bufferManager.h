@@ -29,7 +29,7 @@ struct sObjectConstants
 	float padding;                  // padding
 
 	XMFLOAT3 emissive;              // Emissive RGB
-	float padding2;					// padding
+	int baseColorIndex;					// padding
 
 	sObjectConstants()
 	{
@@ -41,7 +41,7 @@ struct sObjectConstants
 		aoFactor = 1.0f;
 		emissive = XMFLOAT3(0.0f, 0.0f, 0.0f);
 		padding = 0.0f;
-		padding2 = 0.0f;
+		baseColorIndex = 0;
 	}
 };
 
@@ -77,6 +77,7 @@ class cBufferManager
 	public:
 
 		ID3D12DescriptorHeap* GetCbvHeap() const;
+		int GetTextureOffset();
 
 	private:
 
@@ -89,6 +90,9 @@ class cBufferManager
 
 		unsigned int m_maxNumberOfRenderItems; 
 		unsigned int m_maxNumberOfLights; 
+		unsigned int m_maxNumberOfTextures;
+
+		int m_textureOffset;
 
 		ComPtr<ID3D12DescriptorHeap> m_pCbvHeap;
 };

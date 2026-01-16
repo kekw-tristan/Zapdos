@@ -594,17 +594,24 @@ sMaterial cMeshGenerator::ExtractMaterialFromGLTF(const tinygltf::Model& model, 
 		mat.alpha = static_cast<float>(c[3]);
 	}
 
+	// ---- Base Color Texture Index ----
+	if (gltfMat.values.count("baseColorTexture"))
+	{
+		const auto& texInfo = gltfMat.values.at("baseColorTexture");
+		mat.baseColorIndex = texInfo.TextureIndex(); 
+	}
+	else
+	{
+		mat.baseColorIndex = 0; // keine Textur
+	}
+
 	// ---- Metallic ----
 	if (gltfMat.values.count("metallicFactor"))
-		mat.metallic = static_cast<float>(
-			gltfMat.values.at("metallicFactor").Factor()
-			);
+		mat.metallic = static_cast<float>(gltfMat.values.at("metallicFactor").Factor());
 
 	// ---- Roughness ----
 	if (gltfMat.values.count("roughnessFactor"))
-		mat.roughness = static_cast<float>(
-			gltfMat.values.at("roughnessFactor").Factor()
-			);
+		mat.roughness = static_cast<float>(gltfMat.values.at("roughnessFactor").Factor());
 
 	// ---- Emissive ----
 	if (!gltfMat.emissiveFactor.empty())
@@ -652,6 +659,8 @@ void cMeshGenerator::CreateTextures(const tinygltf::Model& _rModel, ID3D12Device
 
 			cTexture texture(i, texturePath);
 			texture.LoadTexture(_pDevice);
+
+			_rOutTextures.push_back(texture);
 		}
 		else {
 			std::wcout << L"Image Index " << i << L": embedded (binär)\n";

@@ -14,7 +14,7 @@ struct sMaterial
     float ao;            // Ambient occlusion factor
 
     XMFLOAT3 emissive;   // Emissive color
-    float padding;       // pad to 16-byte alignment
+    int baseColorIndex;       // pad to 16-byte alignment
 
     // Constructor with default values
     sMaterial()
@@ -24,7 +24,7 @@ struct sMaterial
         , roughness(0.5f)
         , ao(1.0f)
         , emissive(0.0f, 0.0f, 0.0f)
-        , padding(0.0f)
+        , baseColorIndex(0.0f)
     {}
 };
 

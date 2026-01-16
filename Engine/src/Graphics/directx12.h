@@ -60,6 +60,7 @@ class cDirectX12
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
 		void OnResize();
+		void UploadTexturesToGPU(std::vector<cTexture>& textures);
 
 		sMeshGeometry* GetGeometry(); 
 		ID3D12Device* GetDevice(); 
@@ -73,6 +74,7 @@ class cDirectX12
 	private:
 
 		void InitializeFrameResources();
+		
 		void WaitForCurrentFrameResourceIfInUse(); 
 		void WaitForGPU();
 
@@ -101,6 +103,7 @@ class cDirectX12
 		std::vector<sFrameResource*>	m_frameResources;
 		std::vector<sRenderItem>*		m_pRenderItems;
 		std::vector<sLightConstants>*	m_pLights;
+		std::vector<cTexture > m_textures;
 
 		sFrameResource*	m_pCurrentFrameResource;
 		int m_currentFrameResourceIndex; 

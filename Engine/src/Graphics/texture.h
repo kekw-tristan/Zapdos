@@ -15,6 +15,10 @@ class cTexture {
 	public:
 
 		void LoadTexture(ID3D12Device* _pDevice);
+		ID3D12Resource* GetResource();
+		int GetIndex();
+		int GetMipLevels();
+		std::wstring& GetFilePath();
 
 	private:
 

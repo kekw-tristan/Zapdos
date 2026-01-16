@@ -14,6 +14,8 @@ cBufferManager::cBufferManager(cDeviceManager* _pDeviceManager, cSwapChainManage
     , m_pSwapChainManager(_pSwapChainManager)
     , m_maxNumberOfRenderItems(0)
     , m_maxNumberOfLights(0)
+    , m_maxNumberOfTextures(7)
+    , m_textureOffset(0)
 {
 }
 
@@ -42,14 +44,24 @@ ID3D12DescriptorHeap* cBufferManager::GetCbvHeap() const
 
 // --------------------------------------------------------------------------------------------------------------------------
 
+int cBufferManager::GetTextureOffset()
+{
+    return m_textureOffset;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
 void cBufferManager::InitializeDescriptorHeaps()
 {
     D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
 
     cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;  
-    cbvHeapDesc.NumDescriptors = c_NumberOfFrameResources * (m_maxNumberOfRenderItems + m_maxNumberOfLights + 1); // 1 is for passconstants
+    UINT descriptorsPerFrame = m_maxNumberOfRenderItems + 1 + 1; // obj CBVs + pass + lights
+    cbvHeapDesc.NumDescriptors = c_NumberOfFrameResources * descriptorsPerFrame + m_maxNumberOfTextures;
     cbvHeapDesc.NodeMask = 0;
+
+    m_textureOffset = c_NumberOfFrameResources * descriptorsPerFrame;
 
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDevice()->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_pCbvHeap)));
 }

@@ -37,7 +37,7 @@ ID3D12RootSignature* cPipelineManager::GetRootSignature() const
 
 void cPipelineManager::InitializeRootSignature()
 {
-    CD3DX12_ROOT_PARAMETER slotRootParameter[3] = {};
+    CD3DX12_ROOT_PARAMETER slotRootParameter[4] = {};
 
     // per object 
     CD3DX12_DESCRIPTOR_RANGE cbvTable0;
@@ -68,18 +68,39 @@ void cPipelineManager::InitializeRootSignature()
     srvTable0.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
         1,
-        0 // t0
+        32 // t0
     );
     slotRootParameter[2].InitAsDescriptorTable(
         1,
         &srvTable0
     );
 
+    // 4. textures (SRV)
+    CD3DX12_DESCRIPTOR_RANGE srvTable1;
+    srvTable1.Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_SRV, // SRV für Texturen
+        7,    // Anzahl Texturen, die wir gleichzeitig binden können
+        1     // t1 im Shader
+    );
+    slotRootParameter[3].InitAsDescriptorTable(
+        1,
+        &srvTable1,
+        D3D12_SHADER_VISIBILITY_PIXEL       
+    );
+
+    CD3DX12_STATIC_SAMPLER_DESC pointWrap(
+        0,                                  // ShaderRegister s0
+        D3D12_FILTER_MIN_MAG_MIP_POINT,     // Filter
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,    // AddressU
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP,    // AddressV
+        D3D12_TEXTURE_ADDRESS_MODE_WRAP     // AddressW
+    );
+
     CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-        3,                              // Number of root parameters
-        slotRootParameter,              // Pointer to root parameters array
-        0,                              // No static samplers
-        nullptr,
+        4,                                  // Num Root Parameters
+        slotRootParameter,
+        1,                                  // NumStaticSamplers
+        &pointWrap,
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
     );
 

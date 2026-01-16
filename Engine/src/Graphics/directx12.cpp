@@ -240,18 +240,17 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
 
 // --------------------------------------------------------------------------------------------------------------------------
 // clears backbuffer, depthstencil and presents the frame to the screen
-
 void cDirectX12::Draw()
 {
-    ID3D12CommandAllocator*     pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
-    ID3D12GraphicsCommandList*  pCommandList        = m_pDeviceManager->GetCommandList();
-    ID3D12CommandQueue*         pCommandQueue       = m_pDeviceManager->GetCommandQueue();
-    ID3D12PipelineState*        pPso                = m_pPipelineManager->GetPipelineStateObject();
-    ID3D12RootSignature*        pRootSignature      = m_pPipelineManager->GetRootSignature();
-    IDXGISwapChain4*            pSwapChain          = m_pSwapChainManager->GetSwapChain();
-    D3D12_VIEWPORT&             rViewport           = m_pSwapChainManager->GetViewport();
-    ID3D12DescriptorHeap*       pCbvHeap            = m_pBufferManager->GetCbvHeap();
-    ID3D12Fence*                pFence              = m_pDeviceManager->GetFence();
+    ID3D12CommandAllocator* pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
+    ID3D12GraphicsCommandList* pCommandList = m_pDeviceManager->GetCommandList();
+    ID3D12CommandQueue* pCommandQueue = m_pDeviceManager->GetCommandQueue();
+    ID3D12PipelineState* pPso = m_pPipelineManager->GetPipelineStateObject();
+    ID3D12RootSignature* pRootSignature = m_pPipelineManager->GetRootSignature();
+    IDXGISwapChain4* pSwapChain = m_pSwapChainManager->GetSwapChain();
+    D3D12_VIEWPORT& rViewport = m_pSwapChainManager->GetViewport();
+    ID3D12DescriptorHeap* pCbvHeap = m_pBufferManager->GetCbvHeap();
+    ID3D12Fence* pFence = m_pDeviceManager->GetFence();
 
     // Set viewport and scissor
     pCommandList->RSSetViewports(1, &rViewport);
@@ -281,6 +280,21 @@ void cDirectX12::Draw()
         1, &m_pSwapChainManager->GetCurrentBackBufferView(), TRUE,
         &m_pSwapChainManager->GetDepthStencilView());
 
+    if (!m_textures.empty())
+    {
+        for(auto& texture : m_textures)
+        {
+            pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+                texture.GetResource(),
+                D3D12_RESOURCE_STATE_COPY_DEST,
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+            ));
+        }
+    }
+    else {
+        std::cout << "textures empty" << std::endl;
+    }
+
     // Bind descriptor heap
     ID3D12DescriptorHeap* descriptorHeaps[] = { pCbvHeap };
     pCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
@@ -292,19 +306,25 @@ void cDirectX12::Draw()
 
     // Update descriptors per frame to include render items, pass CBV, and lights SRV
     UINT descriptorsPerFrame = m_maxNumberOfRenderItems + 1 + 1; // +1 for pass CBV, +1 for lights SRV
-
     UINT baseOffset = m_currentFrameResourceIndex * descriptorsPerFrame;
 
-    // Set Light StructuredBuffer SRV (root param 2, t0)
+    // === Lights SRV (root param 2, t32) ===
+    UINT lightIndex = baseOffset + m_maxNumberOfRenderItems + 1;
     CD3DX12_GPU_DESCRIPTOR_HANDLE lightSrvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    // Light SRV is after object CBVs and pass CBV in the descriptor heap
-    lightSrvHandle.Offset(baseOffset + m_maxNumberOfRenderItems + 1, descriptorSize);
+    lightSrvHandle.Offset(lightIndex, descriptorSize);
     pCommandList->SetGraphicsRootDescriptorTable(2, lightSrvHandle);
 
-    // Set Pass CBV (root param 1, b1)
+    // === Pass CBV (root param 1, b1) ===
+    UINT passIndex = baseOffset + m_maxNumberOfRenderItems;
     CD3DX12_GPU_DESCRIPTOR_HANDLE passCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-    passCbvHandle.Offset(baseOffset + m_maxNumberOfRenderItems, descriptorSize);
+    passCbvHandle.Offset(passIndex, descriptorSize);
     pCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
+
+    // === Texturen (root param 3, t0..t6) ===
+    UINT texBaseIndex = m_pBufferManager->GetTextureOffset();
+    CD3DX12_GPU_DESCRIPTOR_HANDLE texHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
+    texHandle.Offset(texBaseIndex, descriptorSize);
+    pCommandList->SetGraphicsRootDescriptorTable(3, texHandle);
 
     // Draw all render items
     for (auto& renderItem : *m_pRenderItems)
@@ -313,9 +333,11 @@ void cDirectX12::Draw()
         pCommandList->IASetIndexBuffer(&renderItem.pGeometry->GetIndexBufferView());
         pCommandList->IASetPrimitiveTopology(renderItem.primitiveType);
 
+        UINT objIndex = baseOffset + renderItem.objCBIndex;
         CD3DX12_GPU_DESCRIPTOR_HANDLE objCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
-        objCbvHandle.Offset(baseOffset + renderItem.objCBIndex, descriptorSize);
+        objCbvHandle.Offset(objIndex, descriptorSize);
         pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle);
+
 
         pCommandList->DrawIndexedInstanced(
             renderItem.indexCount,
@@ -349,7 +371,6 @@ void cDirectX12::Draw()
     // Present frame
     cDirectX12Util::ThrowIfFailed(pSwapChain->Present(0, 0));
 }
-
 
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -419,9 +440,6 @@ void cDirectX12::UpdateObjectCB()
         if (pItem.numberOfFramesDirty > 0)
         {
             sObjectConstants objConstants{};
-
-       
-           
             
                 XMMATRIX world = XMLoadFloat4x4(&pItem.worldMatrix);
                 XMStoreFloat4x4(&objConstants.world, XMMatrixTranspose(world));
@@ -445,6 +463,8 @@ void cDirectX12::UpdateObjectCB()
                 objConstants.roughnessFactor = std::isfinite(mat.roughness) ? mat.roughness : 0.5f;
                 objConstants.aoFactor = std::isfinite(mat.ao) ? mat.ao : 1.f;
                 objConstants.emissive = mat.emissive; // optional: check finite
+                objConstants.baseColorIndex = mat.baseColorIndex;
+                std::cout << "baseColor index: " << objConstants.baseColorIndex << std::endl;
             }
             else
             {
@@ -453,6 +473,7 @@ void cDirectX12::UpdateObjectCB()
                 objConstants.roughnessFactor = 0.5f;
                 objConstants.aoFactor = 1.f;
                 objConstants.emissive = XMFLOAT3(0, 0, 0);
+                objConstants.baseColorIndex =0;
             }
 
             // Index safety
@@ -592,6 +613,39 @@ void cDirectX12::InitializeFrameResources()
 
         cbvHandle.ptr += descriptorSize;
     }
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+void cDirectX12::UploadTexturesToGPU(std::vector<cTexture>& textures)
+{
+    ID3D12Device* pDevice = m_pDeviceManager->GetDevice();
+    ID3D12DescriptorHeap* pHeap = m_pBufferManager->GetCbvHeap();
+    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    UINT baseOffset = m_pBufferManager->GetTextureOffset();
+    UINT numTextures = min((UINT)textures.size(), 7u);
+    m_textures = textures;
+
+    std::wcout << L"[TEXTURE UPLOAD] " << numTextures << L" textures\n";
+
+    // 1. NUR SRVs erstellen - KEINE State Transitions hier!
+    for (UINT i = 0; i < numTextures; ++i)
+    {
+        UINT heapIndex = baseOffset + i;
+        D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = pHeap->GetCPUDescriptorHandleForHeapStart();
+        cpuHandle.ptr += (UINT64)heapIndex * (UINT64)descriptorSize;
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.Format = textures[i].GetResource()->GetDesc().Format;
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MostDetailedMip = 0;
+        srvDesc.Texture2D.MipLevels = textures[i].GetMipLevels();
+
+        pDevice->CreateShaderResourceView(textures[i].GetResource(), &srvDesc, cpuHandle);
+        std::wcout << L"[SRV] Texture " << i << L" -> Heap " << heapIndex << L"\n";
+    }
+
+    std::wcout << L"[UPLOAD COMPLETE] SRVs ready - transition in main Draw loop\n";
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

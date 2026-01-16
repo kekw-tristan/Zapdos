@@ -110,6 +110,8 @@ void cSystem::InitializeRenderItems()
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
+    m_pDirectX12->UploadTexturesToGPU(textures);
+
     // Default material if missing
     static sMaterial defaultMaterial;
     defaultMaterial.albedo = XMFLOAT3(1.f, 1.f, 1.f);
