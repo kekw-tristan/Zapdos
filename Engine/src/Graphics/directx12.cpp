@@ -280,20 +280,7 @@ void cDirectX12::Draw()
         1, &m_pSwapChainManager->GetCurrentBackBufferView(), TRUE,
         &m_pSwapChainManager->GetDepthStencilView());
 
-    if (!m_textures.empty())
-    {
-        for(auto& texture : m_textures)
-        {
-            pCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-                texture.GetResource(),
-                D3D12_RESOURCE_STATE_COPY_DEST,
-                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-            ));
-        }
-    }
-    else {
-        std::cout << "textures empty" << std::endl;
-    }
+    
 
     // Bind descriptor heap
     ID3D12DescriptorHeap* descriptorHeaps[] = { pCbvHeap };
@@ -613,6 +600,8 @@ void cDirectX12::InitializeFrameResources()
 
         cbvHandle.ptr += descriptorSize;
     }
+
+
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -624,6 +613,12 @@ void cDirectX12::UploadTexturesToGPU(std::vector<cTexture>& textures)
     UINT baseOffset = m_pBufferManager->GetTextureOffset();
     UINT numTextures = min((UINT)textures.size(), 7u);
     m_textures = textures;
+
+    ID3D12GraphicsCommandList* pCmdList = m_pDeviceManager->GetCommandList();
+
+    if (!pCmdList) {
+        std::cout << "COMMAND LIST NOT INITIALIZED YET! \n";
+    }
 
     std::wcout << L"[TEXTURE UPLOAD] " << numTextures << L" textures\n";
 
@@ -643,6 +638,21 @@ void cDirectX12::UploadTexturesToGPU(std::vector<cTexture>& textures)
 
         pDevice->CreateShaderResourceView(textures[i].GetResource(), &srvDesc, cpuHandle);
         std::wcout << L"[SRV] Texture " << i << L" -> Heap " << heapIndex << L"\n";
+    }
+
+    if (!textures.empty())
+    {
+        for (auto& texture : textures)
+        {
+            pCmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+                texture.GetResource(),
+                D3D12_RESOURCE_STATE_COPY_DEST,
+                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+            ));
+        }
+    }
+    else {
+        std::cout << "textures empty" << std::endl;
     }
 
     std::wcout << L"[UPLOAD COMPLETE] SRVs ready - transition in main Draw loop\n";
