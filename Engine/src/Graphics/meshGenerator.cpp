@@ -660,7 +660,7 @@ void cMeshGenerator::CreateTextures(const tinygltf::Model& _rModel, ID3D12Device
 			cTexture texture(i, texturePath);
 			texture.LoadTexture(_pDevice);
 
-			_rOutTextures.push_back(texture);
+			_rOutTextures.emplace_back(std::move(texture));
 		}
 		else {
 			std::wcout << L"Image Index " << i << L": embedded (binär)\n";

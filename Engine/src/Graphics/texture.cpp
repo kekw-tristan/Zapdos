@@ -1,7 +1,7 @@
 #include "texture.h"
 
 #include <iostream>
-#include <memory>
+
 
 #include "DDSTextureLoader12.h"
 #include "directx12Util.h"
@@ -24,16 +24,14 @@ cTexture::cTexture(int _index, std::wstring& _rFilePath)
 
 void cTexture::LoadTexture(ID3D12Device* _pDevice)
 {
-    std::unique_ptr<uint8_t[]> ddsData;
-    std::vector<D3D12_SUBRESOURCE_DATA> subresources;
 
     cDirectX12Util::ThrowIfFailed(
         DirectX::LoadDDSTextureFromFile(
             _pDevice,
             m_filePath.c_str(),
             &m_pResource,
-            ddsData,
-            subresources
+            m_pDdsData,
+            m_subresources
         )
     );
 
@@ -44,6 +42,49 @@ void cTexture::LoadTexture(ID3D12Device* _pDevice)
     m_mipLevels = desc.MipLevels;
 
     std::wcout << "Loaded: " << m_filePath << "\n";
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cTexture::UploadToGpu(ID3D12Device* _pDevice, ID3D12GraphicsCommandList* _pCmdList)
+{
+
+    UINT64 uploadBufferSize = 0;
+
+    uploadBufferSize = GetRequiredIntermediateSize(
+        m_pResource.Get(),
+        0,
+        static_cast<UINT>(m_subresources.size())
+    );
+
+    cDirectX12Util::ThrowIfFailed(
+        _pDevice->CreateCommittedResource(
+            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+            D3D12_HEAP_FLAG_NONE,
+            &CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize),
+            D3D12_RESOURCE_STATE_GENERIC_READ,
+            nullptr,
+            IID_PPV_ARGS(&m_pUploadHeap)
+        )
+    );
+
+    UpdateSubresources(
+        _pCmdList,
+        m_pResource.Get(),
+        m_pUploadHeap.Get(),
+        0,
+        0,
+        static_cast<UINT>(m_subresources.size()),
+        m_subresources.data()
+    );
+
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+        m_pResource.Get(),
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+    );
+
+    _pCmdList->ResourceBarrier(1, &barrier); 
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

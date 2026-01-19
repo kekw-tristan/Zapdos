@@ -189,11 +189,12 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
     m_pGeometry->indexFormat            = DXGI_FORMAT_R16_UINT;
     m_pGeometry->indexBufferByteSize    = ibByteSize;
 
+    
     m_pDeviceManager->GetCommandList()->Close();
     ID3D12CommandList* cmdLists[] = { m_pDeviceManager->GetCommandList() };
     m_pDeviceManager->GetCommandQueue()->ExecuteCommandLists(_countof(cmdLists), cmdLists);
     m_pDeviceManager->FlushCommandQueue();
-
+    
     return m_pGeometry;
 }
 
@@ -612,17 +613,39 @@ void cDirectX12::UploadTexturesToGPU(std::vector<cTexture>& textures)
     UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     UINT baseOffset = m_pBufferManager->GetTextureOffset();
     UINT numTextures = min((UINT)textures.size(), 7u);
-    m_textures = textures;
 
-    ID3D12GraphicsCommandList* pCmdList = m_pDeviceManager->GetCommandList();
+    // --- Temporärer CommandAllocator + CommandList ---
+    ComPtr<ID3D12CommandAllocator> tempAlloc;
+    ComPtr<ID3D12GraphicsCommandList> tempCmdList;
 
-    if (!pCmdList) {
-        std::cout << "COMMAND LIST NOT INITIALIZED YET! \n";
-    }
+    cDirectX12Util::ThrowIfFailed(
+        pDevice->CreateCommandAllocator(
+            D3D12_COMMAND_LIST_TYPE_DIRECT,
+            IID_PPV_ARGS(&tempAlloc)
+        )
+    );
+
+    cDirectX12Util::ThrowIfFailed(
+        pDevice->CreateCommandList(
+            0,
+            D3D12_COMMAND_LIST_TYPE_DIRECT,
+            tempAlloc.Get(),
+            nullptr,
+            IID_PPV_ARGS(&tempCmdList)
+        )
+    );
+
+    tempCmdList->Reset(tempAlloc.Get(), nullptr);
 
     std::wcout << L"[TEXTURE UPLOAD] " << numTextures << L" textures\n";
 
-    // 1. NUR SRVs erstellen - KEINE State Transitions hier!
+    // --- Upload jede Textur ---
+    for (UINT i = 0; i < numTextures; ++i)
+    {
+        textures[i].UploadToGpu(pDevice, tempCmdList.Get());
+    }
+
+    // --- SRVs erstellen (keine Barriers hier) ---
     for (UINT i = 0; i < numTextures; ++i)
     {
         UINT heapIndex = baseOffset + i;
@@ -640,20 +663,25 @@ void cDirectX12::UploadTexturesToGPU(std::vector<cTexture>& textures)
         std::wcout << L"[SRV] Texture " << i << L" -> Heap " << heapIndex << L"\n";
     }
 
-    if (!textures.empty())
+    // --- CommandList ausführen ---
+    tempCmdList->Close();
+    ID3D12CommandList* cmdLists[] = { tempCmdList.Get() };
+    m_pDeviceManager->GetCommandQueue()->ExecuteCommandLists(1, cmdLists);
+
+    ComPtr<ID3D12Fence> uploadFence;
+    UINT64 uploadFenceValue = 1;
+
+    pDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&uploadFence));
+    m_pDeviceManager->GetCommandQueue()->Signal(uploadFence.Get(), uploadFenceValue);
+
+    if (uploadFence->GetCompletedValue() < uploadFenceValue)
     {
-        for (auto& texture : textures)
-        {
-            pCmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-                texture.GetResource(),
-                D3D12_RESOURCE_STATE_COPY_DEST,
-                D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-            ));
-        }
+        HANDLE eventHandle = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+        uploadFence->SetEventOnCompletion(uploadFenceValue, eventHandle);
+        WaitForSingleObject(eventHandle, INFINITE);
+        CloseHandle(eventHandle);
     }
-    else {
-        std::cout << "textures empty" << std::endl;
-    }
+
 
     std::wcout << L"[UPLOAD COMPLETE] SRVs ready - transition in main Draw loop\n";
 }

@@ -9,6 +9,7 @@
 #include <graphics/renderItem.h>
 #include <graphics/light.h>
 #include "Graphics/material.h"
+#include "Graphics/texture.h"
 #include <Scene/scene.h>
 #include "Scene/camera.h"
 
@@ -52,6 +53,8 @@ class cSystem
 
         std::vector<sMaterial> m_materials;
     
+        std::vector<cTexture> m_textures;
+
         XMFLOAT4X4 m_view{};
         XMFLOAT4X4 m_proj{};
 };

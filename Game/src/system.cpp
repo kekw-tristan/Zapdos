@@ -16,7 +16,6 @@
 #include "graphics/vertex.h"
 #include "graphics/meshGeometry.h"
 #include "graphics/meshGenerator.h"
-#include "Graphics/texture.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -87,10 +86,9 @@ void cSystem::InitializeRenderItems()
 
     std::vector<cMeshGenerator::sMeshData> meshes;
     std::vector<XMMATRIX> worldMatrices;
-    std::vector<cTexture> textures;
 
     std::string path = "..\\Assets\\Objects\\scene.gltf";
-    meshGenerator.LoadModelFromGLTF(path, meshes, m_materials, worldMatrices, textures, m_pDirectX12->GetDevice());
+    meshGenerator.LoadModelFromGLTF(path, meshes, m_materials, worldMatrices, m_textures, m_pDirectX12->GetDevice());
 
     // Ensure every material has valid defaults
     for (auto& mat : m_materials)
@@ -110,7 +108,7 @@ void cSystem::InitializeRenderItems()
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
 
-    m_pDirectX12->UploadTexturesToGPU(textures);
+    m_pDirectX12->UploadTexturesToGPU(m_textures);
 
     // Default material if missing
     static sMaterial defaultMaterial;
