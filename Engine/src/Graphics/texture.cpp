@@ -78,13 +78,6 @@ void cTexture::UploadToGpu(ID3D12Device* _pDevice, ID3D12GraphicsCommandList* _p
         m_subresources.data()
     );
 
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-        m_pResource.Get(),
-        D3D12_RESOURCE_STATE_COPY_DEST,
-        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-    );
-
-    _pCmdList->ResourceBarrier(1, &barrier); 
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

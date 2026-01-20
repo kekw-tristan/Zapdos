@@ -166,9 +166,9 @@ void cSystem::InitializeLights()
 
     lights.push_back(directionalLight);
 
-    const int pointLightCount = 4;
-    const float radius = 30.f;
-    const float yHeight = 20.f;
+    const int pointLightCount = 1;
+    const float radius = 5.f;
+    const float yHeight = 2.f;
 
     for (int i = 0; i < pointLightCount; ++i)
     {

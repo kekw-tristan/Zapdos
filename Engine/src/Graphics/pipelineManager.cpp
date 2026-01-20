@@ -68,7 +68,7 @@ void cPipelineManager::InitializeRootSignature()
     srvTable0.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
         1,
-        32 // t0
+        0 // t0
     );
     slotRootParameter[2].InitAsDescriptorTable(
         1,

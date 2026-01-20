@@ -47,7 +47,7 @@ struct sLight
     int type; // 0=directional,1=point,2=spot
     float3 padding;
 };
-StructuredBuffer<sLight> gLights : register(t32);
+StructuredBuffer<sLight> gLights : register(t0);
 
 // Textures
 Texture2D textures[7] : register(t1);
@@ -137,8 +137,7 @@ float3 SampleBaseColorTexture(int index, float2 uv)
         case 6:
             return textures[6].Sample(samp, uv).rgb;
         default:
-            // Fallback: Weiß mit Warnung über Alpha-Kanal
-            return float3(1.0f, 0.5f, 1.0f); // Magenta-Tint als Debug
+            return float3(1.0f, 0.5f, 1.0f); // Debug-Fallback
     }
 }
 

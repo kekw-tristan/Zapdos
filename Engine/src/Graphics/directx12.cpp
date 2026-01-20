@@ -143,6 +143,8 @@ void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::stri
         vOut.position = v.position;
         vOut.normal = v.normal;
         vOut.tangentU = v.tangentU;
+        vOut.texC = v.texC;
+        vOut.texC2 = v.texC2;
         m_vertecis.push_back(vOut);
     }
 
@@ -290,6 +292,8 @@ void cDirectX12::Draw()
     // Set root signature
     pCommandList->SetGraphicsRootSignature(pRootSignature);
 
+    pCommandList->SetPipelineState(pPso);
+
     UINT descriptorSize = m_pDeviceManager->GetDescriptorSizes().cbvSrvUav;
 
     // Update descriptors per frame to include render items, pass CBV, and lights SRV
@@ -327,7 +331,7 @@ void cDirectX12::Draw()
         pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle);
 
 
-        pCommandList->DrawIndexedInstanced(
+        pCommandList->DrawIndexedInstanced( 
             renderItem.indexCount,
             1,
             renderItem.startIndexLocation,

@@ -555,6 +555,32 @@ void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sM
 			}
 		}
 
+		// --- Extract texcoords (TEXCOORD_0) ---
+		auto uvIt = primitive.attributes.find("TEXCOORD_0");
+		if (uvIt != primitive.attributes.end())
+		{
+			int accessorIndex = uvIt->second;
+
+			const tinygltf::Accessor& accessor = model.accessors[accessorIndex];
+			const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+
+			const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
+			size_t uvCount = static_cast<size_t>(accessor.count);
+
+			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+			{
+				const float* texcoords = reinterpret_cast<const float*>(pData);
+
+				size_t startIndex = outMeshData.vertices.size() - uvCount;
+				for (size_t i = 0; i < uvCount; ++i)
+				{
+					outMeshData.vertices[startIndex + i].texC.x = texcoords[i * 2 + 0];
+					outMeshData.vertices[startIndex + i].texC.y = texcoords[i * 2 + 1];
+				}
+			}
+		}
+
 		// --- Material ---
 		if (primitive.material >= 0)
 		{
