@@ -161,7 +161,7 @@ void cSystem::InitializeLights()
 
     sLightConstants directionalLight{};
     directionalLight.strength = XMFLOAT3(1, 1, 1);
-    directionalLight.direction = XMFLOAT3(0, -1, 0);
+    directionalLight.direction = XMFLOAT3(0, -1, 1);
     directionalLight.type = 0;
 
     lights.push_back(directionalLight);

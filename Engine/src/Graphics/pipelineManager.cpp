@@ -149,8 +149,7 @@ void cPipelineManager::InitializePipelineStateObject()
     psoDesc.pRootSignature          = m_pRootSignature.Get();                                                                           // Assign root signature used by the shaders
     psoDesc.VS                      = { reinterpret_cast<BYTE*>(m_pVsByteCode->GetBufferPointer()), m_pVsByteCode->GetBufferSize() };   // Set compiled vertex shader bytecode
     psoDesc.PS                      = { reinterpret_cast<BYTE*>(m_pPsByteCode->GetBufferPointer()), m_pPsByteCode->GetBufferSize() };   // Set compiled pixel shader bytecode
-    psoDesc.RasterizerState         = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);      // Use default rasterizer state (solid fill, backface culling)
-    psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
+    psoDesc.RasterizerState         = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);                                                           // Use default rasterizer state (solid fill, backface culling)
     psoDesc.BlendState              = CD3DX12_BLEND_DESC(D3D12_DEFAULT);                                                                // Use default blend state (no blending)
     psoDesc.DepthStencilState       = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);                                                        // Use default depth/stencil state (depth testing enabled)
     psoDesc.SampleMask              = UINT_MAX;                                                                                         // Sample mask (all samples enabled)

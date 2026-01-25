@@ -388,53 +388,72 @@ void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMes
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cMeshGenerator::ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMATRIX _parentWorldMatrix, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterials, std::vector<XMMATRIX>& _rOutWorldMatrix)
+void cMeshGenerator::ProcessNode(
+	tinygltf::Model& _rModel,
+	int _nodeIndex,
+	XMMATRIX _parentWorldMatrix,
+	std::vector<sMeshData>& _rOutMeshData,
+	std::vector<sMaterial>& _rOutMaterials,
+	std::vector<XMMATRIX>& _rOutWorldMatrix)
 {
 	const tinygltf::Node& node = _rModel.nodes[_nodeIndex];
 
-	// Compute local transform matrix from matrix or TRS
-	XMMATRIX localMatrix = XMMatrixIdentity();
+	// -------------------------------
+	// Build local transform (RH)
+	// -------------------------------
+	XMMATRIX localRH = XMMatrixIdentity();
 
 	if (node.matrix.size() == 16)
 	{
-		localMatrix = XMMatrixSet(
-			static_cast<float>(node.matrix[0]), static_cast<float>(node.matrix[1]), static_cast<float>(node.matrix[2]), static_cast<float>(node.matrix[3]),
-			static_cast<float>(node.matrix[4]), static_cast<float>(node.matrix[5]), static_cast<float>(node.matrix[6]), static_cast<float>(node.matrix[7]),
-			static_cast<float>(node.matrix[8]), static_cast<float>(node.matrix[9]), static_cast<float>(node.matrix[10]), static_cast<float>(node.matrix[11]),
-			static_cast<float>(node.matrix[12]), static_cast<float>(node.matrix[13]), static_cast<float>(node.matrix[14]), static_cast<float>(node.matrix[15])
+		localRH = XMMatrixSet(
+			(float)node.matrix[0], (float)node.matrix[1], (float)node.matrix[2], (float)node.matrix[3],
+			(float)node.matrix[4], (float)node.matrix[5], (float)node.matrix[6], (float)node.matrix[7],
+			(float)node.matrix[8], (float)node.matrix[9], (float)node.matrix[10], (float)node.matrix[11],
+			(float)node.matrix[12], (float)node.matrix[13], (float)node.matrix[14], (float)node.matrix[15]
 		);
 	}
 	else
 	{
 		XMVECTOR translation = XMVectorSet(
-			node.translation.size() > 0 ? static_cast<float>(node.translation[0]) : 0.f,
-			node.translation.size() > 1 ? static_cast<float>(node.translation[1]) : 0.f,
-			node.translation.size() > 2 ? static_cast<float>(node.translation[2]) : 0.f,
-			0.f);
+			node.translation.size() > 0 ? (float)node.translation[0] : 0.f,
+			node.translation.size() > 1 ? (float)node.translation[1] : 0.f,
+			node.translation.size() > 2 ? (float)node.translation[2] : 0.f,
+			1.f);
 
 		XMVECTOR rotation = XMQuaternionIdentity();
 		if (node.rotation.size() == 4)
 		{
 			rotation = XMVectorSet(
-				static_cast<float>(node.rotation[0]),
-				static_cast<float>(node.rotation[1]),
-				static_cast<float>(node.rotation[2]),
-				static_cast<float>(node.rotation[3]));
+				(float)node.rotation[0],
+				(float)node.rotation[1],
+				(float)node.rotation[2],
+				(float)node.rotation[3]);
 		}
 
 		XMVECTOR scale = XMVectorSet(
-			node.scale.size() > 0 ? static_cast<float>(node.scale[0]) : 1.f,
-			node.scale.size() > 1 ? static_cast<float>(node.scale[1]) : 1.f,
-			node.scale.size() > 2 ? static_cast<float>(node.scale[2]) : 1.f,
+			node.scale.size() > 0 ? (float)node.scale[0] : 1.f,
+			node.scale.size() > 1 ? (float)node.scale[1] : 1.f,
+			node.scale.size() > 2 ? (float)node.scale[2] : 1.f,
 			0.f);
 
-		localMatrix = XMMatrixAffineTransformation(scale, XMVectorZero(), rotation, translation);
+		localRH = XMMatrixAffineTransformation(
+			scale,
+			XMVectorZero(),
+			rotation,
+			translation);
 	}
 
-	// Combine with parent transform to get world matrix
-	XMMATRIX worldMatrix = localMatrix * _parentWorldMatrix;
+	const XMMATRIX flipX = XMMatrixScaling(-1.0f, 1.0f, 1.0f);
+	XMMATRIX localLH = flipX * localRH * flipX;
 
-	// If node has mesh, extract and store mesh data with its world matrix
+	// -------------------------------
+	// Combine with parent (LH)
+	// -------------------------------
+	XMMATRIX worldMatrix = localLH * _parentWorldMatrix;
+
+	// -------------------------------
+	// Extract mesh
+	// -------------------------------
 	if (node.mesh >= 0)
 	{
 		sMeshData meshData;
@@ -444,153 +463,173 @@ void cMeshGenerator::ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMAT
 		_rOutWorldMatrix.push_back(worldMatrix);
 	}
 
-	// Recursively process children with current world matrix
+	// -------------------------------
+	// Children
+	// -------------------------------
 	for (int childIndex : node.children)
 	{
-		ProcessNode(_rModel, childIndex, worldMatrix, _rOutMeshData, _rOutMaterials, _rOutWorldMatrix);
+		ProcessNode(
+			_rModel,
+			childIndex,
+			worldMatrix,
+			_rOutMeshData,
+			_rOutMaterials,
+			_rOutWorldMatrix);
 	}
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sMeshData& outMeshData, std::vector<sMaterial>& _rOutMaterials)
+void cMeshGenerator::ExtractPrimitives(
+	tinygltf::Model& model,
+	int meshIndex,
+	sMeshData& outMeshData,
+	std::vector<sMaterial>& _rOutMaterials)
 {
 	const tinygltf::Mesh& mesh = model.meshes[meshIndex];
 
 	for (const auto& primitive : mesh.primitives)
 	{
-		// --- Extract indices (only uint16 supported here) ---
+		// ===============================
+		// Extract indices 
+		// ===============================
 		if (primitive.indices >= 0)
 		{
 			const tinygltf::Accessor& accessor = model.accessors[primitive.indices];
-			const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
-			const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+			const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[view.buffer];
 
-			const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
-			size_t indexCount = static_cast<size_t>(accessor.count);
+			const unsigned char* pData =
+				buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
+			const size_t indexCount = static_cast<size_t>(accessor.count);
+			const uint32_t vertexOffset = static_cast<uint32_t>(outMeshData.vertices.size());
+
+			// glTF primitives are TRIANGLES
 			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 			{
 				const uint16_t* indices = reinterpret_cast<const uint16_t*>(pData);
-				// Append indices, adjusting for current vertex count
-				size_t vertexOffset = outMeshData.vertices.size();
 				outMeshData.indices16.reserve(outMeshData.indices16.size() + indexCount);
-				for (size_t i = 0; i < indexCount; ++i)
+
+				for (size_t i = 0; i < indexCount; i += 3)
 				{
-					outMeshData.indices16.push_back(indices[i] + static_cast<uint16_t>(vertexOffset));
+					outMeshData.indices16.push_back(indices[i + 0] + vertexOffset);
+					outMeshData.indices16.push_back(indices[i + 2] + vertexOffset); // swap
+					outMeshData.indices16.push_back(indices[i + 1] + vertexOffset); // swap
 				}
 			}
-			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+			else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
 			{
 				const uint32_t* indices = reinterpret_cast<const uint32_t*>(pData);
-				// Append indices, adjusting for current vertex count
-				size_t vertexOffset = outMeshData.vertices.size();
 				outMeshData.indices32.reserve(outMeshData.indices32.size() + indexCount);
-				for (size_t i = 0; i < indexCount; ++i)
+
+				for (size_t i = 0; i < indexCount; i += 3)
 				{
-					outMeshData.indices32.push_back(indices[i] + static_cast<uint32_t>(vertexOffset));
+					outMeshData.indices32.push_back(indices[i + 0] + vertexOffset);
+					outMeshData.indices32.push_back(indices[i + 2] + vertexOffset); // swap
+					outMeshData.indices32.push_back(indices[i + 1] + vertexOffset); // swap
 				}
 			}
 			else
 			{
-				std::cout << "Index type not supported! \n";
+				std::cout << "Index type not supported!\n";
 			}
 		}
 
-		// --- Extract positions ---
+		// ===============================
+		// Extract positions (RH -> LH)
+		// ===============================
 		auto posIt = primitive.attributes.find("POSITION");
 		if (posIt != primitive.attributes.end())
 		{
-			int accessorIndex = posIt->second;
+			const tinygltf::Accessor& accessor = model.accessors[posIt->second];
+			const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[view.buffer];
 
-			const tinygltf::Accessor& accessor = model.accessors[accessorIndex];
-			const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
-			const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+			const unsigned char* pData =
+				buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
-			const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
+			const size_t vertexCount = static_cast<size_t>(accessor.count);
+			const size_t baseVertex = outMeshData.vertices.size();
 
-			size_t vertexCount = static_cast<size_t>(accessor.count);
+			outMeshData.vertices.resize(baseVertex + vertexCount);
 
-			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+			const float* positions = reinterpret_cast<const float*>(pData);
+			for (size_t i = 0; i < vertexCount; ++i)
 			{
-				const float* positions = reinterpret_cast<const float*>(pData);
-				// Append vertices (resize once for new vertices)
-				size_t oldVertexCount = outMeshData.vertices.size();
-				outMeshData.vertices.resize(oldVertexCount + vertexCount);
-
-				for (size_t i = 0; i < vertexCount; ++i)
-				{
-					outMeshData.vertices[oldVertexCount + i].position.x = positions[i * 3 + 0] * -1;
-					outMeshData.vertices[oldVertexCount + i].position.y = positions[i * 3 + 1];
-					outMeshData.vertices[oldVertexCount + i].position.z = positions[i * 3 + 2];
-				}
+				outMeshData.vertices[baseVertex + i].position = XMFLOAT3(
+					-positions[i * 3 + 0], // X spiegeln
+					positions[i * 3 + 1],
+					positions[i * 3 + 2]
+				);
 			}
 		}
 
-		// --- Extract normals ---
+		// ===============================
+		// Extract normals (RH -> LH)
+		// ===============================
 		auto normIt = primitive.attributes.find("NORMAL");
 		if (normIt != primitive.attributes.end())
 		{
-			int accessorIndex = normIt->second;
+			const tinygltf::Accessor& accessor = model.accessors[normIt->second];
+			const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[view.buffer];
 
-			const tinygltf::Accessor& accessor = model.accessors[accessorIndex];
-			const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
-			const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+			const unsigned char* pData =
+				buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
-			const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
+			const size_t count = static_cast<size_t>(accessor.count);
+			const size_t startIndex = outMeshData.vertices.size() - count;
 
-			size_t normalCount = static_cast<size_t>(accessor.count);
-
-			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+			const float* normals = reinterpret_cast<const float*>(pData);
+			for (size_t i = 0; i < count; ++i)
 			{
-				const float* normals = reinterpret_cast<const float*>(pData);
-
-				size_t startIndex = outMeshData.vertices.size() - normalCount;
-				for (size_t i = 0; i < normalCount; ++i)
-				{
-					outMeshData.vertices[startIndex + i].normal.x = normals[i * 3 + 0] * -1;
-					outMeshData.vertices[startIndex + i].normal.y = normals[i * 3 + 1];
-					outMeshData.vertices[startIndex + i].normal.z = normals[i * 3 + 2];
-				}
+				outMeshData.vertices[startIndex + i].normal = XMFLOAT3(
+					-normals[i * 3 + 0], // X spiegeln
+					normals[i * 3 + 1],
+					normals[i * 3 + 2]
+				);
 			}
 		}
 
-		// --- Extract texcoords (TEXCOORD_0) ---
+		// ===============================
+		// Extract texcoords
+		// ===============================
 		auto uvIt = primitive.attributes.find("TEXCOORD_0");
 		if (uvIt != primitive.attributes.end())
 		{
-			int accessorIndex = uvIt->second;
+			const tinygltf::Accessor& accessor = model.accessors[uvIt->second];
+			const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
+			const tinygltf::Buffer& buffer = model.buffers[view.buffer];
 
-			const tinygltf::Accessor& accessor = model.accessors[accessorIndex];
-			const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
-			const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+			const unsigned char* pData =
+				buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
-			const unsigned char* pData = buffer.data.data() + bufferView.byteOffset + accessor.byteOffset;
-			size_t uvCount = static_cast<size_t>(accessor.count);
+			const size_t count = static_cast<size_t>(accessor.count);
+			const size_t startIndex = outMeshData.vertices.size() - count;
 
-			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
+			const float* texcoords = reinterpret_cast<const float*>(pData);
+			for (size_t i = 0; i < count; ++i)
 			{
-				const float* texcoords = reinterpret_cast<const float*>(pData);
-
-				size_t startIndex = outMeshData.vertices.size() - uvCount;
-				for (size_t i = 0; i < uvCount; ++i)
-				{
-					outMeshData.vertices[startIndex + i].texC.x = texcoords[i * 2 + 0];
-					outMeshData.vertices[startIndex + i].texC.y = texcoords[i * 2 + 1];
-				}
+				outMeshData.vertices[startIndex + i].texC = XMFLOAT2(
+					texcoords[i * 2 + 0],
+					texcoords[i * 2 + 1]
+				);
 			}
 		}
 
-		// --- Material ---
+		// ===============================
+		// Extract material
+		// ===============================
 		if (primitive.material >= 0)
 		{
-			sMaterial material = ExtractMaterialFromGLTF(model, primitive.material);
 			outMeshData.materialIndex = static_cast<int>(_rOutMaterials.size());
-			_rOutMaterials.push_back(material);
+			_rOutMaterials.push_back(
+				ExtractMaterialFromGLTF(model, primitive.material)
+			);
 		}
 		else
 		{
-			// Default material
 			outMeshData.materialIndex = static_cast<int>(_rOutMaterials.size());
 			_rOutMaterials.emplace_back();
 		}
