@@ -11,7 +11,7 @@ IncludeDir = {}
 IncludeDir["DirectXTK12"] = "External/DirectXTK12/Inc"
 IncludeDir["D3DX"]        = "External/d3dx"
 IncludeDir["tinygltf"]    = "External/tinygltf"
-IncludeDir["DDSTextureLoader"] = "DDSLoader/DirectXTex" 
+IncludeDir["DDSTextureLoader"] = "External/DDSLoader" 
 
 -- ================================
 -- Engine Project
