@@ -31,7 +31,7 @@
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-
+/*
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 {
     LPWSTR programFilesPath = nullptr;
@@ -60,17 +60,17 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
-
+*/
 // --------------------------------------------------------------------------------------------------------------------------
 // initializes all the directx12 components
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights)
 {
     
-    if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
-    {
-        LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
-    }
+    //if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
+    //{
+    //    LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
+    //}
     
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
