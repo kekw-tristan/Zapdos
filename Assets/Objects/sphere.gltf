@@ -15,39 +15,12 @@
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"Cube",
-			"rotation":[
-				0.3610672652721405,
-				0.07490121573209763,
-				0.2259148359298706,
-				0.9016555547714233
-			],
-			"scale":[
-				1.892829418182373,
-				1.892829418182373,
-				1.8928292989730835
-			]
-		}
-	],
-	"materials":[
-		{
-			"doubleSided":true,
-			"name":"Material",
-			"pbrMetallicRoughness":{
-				"baseColorFactor":[
-					0.800000011920929,
-					0.800000011920929,
-					0.800000011920929,
-					1
-				],
-				"metallicFactor":0,
-				"roughnessFactor":0.5
-			}
+			"name":"Sphere"
 		}
 	],
 	"meshes":[
 		{
-			"name":"Cube",
+			"name":"Sphere.006",
 			"primitives":[
 				{
 					"attributes":{
@@ -55,8 +28,7 @@
 						"NORMAL":1,
 						"TEXCOORD_0":2
 					},
-					"indices":3,
-					"material":0
+					"indices":3
 				}
 			]
 		}
@@ -65,14 +37,14 @@
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":24,
+			"count":65280,
 			"max":[
+				0.9999995827674866,
 				1,
-				1,
-				1
+				0.9999992251396179
 			],
 			"min":[
-				-1,
+				-0.9999986886978149,
 				-1,
 				-1
 			],
@@ -81,52 +53,52 @@
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":24,
+			"count":65280,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":24,
+			"count":65280,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
 			"componentType":5123,
-			"count":36,
+			"count":97536,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":288,
+			"byteLength":783360,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":288,
-			"byteOffset":288,
+			"byteLength":783360,
+			"byteOffset":783360,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":192,
-			"byteOffset":576,
+			"byteLength":522240,
+			"byteOffset":1566720,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":72,
-			"byteOffset":768,
+			"byteLength":195072,
+			"byteOffset":2088960,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":840,
-			"uri":"Untitled.bin"
+			"byteLength":2284032,
+			"uri":"sphere.bin"
 		}
 	]
 }

@@ -147,6 +147,7 @@ void cSystem::InitializeRenderItems()
         m_pScene->GetRenderItems().emplace_back(std::move(ri));
 
         const XMFLOAT3& a = ri.pMaterial->albedo;
+
         std::cout << "Albedo: " << a.x << ", " << a.y << ", " << a.z << std::endl;
     }
 
@@ -161,12 +162,12 @@ void cSystem::InitializeLights()
 
     sLightConstants directionalLight{};
     directionalLight.strength = XMFLOAT3(1, 1, 1);
-    directionalLight.direction = XMFLOAT3(0, -1, 1);
+    directionalLight.direction = XMFLOAT3(1, -1, 1);
     directionalLight.type = 0;
 
     lights.push_back(directionalLight);
 
-    const int pointLightCount = 1;
+    const int pointLightCount = 0;
     const float radius = 5.f;
     const float yHeight = 2.f;
 

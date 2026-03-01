@@ -88,9 +88,9 @@ void cPipelineManager::InitializeRootSignature()
         D3D12_SHADER_VISIBILITY_PIXEL       
     );
 
-    CD3DX12_STATIC_SAMPLER_DESC pointWrap(
+    CD3DX12_STATIC_SAMPLER_DESC linearWrap(
         0,                                  // ShaderRegister s0
-        D3D12_FILTER_MIN_MAG_MIP_POINT,     // Filter
+        D3D12_FILTER_MIN_MAG_MIP_LINEAR,     // Filter
         D3D12_TEXTURE_ADDRESS_MODE_WRAP,    // AddressU
         D3D12_TEXTURE_ADDRESS_MODE_WRAP,    // AddressV
         D3D12_TEXTURE_ADDRESS_MODE_WRAP     // AddressW
@@ -100,7 +100,7 @@ void cPipelineManager::InitializeRootSignature()
         4,                                  // Num Root Parameters
         slotRootParameter,
         1,                                  // NumStaticSamplers
-        &pointWrap,
+        &linearWrap,
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
     );
 

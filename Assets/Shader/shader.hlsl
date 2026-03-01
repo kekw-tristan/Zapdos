@@ -117,7 +117,6 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
     return GeometrySchlickGGX(NdotV, roughness) * GeometrySchlickGGX(NdotL, roughness);
 }
 
-// === Texture Sampling Helper (JETZT FUNKTIONIERT!) ===
 float3 SampleBaseColorTexture(int index, float2 uv)
 {
     switch (index)
@@ -137,31 +136,27 @@ float3 SampleBaseColorTexture(int index, float2 uv)
         case 6:
             return textures[6].Sample(samp, uv).rgb;
         default:
-            return float3(1.0f, 0.5f, 1.0f); // Debug-Fallback
+            return float3(1.0f, 0.5f, 1.0f); 
     }
 }
 
 
 
-// === Pixel Shader (VOLLSTÄNDIG FUNKTIONAL) ===
+// === Pixel Shader ===
 float4 PS(sVertexOut pin) : SV_Target
 {
     float3 N = normalize(pin.normalW);
     float3 V = normalize(gEyePosW - pin.posW);
 
-    // **JETZT FUNKTIONIERT: Korrekte Textur-Sampling mit Index!**
     float3 albedo_tex = SampleBaseColorTexture(gBaseColorIndex, pin.texC);
     float3 albedo = gBaseColor.rgb * albedo_tex;
-
-    // **DEBUG: Log-Albedo-Werte zeigen korrekte Texturfarben**
-    // (sollte jetzt keine 1,1,1 mehr sein!)
 
     // F0 Berechnung (PBR)
     float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, gMetallic);
 
     float3 Lo = float3(0.0f, 0.0f, 0.0f);
 
-    // Lights loop (deine Logik unverändert)
+    // Lights loop 
     for (int i = 0; i < gLightCount; ++i)
     {
         sLight light = gLights[i];
