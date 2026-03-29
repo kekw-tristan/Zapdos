@@ -11,12 +11,14 @@ constexpr DXGI_FORMAT c_depthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
 class cDeviceManager;
 class cWindow;
+class cCommandQueue; 
+class cCommandContext;
 
 class cSwapChainManager
 {
 	public:
 
-		cSwapChainManager(cDeviceManager* _pDeviceManager, cWindow* _pWindow);
+		cSwapChainManager(cDeviceManager* _pDeviceManager, cWindow* _pWindow, cCommandQueue* _pCmdQueue, cCommandContext* _pCmdContext);
 
 	public:
 
@@ -59,5 +61,8 @@ class cSwapChainManager
 
 		ComPtr<ID3D12Resource> m_pSwapChainBuffer[c_swapChainBufferCount];
 		ComPtr<ID3D12Resource> m_pDepthStencilBuffer;
+
+		cCommandQueue* m_pCommandQueue;
+		cCommandContext* m_pCmdContext;
 
 };

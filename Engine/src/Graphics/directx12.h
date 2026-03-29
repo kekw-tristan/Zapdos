@@ -11,6 +11,8 @@
 
 #include "graphics/material.h"
 #include "graphics/meshGenerator.h"
+#include "graphics/commandQueue.h"
+#include "graphics/commandContext.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -112,4 +114,9 @@ class cDirectX12
 
 		std::vector<sVertex>		m_vertecis; 
 		std::vector<std::uint16_t>	m_indices;
+
+		cCommandQueue	m_graphicsQueue; 
+		cCommandContext m_cmdContext; 
+
+		ComPtr<ID3D12CommandAllocator> m_pCmdAlloc;
 };

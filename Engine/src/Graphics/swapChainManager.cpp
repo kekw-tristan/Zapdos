@@ -7,12 +7,16 @@
 #include "d3dx12.h"
 #include "directx12Util.h"
 #include "deviceManager.h"
+#include "commandQueue.h"
+#include "commandContext.h"
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-cSwapChainManager::cSwapChainManager(cDeviceManager* _pDeviceManager, cWindow* _pWindow)
+cSwapChainManager::cSwapChainManager(cDeviceManager* _pDeviceManager, cWindow* _pWindow, cCommandQueue* _pCommandQueue, cCommandContext* _pCmdContext)
 	: m_pDeviceManager      (_pDeviceManager)
     , m_pWindow             (_pWindow)
+    , m_pCommandQueue       (_pCommandQueue)
+    , m_pCmdContext         (_pCmdContext)
 	, m_pSwapChain          (nullptr)
     , m_pRtvHeap            (nullptr)
     , m_pDsvHeap            (nullptr)
@@ -147,7 +151,7 @@ void cSwapChainManager::InitializeSwapChain()
     ComPtr<IDXGISwapChain1> swapChain;
 
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDxgiFactory()->CreateSwapChainForHwnd(
-        m_pDeviceManager->GetCommandQueue(),    // Command queue used for presentation.
+        m_pCommandQueue->GetCommandQueue(),    // Command queue used for presentation.
         m_pWindow->GetHWND(),                   // Handle to the output window.
         &swapChainDesc,                         // Description of the swap chain.
         nullptr,                                // No fullscreen descriptor.
@@ -278,7 +282,8 @@ void cSwapChainManager::InitializeViewPort()
     m_viewPort.MinDepth = 0.f;
     m_viewPort.MaxDepth = 1.f;
 
-    m_pDeviceManager->GetCommandList()->RSSetViewports(1, &m_viewPort);
+
+    m_pCmdContext->GetCommandList()->RSSetViewports(1, &m_viewPort);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

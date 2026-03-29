@@ -36,13 +36,9 @@ class cDeviceManager
 
 		ID3D12Device*				GetDevice()				const;
 		IDXGIFactory7*				GetDxgiFactory()		const;
-		ID3D12CommandQueue*			GetCommandQueue()		const;
-		ID3D12Fence*				GetFence()				const;
-		ID3D12GraphicsCommandList*	GetCommandList()		const;
 		ID3D12CommandAllocator*		GetDirectCmdListAlloc() const;
 		const sDescriptorSizes&		GetDescriptorSizes()	const;
 		int							Get4xMSAAQuality()		const;
-		UINT64						GetFenceValue()			const;
 
 	public:
 
@@ -51,9 +47,8 @@ class cDeviceManager
 	private:
 
 		void InitializeDeviceAndFactory(); 
-		void InitializeFenceAndDescriptorSize();
+		void InitializeDescriptorSize();
 		void Check4XMSAAQualitySupport();
-		void InitializeCommandQueueAndList(); 
 
 	private:
 

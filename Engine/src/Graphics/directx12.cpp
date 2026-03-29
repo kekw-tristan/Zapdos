@@ -31,7 +31,7 @@
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-/*
+
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 {
     LPWSTR programFilesPath = nullptr;
@@ -60,17 +60,17 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
-*/
+
 // --------------------------------------------------------------------------------------------------------------------------
 // initializes all the directx12 components
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights)
 {
     
-    //if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
-    //{
-    //    LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
-    //}
+    if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
+    {
+        LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
+    }
     
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
@@ -83,6 +83,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _ma
     {
         std::cerr << "D3D12 Debug Layer not available." << std::endl;
     }
+    
    
     m_pWindow                   = _pWindow;
     m_pTimer                    = _pTimer;
@@ -90,12 +91,22 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _ma
     m_maxNumberOfLights         = _maxNumberOfLights;
 
     m_pDeviceManager    = new cDeviceManager();
-    m_pSwapChainManager = new cSwapChainManager(m_pDeviceManager, m_pWindow);
+    m_pDeviceManager->Initialize();
+
+    cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDevice()->CreateCommandAllocator(
+        D3D12_COMMAND_LIST_TYPE_DIRECT,
+        IID_PPV_ARGS(m_pCmdAlloc.GetAddressOf())
+    ));
+
+    m_cmdContext.Initialize(m_pDeviceManager->GetDevice(), m_pCmdAlloc.Get());
+    m_graphicsQueue.Initialize(m_pDeviceManager->GetDevice(), D3D12_COMMAND_LIST_TYPE_DIRECT);
+
+    m_pSwapChainManager = new cSwapChainManager(m_pDeviceManager, m_pWindow, &m_graphicsQueue, &m_cmdContext);
     m_pBufferManager    = new cBufferManager(m_pDeviceManager, m_pSwapChainManager);
     m_pPipelineManager  = new cPipelineManager(m_pDeviceManager);
     m_pGeometry         = new sMeshGeometry;
 
-    m_pDeviceManager    ->Initialize();
+    
     m_pSwapChainManager ->Initialize();
     m_pBufferManager    ->Initialize(_maxNumberOfRenderItems, _maxNumberOfLights);
     m_pPipelineManager  ->Initialize(); 
@@ -159,6 +170,10 @@ void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::stri
 
 sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
 {
+    cDirectX12Util::ThrowIfFailed(m_pCmdAlloc->Reset());
+    m_cmdContext.Reset(m_pCmdAlloc.Get());
+    
+
     const UINT vbByteSize = static_cast<UINT>(m_vertecis.size() * sizeof(sVertex));
     const UINT ibByteSize = static_cast<UINT>(m_indices.size() * sizeof(uint16_t));
 
@@ -172,7 +187,7 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
 
     m_pGeometry->vertexBufferGPU = cDirectX12Util::CreateDefaultBuffer(
         m_pDeviceManager->GetDevice(),
-        m_pDeviceManager->GetCommandList(),
+        m_cmdContext.GetCommandList(),
         m_vertecis.data(),
         vbByteSize,
         m_pGeometry->vertexBufferUploader
@@ -180,7 +195,7 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
 
     m_pGeometry->indexBufferGPU = cDirectX12Util::CreateDefaultBuffer(
         m_pDeviceManager->GetDevice(),
-        m_pDeviceManager->GetCommandList(),
+        m_cmdContext.GetCommandList(),
         m_indices.data(),
         ibByteSize,
         m_pGeometry->indexBufferUploader
@@ -191,11 +206,10 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
     m_pGeometry->indexFormat            = DXGI_FORMAT_R16_UINT;
     m_pGeometry->indexBufferByteSize    = ibByteSize;
 
-    
-    m_pDeviceManager->GetCommandList()->Close();
-    ID3D12CommandList* cmdLists[] = { m_pDeviceManager->GetCommandList() };
-    m_pDeviceManager->GetCommandQueue()->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-    m_pDeviceManager->FlushCommandQueue();
+    m_cmdContext.Close(); 
+    ID3D12CommandList* cmdLists[] = { m_cmdContext.GetCommandList() };
+    m_graphicsQueue.Execute(cmdLists, _countof(cmdLists)); 
+    m_graphicsQueue.Flush();
     
     return m_pGeometry;
 }
@@ -216,7 +230,7 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
     // Reset command list & allocator
     ID3D12PipelineState*        pPso                = m_pPipelineManager->GetPipelineStateObject();
     ID3D12CommandAllocator*     pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
-    ID3D12GraphicsCommandList*  pCommandList        = m_pDeviceManager->GetCommandList();
+    ID3D12GraphicsCommandList*  pCommandList        = m_cmdContext.GetCommandList();
 
     cDirectX12Util::ThrowIfFailed(pDirectCmdListAlloc->Reset());
     cDirectX12Util::ThrowIfFailed(pCommandList->Reset(pDirectCmdListAlloc, pPso));
@@ -246,14 +260,13 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
 void cDirectX12::Draw()
 {
     ID3D12CommandAllocator* pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
-    ID3D12GraphicsCommandList* pCommandList = m_pDeviceManager->GetCommandList();
-    ID3D12CommandQueue* pCommandQueue = m_pDeviceManager->GetCommandQueue();
-    ID3D12PipelineState* pPso = m_pPipelineManager->GetPipelineStateObject();
-    ID3D12RootSignature* pRootSignature = m_pPipelineManager->GetRootSignature();
-    IDXGISwapChain4* pSwapChain = m_pSwapChainManager->GetSwapChain();
-    D3D12_VIEWPORT& rViewport = m_pSwapChainManager->GetViewport();
-    ID3D12DescriptorHeap* pCbvHeap = m_pBufferManager->GetCbvHeap();
-    ID3D12Fence* pFence = m_pDeviceManager->GetFence();
+    ID3D12PipelineState*    pPso                = m_pPipelineManager->GetPipelineStateObject();
+    ID3D12RootSignature*    pRootSignature      = m_pPipelineManager->GetRootSignature();
+    IDXGISwapChain4*        pSwapChain          = m_pSwapChainManager->GetSwapChain();
+    D3D12_VIEWPORT&         rViewport           = m_pSwapChainManager->GetViewport();
+    ID3D12DescriptorHeap*   pCbvHeap            = m_pBufferManager->GetCbvHeap();
+    ID3D12GraphicsCommandList* pCommandList     = m_cmdContext.GetCommandList();
+    ID3D12CommandQueue* pCommandQueue           = m_graphicsQueue.GetCommandQueue(); 
 
     // Set viewport and scissor
     pCommandList->RSSetViewports(1, &rViewport);
@@ -355,9 +368,7 @@ void cDirectX12::Draw()
     pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
     // Signal fence
-    UINT64 currentFence = m_pDeviceManager->GetFenceValue() + 1;
-    pCommandQueue->Signal(pFence, currentFence);
-    m_pDeviceManager->SetFenceValue(currentFence);
+    UINT64 currentFence = m_graphicsQueue.Signal();
     m_pCurrentFrameResource->fence = currentFence;
 
     // Present frame
@@ -614,122 +625,76 @@ void cDirectX12::UploadTexturesToGPU(std::vector<cTexture>& textures)
 {
     ID3D12Device* pDevice = m_pDeviceManager->GetDevice();
     ID3D12DescriptorHeap* pHeap = m_pBufferManager->GetCbvHeap();
-    UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    UINT baseOffset = m_pBufferManager->GetTextureOffset();
-    UINT numTextures = min((UINT)textures.size(), 7u);
 
-    ComPtr<ID3D12CommandAllocator> tempAlloc;
-    ComPtr<ID3D12GraphicsCommandList> tempCmdList;
+    const UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(
+        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-    pDevice->CreateCommandAllocator(
-        D3D12_COMMAND_LIST_TYPE_DIRECT,
-        IID_PPV_ARGS(&tempAlloc));
+    const UINT baseOffset = m_pBufferManager->GetTextureOffset();
+    const UINT numTextures = min((UINT)textures.size(), 7u);
 
-    pDevice->CreateCommandList(
-        0,
-        D3D12_COMMAND_LIST_TYPE_DIRECT,
-        tempAlloc.Get(),
-        nullptr,
-        IID_PPV_ARGS(&tempCmdList));
+    cDirectX12Util::ThrowIfFailed(m_pCmdAlloc->Reset());
+    m_cmdContext.Reset(m_pCmdAlloc.Get());
 
-    // --- Upload ---
-    for (UINT i = 0; i < numTextures; ++i)
-        textures[i].UploadToGpu(pDevice, tempCmdList.Get());
+    ID3D12GraphicsCommandList* pCmdList = m_cmdContext.GetCommandList();
 
-    // --- Transition: COPY_DEST -> PIXEL_SHADER_RESOURCE ---
     for (UINT i = 0; i < numTextures; ++i)
     {
-        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+        textures[i].UploadToGpu(pDevice, pCmdList);
+    }
+
+    for (UINT i = 0; i < numTextures; ++i)
+    {
+        m_cmdContext.Transition(
             textures[i].GetResource(),
             D3D12_RESOURCE_STATE_COPY_DEST,
-            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-
-        tempCmdList->ResourceBarrier(1, &barrier);
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+        );
     }
 
-    tempCmdList->Close();
+    m_cmdContext.Close();
 
-    ID3D12CommandList* lists[] = { tempCmdList.Get() };
-    m_pDeviceManager->GetCommandQueue()->ExecuteCommandLists(1, lists);
+    ID3D12CommandList* lists[] = { pCmdList };
+    const UINT64 fenceValue = m_graphicsQueue.Execute(lists, 1);
+    m_graphicsQueue.WaitCPU(fenceValue);
 
-    // --- Fence ---
-    ComPtr<ID3D12Fence> fence;
-    pDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
-
-    UINT64 fenceValue = 1;
-    m_pDeviceManager->GetCommandQueue()->Signal(fence.Get(), fenceValue);
-
-    if (fence->GetCompletedValue() < fenceValue)
-    {
-        HANDLE evt = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-        fence->SetEventOnCompletion(fenceValue, evt);
-        WaitForSingleObject(evt, INFINITE);
-        CloseHandle(evt);
-    }
-
-    // --- SRVs ERST JETZT ---
     for (UINT i = 0; i < numTextures; ++i)
     {
-        UINT heapIndex = baseOffset + i;
+        const UINT heapIndex = baseOffset + i;
+
         D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = pHeap->GetCPUDescriptorHandleForHeapStart();
-        cpuHandle.ptr += heapIndex * descriptorSize;
+        cpuHandle.ptr += static_cast<SIZE_T>(heapIndex) * descriptorSize;
 
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
         srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         srvDesc.Format = textures[i].GetResource()->GetDesc().Format;
         srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
         srvDesc.Texture2D.MipLevels = textures[i].GetMipLevels();
+        srvDesc.Texture2D.MostDetailedMip = 0;
+        srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-        pDevice->CreateShaderResourceView(textures[i].GetResource(), &srvDesc, cpuHandle);
+        pDevice->CreateShaderResourceView(
+            textures[i].GetResource(),
+            &srvDesc,
+            cpuHandle
+        );
     }
 
-    std::wcout << L"[UPLOAD COMPLETE] clean\n";
+    std::wcout << L"[UPLOAD COMPLETE]\n";
 }
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cDirectX12::WaitForCurrentFrameResourceIfInUse()
 {
-    UINT64 gpuCompletedFence = m_pDeviceManager->GetFence()->GetCompletedValue();
+    UINT64 gpuCompletedFence = m_graphicsQueue.GetCompletedValue();
 
-    // Only wait if the current frame resource has a fence set and GPU hasn't reached it yet
-    if (m_pCurrentFrameResource->fence != 0 &&
-        gpuCompletedFence < m_pCurrentFrameResource->fence)
-    {
-        HANDLE eventHandle = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
-        if (eventHandle == nullptr)
-        {
-            throw std::runtime_error("Failed to create event handle.");
-        }
-
-        cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetFence()->SetEventOnCompletion(m_pCurrentFrameResource->fence, eventHandle));
-        WaitForSingleObject(eventHandle, INFINITE);
-        CloseHandle(eventHandle);
-    }
+    m_graphicsQueue.WaitCPU(m_pCurrentFrameResource->fence);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cDirectX12::WaitForGPU()
 {
-    UINT64              fenceValue      = m_pDeviceManager->GetFenceValue() + 1;
-    ID3D12CommandQueue* pCommandQueue   = m_pDeviceManager->GetCommandQueue();
-    ID3D12Fence*        pFence          = m_pDeviceManager->GetFence();
-
-    // Signal the fence
-    cDirectX12Util::ThrowIfFailed(pCommandQueue->Signal(pFence, fenceValue));
-    m_pDeviceManager->SetFenceValue(fenceValue);
-
-    // Wait until GPU reaches this point
-    if (pFence->GetCompletedValue() < fenceValue)
-    {
-        HANDLE eventHandle = CreateEventEx(nullptr, nullptr, 0, EVENT_ALL_ACCESS);
-        if (eventHandle == nullptr)
-            throw std::runtime_error("Failed to create event handle.");
-
-        pFence->SetEventOnCompletion(fenceValue, eventHandle);
-        WaitForSingleObject(eventHandle, INFINITE);
-        CloseHandle(eventHandle);
-    }
+    m_graphicsQueue.Flush();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
