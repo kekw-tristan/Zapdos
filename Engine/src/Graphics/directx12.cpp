@@ -93,6 +93,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _ma
     m_pDeviceManager    = new cDeviceManager();
     m_pDeviceManager->Initialize();
 
+    // create initial command alloc
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDevice()->CreateCommandAllocator(
         D3D12_COMMAND_LIST_TYPE_DIRECT,
         IID_PPV_ARGS(m_pCmdAlloc.GetAddressOf())
@@ -233,7 +234,7 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
     ID3D12GraphicsCommandList*  pCommandList        = m_cmdContext.GetCommandList();
 
     cDirectX12Util::ThrowIfFailed(pDirectCmdListAlloc->Reset());
-    cDirectX12Util::ThrowIfFailed(pCommandList->Reset(pDirectCmdListAlloc, pPso));
+    m_cmdContext.Reset(pDirectCmdListAlloc, pPso);
 
     // Handle window resize
     if (m_pWindow->GetHasResized())
@@ -266,22 +267,16 @@ void cDirectX12::Draw()
     D3D12_VIEWPORT&         rViewport           = m_pSwapChainManager->GetViewport();
     ID3D12DescriptorHeap*   pCbvHeap            = m_pBufferManager->GetCbvHeap();
     ID3D12GraphicsCommandList* pCommandList     = m_cmdContext.GetCommandList();
-    ID3D12CommandQueue* pCommandQueue           = m_graphicsQueue.GetCommandQueue(); 
 
     // Set viewport and scissor
+    
     pCommandList->RSSetViewports(1, &rViewport);
 
     D3D12_RECT scissorRect = { 0, 0, m_pWindow->GetWidth(), m_pWindow->GetHeight() };
     pCommandList->RSSetScissorRects(1, &scissorRect);
 
     // Transition back buffer PRESENT -> RENDER_TARGET
-    pCommandList->ResourceBarrier(
-        1, &CD3DX12_RESOURCE_BARRIER::Transition(
-            m_pSwapChainManager->GetCurrentBackBuffer(),
-            D3D12_RESOURCE_STATE_PRESENT,
-            D3D12_RESOURCE_STATE_RENDER_TARGET
-        )
-    );
+    m_cmdContext.Transition(m_pSwapChainManager->GetCurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
     // Clear RTV and DSV
     float clearColor[] = { 0.f, 0.f, 0.f, 1.f };
@@ -296,11 +291,9 @@ void cDirectX12::Draw()
         1, &m_pSwapChainManager->GetCurrentBackBufferView(), TRUE,
         &m_pSwapChainManager->GetDepthStencilView());
 
-    
-
     // Bind descriptor heap
     ID3D12DescriptorHeap* descriptorHeaps[] = { pCbvHeap };
-    pCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+    m_cmdContext.SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
     // Set root signature
     pCommandList->SetGraphicsRootSignature(pRootSignature);
@@ -353,22 +346,18 @@ void cDirectX12::Draw()
     }
 
     // Transition back buffer RENDER_TARGET -> PRESENT
-    pCommandList->ResourceBarrier(
-        1, &CD3DX12_RESOURCE_BARRIER::Transition(
-            m_pSwapChainManager->GetCurrentBackBuffer(),
-            D3D12_RESOURCE_STATE_RENDER_TARGET,
-            D3D12_RESOURCE_STATE_PRESENT
-        )
-    );
+    m_cmdContext.Transition(m_pSwapChainManager->GetCurrentBackBuffer(),
+        D3D12_RESOURCE_STATE_RENDER_TARGET,
+        D3D12_RESOURCE_STATE_PRESENT);
 
     // Close and execute command list
     cDirectX12Util::ThrowIfFailed(pCommandList->Close());
 
     ID3D12CommandList* cmdLists[] = { pCommandList };
-    pCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+    m_graphicsQueue.Execute(cmdLists, _countof(cmdLists));
 
     // Signal fence
-    UINT64 currentFence = m_graphicsQueue.Signal();
+     UINT64 currentFence = m_graphicsQueue.Signal();
     m_pCurrentFrameResource->fence = currentFence;
 
     // Present frame
