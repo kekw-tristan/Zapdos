@@ -111,3 +111,73 @@ void cCommandContext::SetPipelineState(ID3D12PipelineState* _pPso)
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
+
+void cCommandContext::SetViewports(UINT _count, D3D12_VIEWPORT* _pViewports)
+{
+	m_pCommandList->RSSetViewports(_count, _pViewports);	
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cCommandContext::SetScissorRects(UINT _count, D3D12_RECT* _pScissorRect)
+{
+	m_pCommandList->RSSetScissorRects(1, _pScissorRect);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cCommandContext::ClearRenderTargetView(D3D12_CPU_DESCRIPTOR_HANDLE _currentBackbuffer, float* _pClearColor, UINT _numRects, D3D12_RECT* _pRects)
+{
+	m_pCommandList->ClearRenderTargetView(_currentBackbuffer, _pClearColor, _numRects, _pRects);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cCommandContext::ClearDepthStencilView(D3D12_CPU_DESCRIPTOR_HANDLE _depthsStencilView, D3D12_CLEAR_FLAGS _clearFlags, float _depth, UINT8 _stencil, UINT _numRects, D3D12_RECT* _pRects)
+{
+	m_pCommandList->ClearDepthStencilView(_depthsStencilView, _clearFlags, _depth, _stencil, _numRects, _pRects);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cCommandContext::SetRenderTargets(UINT _numRenderTargetDescriptors, D3D12_CPU_DESCRIPTOR_HANDLE* _pRenderTargetDescriptors, bool _rtSingleHandleToDescriptorRange, D3D12_CPU_DESCRIPTOR_HANDLE* _pDepthStencilDescriptor)
+{
+	m_pCommandList->OMSetRenderTargets(_numRenderTargetDescriptors, _pRenderTargetDescriptors, _rtSingleHandleToDescriptorRange, _pDepthStencilDescriptor);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cCommandContext::SetGraphicsRootDescriptorTable(UINT _RootParameterIndex, CD3DX12_GPU_DESCRIPTOR_HANDLE _baseDescriptor)
+{
+	m_pCommandList->SetGraphicsRootDescriptorTable(_RootParameterIndex, _baseDescriptor);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cCommandContext::SetVertexBuffer(UINT _startSlot, UINT _numViews, D3D12_VERTEX_BUFFER_VIEW* _pVetexBufferView)
+{
+	m_pCommandList->IASetVertexBuffers(0, 1, _pVetexBufferView);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cCommandContext::SetIndexBuffer(D3D12_INDEX_BUFFER_VIEW* _pIndexBufferView)
+{
+	m_pCommandList->IASetIndexBuffer(_pIndexBufferView);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cCommandContext::SetPrimitiveTopology(D3D12_PRIMITIVE_TOPOLOGY _primitiveTopology)
+{
+	m_pCommandList->IASetPrimitiveTopology(_primitiveTopology);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cCommandContext::DrawIndexedInstanced(UINT _indexCountPerInstance, UINT _instanceCount, UINT _startIndexLocation, INT _baseVertexLocation, UINT _startInstanceLoation)
+{
+	m_pCommandList->DrawIndexedInstanced(_indexCountPerInstance, _instanceCount, _startIndexLocation, _baseVertexLocation, _startInstanceLoation);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------

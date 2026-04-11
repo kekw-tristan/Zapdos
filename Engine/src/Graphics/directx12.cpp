@@ -102,6 +102,9 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _ma
     m_cmdContext.Initialize(m_pDeviceManager->GetDevice(), m_pCmdAlloc.Get());
     m_graphicsQueue.Initialize(m_pDeviceManager->GetDevice(), D3D12_COMMAND_LIST_TYPE_DIRECT);
 
+    cDirectX12Util::ThrowIfFailed(m_pCmdAlloc->Reset());
+    m_cmdContext.Reset(m_pCmdAlloc.Get());
+
     m_pSwapChainManager = new cSwapChainManager(m_pDeviceManager, m_pWindow, &m_graphicsQueue, &m_cmdContext);
     m_pBufferManager    = new cBufferManager(m_pDeviceManager, m_pSwapChainManager);
     m_pPipelineManager  = new cPipelineManager(m_pDeviceManager);
@@ -171,10 +174,6 @@ void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::stri
 
 sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
 {
-    cDirectX12Util::ThrowIfFailed(m_pCmdAlloc->Reset());
-    m_cmdContext.Reset(m_pCmdAlloc.Get());
-    
-
     const UINT vbByteSize = static_cast<UINT>(m_vertecis.size() * sizeof(sVertex));
     const UINT ibByteSize = static_cast<UINT>(m_indices.size() * sizeof(uint16_t));
 
@@ -270,35 +269,30 @@ void cDirectX12::Draw()
 
     // Set viewport and scissor
     
-    pCommandList->RSSetViewports(1, &rViewport);
+    m_cmdContext.SetViewports(1, &rViewport);
 
     D3D12_RECT scissorRect = { 0, 0, m_pWindow->GetWidth(), m_pWindow->GetHeight() };
-    pCommandList->RSSetScissorRects(1, &scissorRect);
-
+    m_cmdContext.SetScissorRects(1, &scissorRect);
+    
     // Transition back buffer PRESENT -> RENDER_TARGET
-    m_cmdContext.Transition(m_pSwapChainManager->GetCurrentBackBuffer(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+    m_cmdContext.Transition(m_pSwapChainManager->GetCurrentBackBuffer(), 
+        D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
     // Clear RTV and DSV
     float clearColor[] = { 0.f, 0.f, 0.f, 1.f };
-    pCommandList->ClearRenderTargetView(m_pSwapChainManager->GetCurrentBackBufferView(), clearColor, 0, nullptr);
-    pCommandList->ClearDepthStencilView(
-        m_pSwapChainManager->GetDepthStencilView(),
-        D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-        1.0f, 0, 0, nullptr);
+    m_cmdContext.ClearRenderTargetView(m_pSwapChainManager->GetCurrentBackBufferView(), clearColor);
+    m_cmdContext.ClearDepthStencilView(m_pSwapChainManager->GetDepthStencilView());
 
     // Set render targets
-    pCommandList->OMSetRenderTargets(
-        1, &m_pSwapChainManager->GetCurrentBackBufferView(), TRUE,
-        &m_pSwapChainManager->GetDepthStencilView());
+    m_cmdContext.SetRenderTargets(1, &m_pSwapChainManager->GetCurrentBackBufferView(), TRUE, &m_pSwapChainManager->GetDepthStencilView());
 
     // Bind descriptor heap
     ID3D12DescriptorHeap* descriptorHeaps[] = { pCbvHeap };
     m_cmdContext.SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
     // Set root signature
-    pCommandList->SetGraphicsRootSignature(pRootSignature);
-
-    pCommandList->SetPipelineState(pPso);
+    m_cmdContext.SetGraphicsRootSignature(pRootSignature);
+    m_cmdContext.SetPipelineState(pPso);
 
     UINT descriptorSize = m_pDeviceManager->GetDescriptorSizes().cbvSrvUav;
 
@@ -310,34 +304,35 @@ void cDirectX12::Draw()
     UINT lightIndex = baseOffset + m_maxNumberOfRenderItems + 1;
     CD3DX12_GPU_DESCRIPTOR_HANDLE lightSrvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
     lightSrvHandle.Offset(lightIndex, descriptorSize);
-    pCommandList->SetGraphicsRootDescriptorTable(2, lightSrvHandle);
+    m_cmdContext.SetGraphicsRootDescriptorTable(2, lightSrvHandle);
 
     // === Pass CBV (root param 1, b1) ===
     UINT passIndex = baseOffset + m_maxNumberOfRenderItems;
     CD3DX12_GPU_DESCRIPTOR_HANDLE passCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
     passCbvHandle.Offset(passIndex, descriptorSize);
-    pCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
+    m_cmdContext.SetGraphicsRootDescriptorTable(1, passCbvHandle);
 
     // === Texturen (root param 3, t0..t6) ===
     UINT texBaseIndex = m_pBufferManager->GetTextureOffset();
     CD3DX12_GPU_DESCRIPTOR_HANDLE texHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
     texHandle.Offset(texBaseIndex, descriptorSize);
-    pCommandList->SetGraphicsRootDescriptorTable(3, texHandle);
+    m_cmdContext.SetGraphicsRootDescriptorTable(3, texHandle);
 
     // Draw all render items
     for (auto& renderItem : *m_pRenderItems)
     {
-        pCommandList->IASetVertexBuffers(0, 1, &renderItem.pGeometry->GetVertexBufferView());
-        pCommandList->IASetIndexBuffer(&renderItem.pGeometry->GetIndexBufferView());
-        pCommandList->IASetPrimitiveTopology(renderItem.primitiveType);
+        m_cmdContext.SetVertexBuffer(0, 1, &renderItem.pGeometry->GetVertexBufferView());
+        m_cmdContext.SetIndexBuffer(&renderItem.pGeometry->GetIndexBufferView());
+        m_cmdContext.SetPrimitiveTopology(renderItem.primitiveType);
+        
 
         UINT objIndex = baseOffset + renderItem.objCBIndex;
         CD3DX12_GPU_DESCRIPTOR_HANDLE objCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
         objCbvHandle.Offset(objIndex, descriptorSize);
-        pCommandList->SetGraphicsRootDescriptorTable(0, objCbvHandle);
+        m_cmdContext.SetGraphicsRootDescriptorTable(0, objCbvHandle);
 
 
-        pCommandList->DrawIndexedInstanced( 
+        m_cmdContext.DrawIndexedInstanced( 
             renderItem.indexCount,
             1,
             renderItem.startIndexLocation,
@@ -353,7 +348,7 @@ void cDirectX12::Draw()
     // Close and execute command list
     cDirectX12Util::ThrowIfFailed(pCommandList->Close());
 
-    ID3D12CommandList* cmdLists[] = { pCommandList };
+    ID3D12CommandList* cmdLists[] = { m_cmdContext.GetCommandList() };
     m_graphicsQueue.Execute(cmdLists, _countof(cmdLists));
 
     // Signal fence
