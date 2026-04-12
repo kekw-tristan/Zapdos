@@ -54,7 +54,7 @@ class cDirectX12
 		
 	public:
 
-		void InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::string& _rName, XMFLOAT4 _rColor);
+		void InitializeMesh(cMeshGenerator::sMeshData& _rMeshData);
 		sMeshGeometry* InitializeGeometryBuffer(); 
 
 		void Update(XMMATRIX _view,  XMFLOAT3 _eyePos, std::vector<sRenderItem>* _renderItems, std::vector<sLightConstants>* _pLights);

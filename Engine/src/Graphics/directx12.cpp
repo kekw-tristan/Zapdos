@@ -143,13 +143,14 @@ void cDirectX12::Finalize()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::string& _rName, XMFLOAT4 _rColor)
+void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData)
 {
     sSubmeshGeometry subMesh;
 
     subMesh.indexCount              = _rMeshData.GetIndices16().size();
     subMesh.startIndexLocation      = m_indices.size();
     subMesh.startVertexLocation     = m_vertecis.size();
+    subMesh.materialId              = _rMeshData.materialId;
 
     for (auto v : _rMeshData.vertices)
     {
@@ -167,7 +168,7 @@ void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData, std::stri
     std::vector<uint16> meshIndices16 = _rMeshData.GetIndices16(); 
     m_indices.insert(m_indices.end(), meshIndices16.begin(), meshIndices16.end());
 
-    m_pGeometry->drawArguments[_rName] = subMesh;
+    m_pGeometry->drawArguments.push_back(subMesh);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

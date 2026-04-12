@@ -341,6 +341,12 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 
 void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial, std::vector<XMMATRIX>& _rOutWorldMatrix, std::vector<cTexture>& _rOutTextures, ID3D12Device* _pDevice)
 {
+	_rOutMeshData.clear();
+	_rOutMaterial.clear();
+	_rOutWorldMatrix.clear();
+	_rOutTextures.clear();
+	m_gltfMaterialToEngineMaterial.clear();
+
 	tinygltf::Model model;
 	tinygltf::TinyGLTF loader;
 	std::string err, warn;
@@ -456,11 +462,16 @@ void cMeshGenerator::ProcessNode(
 	// -------------------------------
 	if (node.mesh >= 0)
 	{
-		sMeshData meshData;
-		ExtractPrimitives(_rModel, node.mesh, meshData, _rOutMaterials);
+		const size_t oldMeshCount = _rOutMeshData.size();
 
-		_rOutMeshData.push_back(std::move(meshData));
-		_rOutWorldMatrix.push_back(worldMatrix);
+		ExtractPrimitives(_rModel, node.mesh, _rOutMeshData, _rOutMaterials);
+
+		const size_t newMeshCount = _rOutMeshData.size();
+
+		for (size_t i = oldMeshCount; i < newMeshCount; ++i)
+		{
+			_rOutWorldMatrix.push_back(worldMatrix);
+		}
 	}
 
 	// -------------------------------
@@ -483,13 +494,15 @@ void cMeshGenerator::ProcessNode(
 void cMeshGenerator::ExtractPrimitives(
 	tinygltf::Model& model,
 	int meshIndex,
-	sMeshData& outMeshData,
+	std::vector<sMeshData>& _rOutMeshData,
 	std::vector<sMaterial>& _rOutMaterials)
 {
 	const tinygltf::Mesh& mesh = model.meshes[meshIndex];
 
 	for (const auto& primitive : mesh.primitives)
 	{
+		sMeshData meshData = {};
+
 		// ===============================
 		// Extract indices 
 		// ===============================
@@ -503,31 +516,31 @@ void cMeshGenerator::ExtractPrimitives(
 				buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
 			const size_t indexCount = static_cast<size_t>(accessor.count);
-			const uint32_t vertexOffset = static_cast<uint32_t>(outMeshData.vertices.size());
+			const uint32_t vertexOffset = static_cast<uint32_t>(meshData.vertices.size());
 
 			// glTF primitives are TRIANGLES
 			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 			{
 				const uint16_t* indices = reinterpret_cast<const uint16_t*>(pData);
-				outMeshData.indices16.reserve(outMeshData.indices16.size() + indexCount);
+				meshData.indices16.reserve(meshData.indices16.size() + indexCount);
 
 				for (size_t i = 0; i < indexCount; i += 3)
 				{
-					outMeshData.indices16.push_back(indices[i + 0] + vertexOffset);
-					outMeshData.indices16.push_back(indices[i + 2] + vertexOffset); // swap
-					outMeshData.indices16.push_back(indices[i + 1] + vertexOffset); // swap
+					meshData.indices16.push_back(indices[i + 0] + vertexOffset);
+					meshData.indices16.push_back(indices[i + 2] + vertexOffset); // swap
+					meshData.indices16.push_back(indices[i + 1] + vertexOffset); // swap
 				}
 			}
 			else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
 			{
 				const uint32_t* indices = reinterpret_cast<const uint32_t*>(pData);
-				outMeshData.indices32.reserve(outMeshData.indices32.size() + indexCount);
+				meshData.indices32.reserve(meshData.indices32.size() + indexCount);
 
 				for (size_t i = 0; i < indexCount; i += 3)
 				{
-					outMeshData.indices32.push_back(indices[i + 0] + vertexOffset);
-					outMeshData.indices32.push_back(indices[i + 2] + vertexOffset); // swap
-					outMeshData.indices32.push_back(indices[i + 1] + vertexOffset); // swap
+					meshData.indices32.push_back(indices[i + 0] + vertexOffset);
+					meshData.indices32.push_back(indices[i + 2] + vertexOffset); // swap
+					meshData.indices32.push_back(indices[i + 1] + vertexOffset); // swap
 				}
 			}
 			else
@@ -550,14 +563,14 @@ void cMeshGenerator::ExtractPrimitives(
 				buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
 			const size_t vertexCount = static_cast<size_t>(accessor.count);
-			const size_t baseVertex = outMeshData.vertices.size();
+			const size_t baseVertex = meshData.vertices.size();
 
-			outMeshData.vertices.resize(baseVertex + vertexCount);
+			meshData.vertices.resize(baseVertex + vertexCount);
 
 			const float* positions = reinterpret_cast<const float*>(pData);
 			for (size_t i = 0; i < vertexCount; ++i)
 			{
-				outMeshData.vertices[baseVertex + i].position = XMFLOAT3(
+				meshData.vertices[baseVertex + i].position = XMFLOAT3(
 					-positions[i * 3 + 0], // X spiegeln
 					positions[i * 3 + 1],
 					positions[i * 3 + 2]
@@ -579,12 +592,12 @@ void cMeshGenerator::ExtractPrimitives(
 				buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
 			const size_t count = static_cast<size_t>(accessor.count);
-			const size_t startIndex = outMeshData.vertices.size() - count;
+			const size_t startIndex = meshData.vertices.size() - count;
 
 			const float* normals = reinterpret_cast<const float*>(pData);
 			for (size_t i = 0; i < count; ++i)
 			{
-				outMeshData.vertices[startIndex + i].normal = XMFLOAT3(
+				meshData.vertices[startIndex + i].normal = XMFLOAT3(
 					-normals[i * 3 + 0], // X spiegeln
 					normals[i * 3 + 1],
 					normals[i * 3 + 2]
@@ -606,12 +619,12 @@ void cMeshGenerator::ExtractPrimitives(
 				buffer.data.data() + view.byteOffset + accessor.byteOffset;
 
 			const size_t count = static_cast<size_t>(accessor.count);
-			const size_t startIndex = outMeshData.vertices.size() - count;
+			const size_t startIndex = meshData.vertices.size() - count;
 
 			const float* texcoords = reinterpret_cast<const float*>(pData);
 			for (size_t i = 0; i < count; ++i)
 			{
-				outMeshData.vertices[startIndex + i].texC = XMFLOAT2(
+				meshData.vertices[startIndex + i].texC = XMFLOAT2(
 					texcoords[i * 2 + 0],
 					texcoords[i * 2 + 1]
 				);
@@ -621,18 +634,8 @@ void cMeshGenerator::ExtractPrimitives(
 		// ===============================
 		// Extract material
 		// ===============================
-		if (primitive.material >= 0)
-		{
-			outMeshData.materialIndex = static_cast<int>(_rOutMaterials.size());
-			_rOutMaterials.push_back(
-				ExtractMaterialFromGLTF(model, primitive.material)
-			);
-		}
-		else
-		{
-			outMeshData.materialIndex = static_cast<int>(_rOutMaterials.size());
-			_rOutMaterials.emplace_back();
-		}
+		meshData.materialId = GetOrCreateMaterialId(model, primitive.material, _rOutMaterials);
+		_rOutMeshData.push_back(std::move(meshData));
 	}
 }
 
@@ -732,6 +735,37 @@ void cMeshGenerator::CreateTextures(const tinygltf::Model& _rModel, ID3D12Device
 		}
 	}
 
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+UINT cMeshGenerator::GetOrCreateMaterialId(const tinygltf::Model& _rModel, int _materialIndex, std::vector<sMaterial>& _rOutMaterials)
+{
+	// default material
+	if (_materialIndex < 0)
+	{
+		auto iterator = m_gltfMaterialToEngineMaterial.find(-1);
+		if (iterator != m_gltfMaterialToEngineMaterial.end())
+			return iterator->second;
+
+		sMaterial defaultMat = {};
+		const UINT newId = static_cast<UINT>(_rOutMaterials.size()); 
+		_rOutMaterials.push_back(std::move(defaultMat)); 
+		m_gltfMaterialToEngineMaterial[-1] = newId; 
+		return newId; 
+	}
+
+	auto iterator = m_gltfMaterialToEngineMaterial.find(_materialIndex);
+	if (iterator != m_gltfMaterialToEngineMaterial.end())
+		return iterator->second;
+
+	sMaterial newMaterial = ExtractMaterialFromGLTF(_rModel, _materialIndex); 
+
+	const UINT newId = static_cast<UINT>(_rOutMaterials.size()); 
+	_rOutMaterials.push_back(std::move(newMaterial));
+	m_gltfMaterialToEngineMaterial[_materialIndex] = newId; 
+
+	return newId;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

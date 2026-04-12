@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <iterator>
 #include <DirectXColors.h>
 #include <wrl.h>
 #include <d3d12.h>
@@ -84,33 +85,128 @@ void cSystem::InitializeRenderItems()
 {
     cMeshGenerator meshGenerator;
 
-    std::vector<cMeshGenerator::sMeshData> meshes;
-    std::vector<XMMATRIX> worldMatrices;
+    // Falls die Funktion mehrfach aufgerufen wird, musst du vorher auch
+    // deine alten RenderItems / Geometrie-Sammler zurücksetzen.
+    m_materials.clear();
+    m_textures.clear();
+    m_pScene->GetRenderItems().clear();
 
-    std::string path = "..\\Assets\\Objects\\scene.gltf";
-    meshGenerator.LoadModelFromGLTF(path, meshes, m_materials, worldMatrices, m_textures, m_pDirectX12->GetDevice());
-
-    // Ensure every material has valid defaults
-    for (auto& mat : m_materials)
+    struct sLoadedModel
     {
-        mat.alpha = (mat.alpha == 0.f) ? 1.f : mat.alpha;
-        mat.roughness = (mat.roughness == 0.f) ? 0.5f : mat.roughness;
-        mat.ao = (mat.ao == 0.f) ? 1.f : mat.ao;
-        // albedo, metallic, emissive keep loaded values
+        std::vector<cMeshGenerator::sMeshData> meshes;
+        std::vector<sMaterial> materials;
+        std::vector<XMMATRIX> worldMatrices;
+        std::vector<cTexture> textures;
+    };
+
+    auto ApplyMaterialDefaults = [](std::vector<sMaterial>& materials)
+        {
+            for (auto& mat : materials)
+            {
+                mat.alpha = (mat.alpha == 0.f) ? 1.f : mat.alpha;
+                mat.roughness = (mat.roughness == 0.f) ? 0.5f : mat.roughness;
+                mat.ao = (mat.ao == 0.f) ? 1.f : mat.ao;
+            }
+        };
+
+    auto OffsetMaterialTextureIndices = [](std::vector<sMaterial>& materials, int textureBase)
+        {
+            for (auto& mat : materials)
+            {
+                if (mat.baseColorIndex >= 0)
+                    mat.baseColorIndex += textureBase;
+
+                // Falls du später normal/metallicRoughness/emissive Indizes im Material hast,
+                // hier ebenfalls offsetten.
+            }
+        };
+
+    auto OffsetMeshMaterialIds = [](std::vector<cMeshGenerator::sMeshData>& meshes, UINT materialBase)
+        {
+            for (auto& mesh : meshes)
+            {
+                if (mesh.materialId != UINT_MAX)
+                    mesh.materialId += materialBase;
+            }
+        };
+
+    auto LoadModel = [&](const std::string& path, sLoadedModel& outModel)
+        {
+            meshGenerator.LoadModelFromGLTF(
+                const_cast<std::string&>(path),
+                outModel.meshes,
+                outModel.materials,
+                outModel.worldMatrices,
+                outModel.textures,
+                m_pDirectX12->GetDevice());
+
+            ApplyMaterialDefaults(outModel.materials);
+
+            assert(outModel.meshes.size() == outModel.worldMatrices.size());
+        };
+
+    // ------------------------------------------------------------
+    // 1) Modelle getrennt laden
+    // ------------------------------------------------------------
+    sLoadedModel sceneModel;
+    sLoadedModel sphereModel;
+
+    LoadModel("..\\Assets\\Objects\\scene.gltf", sceneModel);
+    LoadModel("..\\Assets\\Objects\\sphere.gltf", sphereModel);
+
+    // ------------------------------------------------------------
+    // 2) Materialien/Texturen in globale Arrays übernehmen
+    //    und IDs/Indizes passend offsetten
+    // ------------------------------------------------------------
+
+    // scene.gltf
+    {
+        const UINT materialBase = static_cast<UINT>(m_materials.size());
+        const int  textureBase = static_cast<int>(m_textures.size());
+
+        OffsetMaterialTextureIndices(sceneModel.materials, textureBase);
+        OffsetMeshMaterialIds(sceneModel.meshes, materialBase);
+
+        m_materials.insert(m_materials.end(), sceneModel.materials.begin(), sceneModel.materials.end());
+        m_textures.insert(
+            m_textures.end(),
+            std::make_move_iterator(sceneModel.textures.begin()),
+            std::make_move_iterator(sceneModel.textures.end()));
     }
 
-    // Initialize GPU meshes
-    for (int i = 0; i < meshes.size(); ++i)
+    // sphere.gltf
     {
-        std::string name = "scene_" + std::to_string(i);
-        m_pDirectX12->InitializeMesh(meshes[i], name, XMFLOAT4(0, 0, 0, 1.f)); // color ignored
+        const UINT materialBase = static_cast<UINT>(m_materials.size());
+        const int  textureBase = static_cast<int>(m_textures.size());
+
+        OffsetMaterialTextureIndices(sphereModel.materials, textureBase);
+        OffsetMeshMaterialIds(sphereModel.meshes, materialBase);
+
+        m_materials.insert(m_materials.end(), sphereModel.materials.begin(), sphereModel.materials.end());
+        m_textures.insert(
+            m_textures.end(),
+            std::make_move_iterator(sphereModel.textures.begin()),
+            std::make_move_iterator(sphereModel.textures.end()));
+    }
+
+    // ------------------------------------------------------------
+    // 3) Geometrie einmal gesammelt aufbauen
+    // ------------------------------------------------------------
+    const size_t sceneSubmeshBase = 0;
+    for ( auto& mesh : sceneModel.meshes)
+    {
+        m_pDirectX12->InitializeMesh(mesh);
+    }
+
+    const size_t sphereSubmeshBase = sceneModel.meshes.size();
+    for ( auto& mesh : sphereModel.meshes)
+    {
+        m_pDirectX12->InitializeMesh(mesh);
     }
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
-
     m_pDirectX12->UploadTexturesToGPU(m_textures);
 
-    // Default material if missing
     static sMaterial defaultMaterial;
     defaultMaterial.albedo = XMFLOAT3(1.f, 1.f, 1.f);
     defaultMaterial.alpha = 1.f;
@@ -119,39 +215,78 @@ void cSystem::InitializeRenderItems()
     defaultMaterial.ao = 1.f;
     defaultMaterial.emissive = XMFLOAT3(0.f, 0.f, 0.f);
 
-    // Create render items
-    for (int i = 0; i < meshes.size(); ++i)
-    {
-        sRenderItem ri{};
-        std::string name = "scene_" + std::to_string(i);
+    std::cout << "scene meshes:  " << sceneModel.meshes.size() << std::endl;
+    std::cout << "sphere meshes: " << sphereModel.meshes.size() << std::endl;
+    std::cout << "drawArguments: " << pMeshGeo->drawArguments.size() << std::endl;
+    std::cout << "materials:     " << m_materials.size() << std::endl;
+    std::cout << "textures:      " << m_textures.size() << std::endl;
 
-        ri.pGeometry = pMeshGeo;
-        ri.objCBIndex = static_cast<UINT>(i);
+    assert(pMeshGeo->drawArguments.size() == sceneModel.meshes.size() + sphereModel.meshes.size());
 
-        int matIndex = meshes[i].materialIndex;
-        if (matIndex >= 0 && matIndex < m_materials.size())
-            ri.pMaterial = &m_materials[matIndex]; 
-        else
-            ri.pMaterial = &defaultMaterial;
+    auto AddRenderItems =
+        [&](const std::vector<cMeshGenerator::sMeshData>& meshes,
+            const std::vector<XMMATRIX>& worldMatrices,
+            size_t submeshBase,
+            const XMMATRIX& instanceOffset,
+            UINT& objCBIndex)
+        {
+            for (size_t i = 0; i < meshes.size(); ++i)
+            {
+                sRenderItem ri{};
 
-        const auto& submesh = pMeshGeo->drawArguments.at(name);
-        ri.indexCount = submesh.indexCount;
-        ri.startIndexLocation = submesh.startIndexLocation;
-        ri.baseVertexLocation = submesh.startVertexLocation;
+                ri.pGeometry = pMeshGeo;
+                ri.objCBIndex = objCBIndex++;
 
-        XMStoreFloat4x4(&ri.worldMatrix, worldMatrices[i]);
+                const UINT matIndex = meshes[i].materialId;
+                if (matIndex < m_materials.size())
+                    ri.pMaterial = &m_materials[matIndex];
+                else
+                    ri.pMaterial = &defaultMaterial;
 
+                const auto& submesh = pMeshGeo->drawArguments[submeshBase + i];
+                ri.indexCount = submesh.indexCount;
+                ri.startIndexLocation = submesh.startIndexLocation;
+                ri.baseVertexLocation = submesh.startVertexLocation;
 
-        ri.numberOfFramesDirty = c_NumberOfFrameResources;
+                XMMATRIX finalWorld = worldMatrices[i] * instanceOffset;
+                XMStoreFloat4x4(&ri.worldMatrix, finalWorld);
 
-        m_pScene->GetRenderItems().emplace_back(std::move(ri));
+                ri.numberOfFramesDirty = c_NumberOfFrameResources;
 
-        const XMFLOAT3& a = ri.pMaterial->albedo;
+                m_pScene->GetRenderItems().emplace_back(std::move(ri));
+            }
+        };
 
-        std::cout << "Albedo: " << a.x << ", " << a.y << ", " << a.z << std::endl;
-    }
+    // ------------------------------------------------------------
+    // 4) RenderItems erzeugen
+    // ------------------------------------------------------------
+    UINT objCBIndex = 0;
 
-    std::cout << "Meshes & materials initialized safely (glTF PBR, member materials)\n";
+    // scene.gltf: original
+    AddRenderItems(
+        sceneModel.meshes,
+        sceneModel.worldMatrices,
+        sceneSubmeshBase,
+        XMMatrixIdentity(),
+        objCBIndex);
+
+    // scene.gltf: zweites Mal bei +10 auf X
+    AddRenderItems(
+        sceneModel.meshes,
+        sceneModel.worldMatrices,
+        sceneSubmeshBase,
+        XMMatrixTranslation(100.0f, 0.0f, 0.0f),
+        objCBIndex);
+
+    // sphere.gltf: einmal bei +20 auf X
+    AddRenderItems(
+        sphereModel.meshes,
+        sphereModel.worldMatrices,
+        sphereSubmeshBase,
+        XMMatrixTranslation(50.0f, 0.0f, 0.0f),
+        objCBIndex);
+
+    std::cout << "scene.gltf zweimal + sphere.gltf einmal erfolgreich eingebaut.\n";
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

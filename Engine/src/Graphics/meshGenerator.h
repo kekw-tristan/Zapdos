@@ -5,6 +5,7 @@
 #include <DirectXMath.h>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 #include "vertex.h"
 #include "material.h"
@@ -31,7 +32,7 @@ class cMeshGenerator
 				std::vector<sVertex> vertices;
 				std::vector<uint32> indices32;
 				std::vector<uint16> indices16;
-				int materialIndex = -1;
+				int materialId = -1;
 
 				std::vector<uint16>& GetIndices16()
 				{
@@ -63,12 +64,17 @@ class cMeshGenerator
 	private:
 
 		void ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMATRIX _parentWorldMatrix, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterials, std::vector<XMMATRIX>& _rOutWorldMatrix);
-		void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sMeshData& outMeshData, std::vector<sMaterial>& _rOutMaterials);
+		void cMeshGenerator::ExtractPrimitives(tinygltf::Model& model, int meshIndex, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterials);
 		sMaterial ExtractMaterialFromGLTF(const tinygltf::Model& model, int materialIndex);
 		void CreateTextures(const tinygltf::Model& _rModel, ID3D12Device* _pDevice, std::vector<cTexture>& _rOutTextures);
+		UINT GetOrCreateMaterialId(const tinygltf::Model& _rModel, int _materialIndex, std::vector<sMaterial>& _rOutMaterials);
 
 	private:
 
 		void BuildCylinderTopCap(float _topRadius, float _height, uint32 _sliceCount, sMeshData& meshData);
 		void BuildCylinderBottomCap(float _topRadius, float _height, uint32 _sliceCount, sMeshData& meshData);
+
+	private:
+
+		std::unordered_map<int, UINT> m_gltfMaterialToEngineMaterial; 
 };

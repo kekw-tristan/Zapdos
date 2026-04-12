@@ -5,7 +5,7 @@
 #include <d3d12.h>
 #include <string>
 #include <wrl.h>
-#include <unordered_map>
+#include <vector> 
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -15,6 +15,8 @@ struct sSubmeshGeometry
 	UINT indexCount				= 0;
 	UINT startIndexLocation		= 0;
 	INT  startVertexLocation	= 0;
+
+	UINT materialId = UINT_MAX; 
 
 	BoundingBox bounds;
 };
@@ -38,7 +40,7 @@ struct sMeshGeometry
 	DXGI_FORMAT indexFormat		= DXGI_FORMAT_R16_UINT;
 	UINT indexBufferByteSize	= 0;
 
-	std::unordered_map<std::string, sSubmeshGeometry> drawArguments;
+	std::vector<sSubmeshGeometry> drawArguments;
 
 	D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView() const
 	{
