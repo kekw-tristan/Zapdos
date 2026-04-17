@@ -9,6 +9,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define TINYGLTF_IMPLEMENTATION
 #include "tiny_gltf.h"
+#include "cpuTexture.h"
 
 // --------------------------------------------------------------------------------------------------------------------------
 cMeshGenerator::sMeshData cMeshGenerator::CreateCylinder(float _bottomRadius, float _topRadius, float _height, uint32 _sliceCount, uint32 _stackCount)
@@ -339,7 +340,7 @@ cMeshGenerator::sMeshData cMeshGenerator::CreateSphere(float radius, uint32_t sl
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial, std::vector<XMMATRIX>& _rOutWorldMatrix, std::vector<cTexture>& _rOutTextures, ID3D12Device* _pDevice)
+void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial, std::vector<XMMATRIX>& _rOutWorldMatrix, std::vector<cTexture>& _rOutTextures, ID3D12Device* _pDevice, std::vector<cCpuTexture>& _rOutCpuTextures)
 {
 	_rOutMeshData.clear();
 	_rOutMaterial.clear();
@@ -390,6 +391,7 @@ void cMeshGenerator::LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMes
 	}
 
 	CreateTextures(model, _pDevice, _rOutTextures);
+	CreateTexturesFromGltf(model, _rOutCpuTextures);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -766,6 +768,23 @@ UINT cMeshGenerator::GetOrCreateMaterialId(const tinygltf::Model& _rModel, int _
 	m_gltfMaterialToEngineMaterial[_materialIndex] = newId; 
 
 	return newId;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cMeshGenerator::CreateTexturesFromGltf(const tinygltf::Model& _rModel, std::vector<cCpuTexture>& _rOutCpuTextures)
+{
+	for (auto image : _rModel.images)
+	{
+		int width = image.width;
+		int height = image.height;
+
+
+		cCpuTexture texture(width, height, std::move(image.image));
+		_rOutCpuTextures.emplace_back(std::move(texture));
+	}
+
+	std::cout << "number of cpu Textures: " << _rOutCpuTextures.size() << std::endl;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

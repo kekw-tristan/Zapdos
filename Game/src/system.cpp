@@ -17,6 +17,7 @@
 #include "graphics/vertex.h"
 #include "graphics/meshGeometry.h"
 #include "graphics/meshGenerator.h"
+#include "graphics/cpuTexture.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -97,6 +98,7 @@ void cSystem::InitializeRenderItems()
         std::vector<sMaterial> materials;
         std::vector<XMMATRIX> worldMatrices;
         std::vector<cTexture> textures;
+        std::vector<cCpuTexture> cpuTextures;
     };
 
     auto ApplyMaterialDefaults = [](std::vector<sMaterial>& materials)
@@ -138,7 +140,8 @@ void cSystem::InitializeRenderItems()
                 outModel.materials,
                 outModel.worldMatrices,
                 outModel.textures,
-                m_pDirectX12->GetDevice());
+                m_pDirectX12->GetDevice(),
+                outModel.cpuTextures);
 
             ApplyMaterialDefaults(outModel.materials);
 
@@ -205,7 +208,8 @@ void cSystem::InitializeRenderItems()
     }
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
-    m_pDirectX12->UploadTexturesToGPU(m_textures);
+    //m_pDirectX12->UploadTexturesToGPU(m_textures);
+    m_pDirectX12->UploadCpuTexturesToGpu(sceneModel.cpuTextures);
 
     static sMaterial defaultMaterial;
     defaultMaterial.albedo = XMFLOAT3(1.f, 1.f, 1.f);
@@ -220,6 +224,7 @@ void cSystem::InitializeRenderItems()
     std::cout << "drawArguments: " << pMeshGeo->drawArguments.size() << std::endl;
     std::cout << "materials:     " << m_materials.size() << std::endl;
     std::cout << "textures:      " << m_textures.size() << std::endl;
+    std::cout << "cpuTextures:      " << sceneModel.cpuTextures.size() << std::endl;
 
     assert(pMeshGeo->drawArguments.size() == sceneModel.meshes.size() + sphereModel.meshes.size());
 

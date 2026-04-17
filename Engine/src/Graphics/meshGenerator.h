@@ -10,6 +10,7 @@
 #include "vertex.h"
 #include "material.h"
 #include "texture.h"
+#include "cpuTexture.h"
 
 
 using namespace DirectX; 
@@ -20,6 +21,7 @@ using uint32 = std::uint32_t;
 namespace tinygltf
 {
 	class Model;
+	class Image;
 }
 
 class cMeshGenerator
@@ -59,7 +61,7 @@ class cMeshGenerator
 		sMeshData CreateCube();
 		sMeshData CreateSphere(float radius, uint32_t sliceCount, uint32_t stackCount);
 		
-		void LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial,std::vector<XMMATRIX>& _rOutWorldMatrix, std::vector<cTexture>& _rOutTextures, ID3D12Device* _pDevice);
+		void LoadModelFromGLTF(std::string& _rFilePath, std::vector<sMeshData>& _rOutMeshData, std::vector<sMaterial>& _rOutMaterial,std::vector<XMMATRIX>& _rOutWorldMatrix, std::vector<cTexture>& _rOutTextures, ID3D12Device* _pDevice, std::vector<cCpuTexture>& _rOutCpuTextures);
 
 	private:
 
@@ -68,6 +70,7 @@ class cMeshGenerator
 		sMaterial ExtractMaterialFromGLTF(const tinygltf::Model& model, int materialIndex);
 		void CreateTextures(const tinygltf::Model& _rModel, ID3D12Device* _pDevice, std::vector<cTexture>& _rOutTextures);
 		UINT GetOrCreateMaterialId(const tinygltf::Model& _rModel, int _materialIndex, std::vector<sMaterial>& _rOutMaterials);
+		void CreateTexturesFromGltf(const tinygltf::Model& _rModel, std::vector<cCpuTexture>& _rOutCpuTextures);
 
 	private:
 

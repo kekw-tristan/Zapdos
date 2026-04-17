@@ -13,6 +13,7 @@
 #include "graphics/meshGenerator.h"
 #include "graphics/commandQueue.h"
 #include "graphics/commandContext.h"
+#include "Graphics/gpuTexture.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -63,6 +64,7 @@ class cDirectX12
 		void CalculateFrameStats() const;
 		void OnResize();
 		void UploadTexturesToGPU(std::vector<cTexture>& textures);
+		void UploadCpuTexturesToGpu(std::vector<cCpuTexture>& _rCpuTextures);
 
 		sMeshGeometry* GetGeometry(); 
 		ID3D12Device* GetDevice(); 
@@ -105,7 +107,7 @@ class cDirectX12
 		std::vector<sFrameResource*>	m_frameResources;
 		std::vector<sRenderItem>*		m_pRenderItems;
 		std::vector<sLightConstants>*	m_pLights;
-		std::vector<cTexture > m_textures;
+		std::vector<cGpuTexture> m_textures;
 
 		sFrameResource*	m_pCurrentFrameResource;
 		int m_currentFrameResourceIndex; 

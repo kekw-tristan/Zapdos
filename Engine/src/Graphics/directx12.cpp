@@ -20,6 +20,7 @@
 #include "frameResource.h"
 #include "swapChainManager.h"
 #include "deviceManager.h"
+#include "gpuTexture.h"
 #include "pipelineManager.h"
 #include "bufferManager.h"
 #include "renderItem.h"
@@ -260,13 +261,11 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
 // clears backbuffer, depthstencil and presents the frame to the screen
 void cDirectX12::Draw()
 {
-    ID3D12CommandAllocator* pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
     ID3D12PipelineState*    pPso                = m_pPipelineManager->GetPipelineStateObject();
     ID3D12RootSignature*    pRootSignature      = m_pPipelineManager->GetRootSignature();
     IDXGISwapChain4*        pSwapChain          = m_pSwapChainManager->GetSwapChain();
     D3D12_VIEWPORT&         rViewport           = m_pSwapChainManager->GetViewport();
     ID3D12DescriptorHeap*   pCbvHeap            = m_pBufferManager->GetCbvHeap();
-    ID3D12GraphicsCommandList* pCommandList     = m_cmdContext.GetCommandList();
 
     // Set viewport and scissor
     
@@ -347,7 +346,7 @@ void cDirectX12::Draw()
         D3D12_RESOURCE_STATE_PRESENT);
 
     // Close and execute command list
-    cDirectX12Util::ThrowIfFailed(pCommandList->Close());
+    m_cmdContext.Close();
 
     ID3D12CommandList* cmdLists[] = { m_cmdContext.GetCommandList() };
     m_graphicsQueue.Execute(cmdLists, _countof(cmdLists));
@@ -601,11 +600,10 @@ void cDirectX12::InitializeFrameResources()
 
         cbvHandle.ptr += descriptorSize;
     }
-
-
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
+
 void cDirectX12::UploadTexturesToGPU(std::vector<cTexture>& textures)
 {
     ID3D12Device* pDevice = m_pDeviceManager->GetDevice();
@@ -625,10 +623,7 @@ void cDirectX12::UploadTexturesToGPU(std::vector<cTexture>& textures)
     for (UINT i = 0; i < numTextures; ++i)
     {
         textures[i].UploadToGpu(pDevice, pCmdList);
-    }
 
-    for (UINT i = 0; i < numTextures; ++i)
-    {
         m_cmdContext.Transition(
             textures[i].GetResource(),
             D3D12_RESOURCE_STATE_COPY_DEST,
@@ -666,6 +661,70 @@ void cDirectX12::UploadTexturesToGPU(std::vector<cTexture>& textures)
 
     std::wcout << L"[UPLOAD COMPLETE]\n";
 }
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::UploadCpuTexturesToGpu(std::vector<cCpuTexture>& _rCpuTextures)
+{
+    ID3D12Device* pDevice = m_pDeviceManager->GetDevice();
+    ID3D12DescriptorHeap* pHeap = m_pBufferManager->GetCbvHeap();
+
+    const UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(
+        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    const UINT baseOffset = m_pBufferManager->GetTextureOffset();
+    const UINT numTextures = (std::min)((UINT)_rCpuTextures.size(), 7u);
+
+    cDirectX12Util::ThrowIfFailed(m_pCmdAlloc->Reset());
+    m_cmdContext.Reset(m_pCmdAlloc.Get());
+
+    ID3D12GraphicsCommandList* pCmdList = m_cmdContext.GetCommandList();
+
+    m_textures = std::vector<cGpuTexture>(_rCpuTextures.size());
+
+    for (UINT i = 0; i < numTextures; ++i)
+    {
+        m_textures[i].UploadToGpu(_rCpuTextures[i], pDevice, pCmdList);
+
+        // NUR EINE Transition (sauber nach Upload)
+        m_cmdContext.Transition(
+            m_textures[i].GetResource(),
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+        );
+    }
+
+    m_cmdContext.Close();
+
+    ID3D12CommandList* lists[] = { pCmdList };
+    const UINT64 fenceValue = m_graphicsQueue.Execute(lists, 1);
+    m_graphicsQueue.WaitCPU(fenceValue);
+
+    for (UINT i = 0; i < numTextures; ++i)
+    {
+        const UINT heapIndex = baseOffset + i;
+
+        D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle =
+            pHeap->GetCPUDescriptorHandleForHeapStart();
+        cpuHandle.ptr += static_cast<SIZE_T>(heapIndex) * descriptorSize;
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+        srvDesc.Format = m_textures[i].GetResource()->GetDesc().Format;
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MipLevels = 1;
+        srvDesc.Texture2D.MostDetailedMip = 0;
+
+        pDevice->CreateShaderResourceView(
+            m_textures[i].GetResource(),
+            &srvDesc,
+            cpuHandle
+        );
+    }
+
+    std::wcout << L"[UPLOAD COMPLETE]\n";
+}
+
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cDirectX12::WaitForCurrentFrameResourceIfInUse()
