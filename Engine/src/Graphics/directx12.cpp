@@ -451,7 +451,6 @@ void cDirectX12::UpdateObjectCB()
                 objConstants.aoFactor = std::isfinite(mat.ao) ? mat.ao : 1.f;
                 objConstants.emissive = mat.emissive; // optional: check finite
                 objConstants.baseColorIndex = mat.baseColorIndex;
-                std::cout << "baseColor index: " << objConstants.baseColorIndex << std::endl;
             }
             else
             {
@@ -673,7 +672,7 @@ void cDirectX12::UploadCpuTexturesToGpu(std::vector<cCpuTexture>& _rCpuTextures)
         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     const UINT baseOffset = m_pBufferManager->GetTextureOffset();
-    const UINT numTextures = (std::min)((UINT)_rCpuTextures.size(), 7u);
+    const UINT numTextures = (std::min)((UINT)_rCpuTextures.size(), 512u);
 
     cDirectX12Util::ThrowIfFailed(m_pCmdAlloc->Reset());
     m_cmdContext.Reset(m_pCmdAlloc.Get());
@@ -685,20 +684,13 @@ void cDirectX12::UploadCpuTexturesToGpu(std::vector<cCpuTexture>& _rCpuTextures)
     for (UINT i = 0; i < numTextures; ++i)
     {
         m_textures[i].UploadToGpu(_rCpuTextures[i], pDevice, pCmdList);
-
-        // NUR EINE Transition (sauber nach Upload)
-        m_cmdContext.Transition(
-            m_textures[i].GetResource(),
-            D3D12_RESOURCE_STATE_COPY_DEST,
-            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-        );
     }
 
     m_cmdContext.Close();
 
     ID3D12CommandList* lists[] = { pCmdList };
     const UINT64 fenceValue = m_graphicsQueue.Execute(lists, 1);
-    m_graphicsQueue.WaitCPU(fenceValue);
+   
 
     for (UINT i = 0; i < numTextures; ++i)
     {
@@ -720,6 +712,13 @@ void cDirectX12::UploadCpuTexturesToGpu(std::vector<cCpuTexture>& _rCpuTextures)
             &srvDesc,
             cpuHandle
         );
+    }
+
+    m_graphicsQueue.Flush();
+
+    for (auto gpuTexture : m_textures)
+    {
+        gpuTexture.ReleaseUploadHeap(); 
     }
 
     std::wcout << L"[UPLOAD COMPLETE]\n";

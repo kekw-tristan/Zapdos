@@ -14,7 +14,7 @@ cBufferManager::cBufferManager(cDeviceManager* _pDeviceManager, cSwapChainManage
     , m_pSwapChainManager(_pSwapChainManager)
     , m_maxNumberOfRenderItems(0)
     , m_maxNumberOfLights(0)
-    , m_maxNumberOfTextures(7)
+    , m_maxNumberOfTextures(512)
     , m_textureOffset(0)
 {
 }

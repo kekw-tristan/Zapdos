@@ -3,18 +3,16 @@ static const float PI = 3.14159265359f;
 // === Constant Buffers ===
 cbuffer cbPerObject : register(b0)
 {
-    // Object transform
     float4x4 gWorld;
     float4x4 gWorldInvTranspose;
 
-    // PBR material properties
-    float4 gBaseColor; // RGB = Albedo, A = Alpha/Opacity
-    float gMetallic; // 0 = dielectric, 1 = metal
-    float gRoughness; // 0 = smooth, 1 = rough
-    float gAO; // Ambient occlusion
+    float4 gBaseColor; // RGB = Albedo factor, A = Alpha factor
+    float gMetallic;
+    float gRoughness;
+    float gAO;
     float padding1;
-    float3 gEmissive; // Emissive color
-    int gBaseColorIndex; // Index für BaseColor Texture (0..15)
+    float3 gEmissive;
+    int gBaseColorIndex; // -1 = keine Texture
 };
 
 cbuffer cbPass : register(b1)
@@ -35,7 +33,6 @@ cbuffer cbPass : register(b1)
     float gDeltaTime;
 };
 
-// Lights (StructuredBuffer, register t32)
 struct sLight
 {
     float3 strength;
@@ -47,10 +44,11 @@ struct sLight
     int type; // 0=directional,1=point,2=spot
     float3 padding;
 };
+
 StructuredBuffer<sLight> gLights : register(t0);
 
-// Textures
-Texture2D textures[7] : register(t1);
+// t1 .. t128
+Texture2D textures[512] : register(t1);
 SamplerState samp : register(s0);
 
 // === Vertex Input / Output ===
@@ -87,7 +85,7 @@ sVertexOut VS(sVertexIn vin)
     return vout;
 }
 
-// === Helper Functions for PBR ===
+// === PBR Helper ===
 float3 FresnelSchlick(float cosTheta, float3 F0)
 {
     return F0 + (1.0f - F0) * pow(1.0f - cosTheta, 5.0f);
@@ -117,30 +115,17 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
     return GeometrySchlickGGX(NdotV, roughness) * GeometrySchlickGGX(NdotL, roughness);
 }
 
-float3 SampleBaseColorTexture(int index, float2 uv)
+float4 SampleBaseColorTexture(int index, float2 uv)
 {
-    switch (index)
+    float4 result = float4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    if (index >= 0 && index < 128)
     {
-        case 0:
-            return textures[0].Sample(samp, uv).rgb;
-        case 1:
-            return textures[1].Sample(samp, uv).rgb;
-        case 2:
-            return textures[2].Sample(samp, uv).rgb;
-        case 3:
-            return textures[3].Sample(samp, uv).rgb;
-        case 4:
-            return textures[4].Sample(samp, uv).rgb;
-        case 5:
-            return textures[5].Sample(samp, uv).rgb;
-        case 6:
-            return textures[6].Sample(samp, uv).rgb;
-        default:
-            return float3(1.0f, 0.5f, 1.0f); 
+        result = textures[NonUniformResourceIndex((uint) index)].Sample(samp, uv);
     }
+
+    return result;
 }
-
-
 
 // === Pixel Shader ===
 float4 PS(sVertexOut pin) : SV_Target
@@ -148,15 +133,20 @@ float4 PS(sVertexOut pin) : SV_Target
     float3 N = normalize(pin.normalW);
     float3 V = normalize(gEyePosW - pin.posW);
 
-    float3 albedo_tex = SampleBaseColorTexture(gBaseColorIndex, pin.texC);
-    float3 albedo = gBaseColor.rgb * albedo_tex;
+    float4 baseTex = SampleBaseColorTexture(gBaseColorIndex, pin.texC);
 
-    // F0 Berechnung (PBR)
-    float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, gMetallic);
+    float3 albedo = gBaseColor.rgb * baseTex.rgb;
+    float alpha = gBaseColor.a * baseTex.a;
+
+    float roughness = saturate(gRoughness);
+    float metallic = saturate(gMetallic);
+    float ao = saturate(gAO);
+
+    float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metallic);
 
     float3 Lo = float3(0.0f, 0.0f, 0.0f);
 
-    // Lights loop 
+    [loop]
     for (int i = 0; i < gLightCount; ++i)
     {
         sLight light = gLights[i];
@@ -164,7 +154,7 @@ float4 PS(sVertexOut pin) : SV_Target
         float3 L = float3(0.0f, 0.0f, 0.0f);
         float attenuation = 1.0f;
 
-        if (light.type == 0) // directional
+        if (light.type == 0)
         {
             L = normalize(-light.direction);
         }
@@ -178,7 +168,7 @@ float4 PS(sVertexOut pin) : SV_Target
             attenuation = saturate(1.0f - saturate((dist - light.falloffStart) / falloffRange));
             attenuation *= attenuation;
 
-            if (light.type == 2) // spot
+            if (light.type == 2)
             {
                 float3 spotDir = normalize(light.direction);
                 float spotCos = dot(-L, spotDir);
@@ -191,30 +181,28 @@ float4 PS(sVertexOut pin) : SV_Target
         float NdotV = saturate(dot(N, V));
         float VdotH = saturate(dot(V, H));
 
-        // Cook-Torrance BRDF
-        float D = DistributionGGX(N, H, gRoughness);
-        float G = GeometrySmith(N, V, L, gRoughness);
+        float D = DistributionGGX(N, H, roughness);
+        float G = GeometrySmith(N, V, L, roughness);
         float3 F = FresnelSchlick(VdotH, F0);
 
         float3 kS = F;
-        float3 kD = float3(1.0f, 1.0f, 1.0f) - kS;
-        kD *= (1.0f - gMetallic);
+        float3 kD = 1.0f.xxx - kS;
+        kD *= (1.0f - metallic);
 
         float3 diffuse = kD * albedo / PI;
-        float3 specular = D * G * F / max(NdotV * NdotL * 4.0f, 1e-5f);
+        float3 specular = (D * G * F) / max(NdotV * NdotL * 4.0f, 1e-5f);
 
         Lo += (diffuse + specular) * light.strength * attenuation * NdotL;
     }
 
-    // Ambient + Emissive
-    float3 ambient = 0.03f * albedo * gAO;
+    float3 ambient = 0.03f * albedo * ao;
     float3 color = ambient + Lo + gEmissive;
 
-    // HDR Tonemapping
-    color = color / (color + float3(1.0f, 1.0f, 1.0f));
+    // Tonemap
+    color = color / (color + 1.0f.xxx);
 
-    // Gamma Correction (sRGB)
-    color = pow(color, float3(1.0f / 2.2f, 1.0f / 2.2f, 1.0f / 2.2f));
+    // Gamma
+    color = pow(color, (1.0f / 2.2f).xxx);
 
-    return float4(color, gBaseColor.a);
+    return float4(color, alpha);
 }

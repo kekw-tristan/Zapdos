@@ -79,7 +79,7 @@ void cPipelineManager::InitializeRootSignature()
     CD3DX12_DESCRIPTOR_RANGE srvTable1;
     srvTable1.Init(
         D3D12_DESCRIPTOR_RANGE_TYPE_SRV, // SRV für Texturen
-        7,    // Anzahl Texturen, die wir gleichzeitig binden können
+        512,    // Anzahl Texturen, die wir gleichzeitig binden können
         1     // t1 im Shader
     );
     slotRootParameter[3].InitAsDescriptorTable(
@@ -126,8 +126,8 @@ void cPipelineManager::InitializeRootSignature()
 
 void cPipelineManager::InitializeShader()
 {
-    m_pVsByteCode = cDirectX12Util::CompileShader(L"..\\Assets\\Shader\\shader.hlsl", nullptr, "VS", "vs_5_0");
-    m_pPsByteCode = cDirectX12Util::CompileShader(L"..\\Assets\\Shader\\shader.hlsl", nullptr, "PS", "ps_5_0");
+    m_pVsByteCode = cDirectX12Util::CompileShader(L"..\\Assets\\Shader\\shader.hlsl", nullptr, "VS", "vs_5_1");
+    m_pPsByteCode = cDirectX12Util::CompileShader(L"..\\Assets\\Shader\\shader.hlsl", nullptr, "PS", "ps_5_1");
 
     m_InputLayouts =
     {

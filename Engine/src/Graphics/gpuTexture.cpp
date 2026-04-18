@@ -19,6 +19,7 @@ cGpuTexture::cGpuTexture()
 
 cGpuTexture::~cGpuTexture()
 {
+  
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -85,24 +86,34 @@ void cGpuTexture::UploadToGpu(cCpuTexture& _rCpuTexture, ID3D12Device* _pDevice,
 
     UpdateSubresources(
         _pCmdList,
-        m_pTexture,
-        m_pUploadheap,
+        m_pTexture.Get(),
+        m_pUploadheap.Get(),
         0, 0, 1,
         &sub
     );
 
     _pCmdList->ResourceBarrier(1,
         &CD3DX12_RESOURCE_BARRIER::Transition(
-            m_pTexture,
+            m_pTexture.Get(),
             D3D12_RESOURCE_STATE_COPY_DEST,
             D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
         )
     );
 }
 
+// --------------------------------------------------------------------------------------------------------------------------
+
 ID3D12Resource* cGpuTexture::GetResource()
 {
-	return m_pTexture;
+	return m_pTexture.Get();
 }
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cGpuTexture::ReleaseUploadHeap()
+{
+    m_pUploadheap.Reset();
+}
+
 
 // --------------------------------------------------------------------------------------------------------------------------

@@ -86,130 +86,54 @@ void cSystem::InitializeRenderItems()
 {
     cMeshGenerator meshGenerator;
 
-    // Falls die Funktion mehrfach aufgerufen wird, musst du vorher auch
-    // deine alten RenderItems / Geometrie-Sammler zurücksetzen.
     m_materials.clear();
     m_textures.clear();
     m_pScene->GetRenderItems().clear();
 
-    struct sLoadedModel
+    std::vector<cMeshGenerator::sMeshData> meshes;
+    std::vector<sMaterial> materials;
+    std::vector<XMMATRIX> worldMatrices;
+    std::vector<cTexture> textures;
+    std::vector<cCpuTexture> cpuTextures;
+
+    std::string path = "..\\Assets\\Objects\\scene.gltf";
+
+    meshGenerator.LoadModelFromGLTF(
+        path,
+        meshes,
+        materials,
+        worldMatrices,
+        textures,
+        m_pDirectX12->GetDevice(),
+        cpuTextures);
+
+    std::cout << "----------------------------------------\n";
+    std::cout << "GLTF LOAD DEBUG\n";
+    std::cout << "meshes:        " << meshes.size() << "\n";
+    std::cout << "materials:     " << materials.size() << "\n";
+    std::cout << "worldMatrices: " << worldMatrices.size() << "\n";
+    std::cout << "textures:      " << textures.size() << "\n";
+    std::cout << "cpuTextures:   " << cpuTextures.size() << "\n";
+
+    assert(meshes.size() == worldMatrices.size());
+
+    for (auto& mat : materials)
     {
-        std::vector<cMeshGenerator::sMeshData> meshes;
-        std::vector<sMaterial> materials;
-        std::vector<XMMATRIX> worldMatrices;
-        std::vector<cTexture> textures;
-        std::vector<cCpuTexture> cpuTextures;
-    };
-
-    auto ApplyMaterialDefaults = [](std::vector<sMaterial>& materials)
-        {
-            for (auto& mat : materials)
-            {
-                mat.alpha = (mat.alpha == 0.f) ? 1.f : mat.alpha;
-                mat.roughness = (mat.roughness == 0.f) ? 0.5f : mat.roughness;
-                mat.ao = (mat.ao == 0.f) ? 1.f : mat.ao;
-            }
-        };
-
-    auto OffsetMaterialTextureIndices = [](std::vector<sMaterial>& materials, int textureBase)
-        {
-            for (auto& mat : materials)
-            {
-                if (mat.baseColorIndex >= 0)
-                    mat.baseColorIndex += textureBase;
-
-                // Falls du später normal/metallicRoughness/emissive Indizes im Material hast,
-                // hier ebenfalls offsetten.
-            }
-        };
-
-    auto OffsetMeshMaterialIds = [](std::vector<cMeshGenerator::sMeshData>& meshes, UINT materialBase)
-        {
-            for (auto& mesh : meshes)
-            {
-                if (mesh.materialId != UINT_MAX)
-                    mesh.materialId += materialBase;
-            }
-        };
-
-    auto LoadModel = [&](const std::string& path, sLoadedModel& outModel)
-        {
-            meshGenerator.LoadModelFromGLTF(
-                const_cast<std::string&>(path),
-                outModel.meshes,
-                outModel.materials,
-                outModel.worldMatrices,
-                outModel.textures,
-                m_pDirectX12->GetDevice(),
-                outModel.cpuTextures);
-
-            ApplyMaterialDefaults(outModel.materials);
-
-            assert(outModel.meshes.size() == outModel.worldMatrices.size());
-        };
-
-    // ------------------------------------------------------------
-    // 1) Modelle getrennt laden
-    // ------------------------------------------------------------
-    sLoadedModel sceneModel;
-    sLoadedModel sphereModel;
-
-    LoadModel("..\\Assets\\Objects\\scene.gltf", sceneModel);
-    LoadModel("..\\Assets\\Objects\\sphere.gltf", sphereModel);
-
-    // ------------------------------------------------------------
-    // 2) Materialien/Texturen in globale Arrays übernehmen
-    //    und IDs/Indizes passend offsetten
-    // ------------------------------------------------------------
-
-    // scene.gltf
-    {
-        const UINT materialBase = static_cast<UINT>(m_materials.size());
-        const int  textureBase = static_cast<int>(m_textures.size());
-
-        OffsetMaterialTextureIndices(sceneModel.materials, textureBase);
-        OffsetMeshMaterialIds(sceneModel.meshes, materialBase);
-
-        m_materials.insert(m_materials.end(), sceneModel.materials.begin(), sceneModel.materials.end());
-        m_textures.insert(
-            m_textures.end(),
-            std::make_move_iterator(sceneModel.textures.begin()),
-            std::make_move_iterator(sceneModel.textures.end()));
+        if (mat.alpha == 0.f)      mat.alpha = 1.f;
+        if (mat.roughness == 0.f)  mat.roughness = 0.5f;
+        if (mat.ao == 0.f)         mat.ao = 1.f;
     }
 
-    // sphere.gltf
+    m_materials = std::move(materials);
+    m_textures = std::move(textures);
+
+    for (size_t i = 0; i < meshes.size(); ++i)
     {
-        const UINT materialBase = static_cast<UINT>(m_materials.size());
-        const int  textureBase = static_cast<int>(m_textures.size());
-
-        OffsetMaterialTextureIndices(sphereModel.materials, textureBase);
-        OffsetMeshMaterialIds(sphereModel.meshes, materialBase);
-
-        m_materials.insert(m_materials.end(), sphereModel.materials.begin(), sphereModel.materials.end());
-        m_textures.insert(
-            m_textures.end(),
-            std::make_move_iterator(sphereModel.textures.begin()),
-            std::make_move_iterator(sphereModel.textures.end()));
-    }
-
-    // ------------------------------------------------------------
-    // 3) Geometrie einmal gesammelt aufbauen
-    // ------------------------------------------------------------
-    const size_t sceneSubmeshBase = 0;
-    for ( auto& mesh : sceneModel.meshes)
-    {
-        m_pDirectX12->InitializeMesh(mesh);
-    }
-
-    const size_t sphereSubmeshBase = sceneModel.meshes.size();
-    for ( auto& mesh : sphereModel.meshes)
-    {
-        m_pDirectX12->InitializeMesh(mesh);
+        m_pDirectX12->InitializeMesh(meshes[i]);
     }
 
     sMeshGeometry* pMeshGeo = m_pDirectX12->InitializeGeometryBuffer();
-    //m_pDirectX12->UploadTexturesToGPU(m_textures);
-    m_pDirectX12->UploadCpuTexturesToGpu(sceneModel.cpuTextures);
+    m_pDirectX12->UploadCpuTexturesToGpu(cpuTextures);
 
     static sMaterial defaultMaterial;
     defaultMaterial.albedo = XMFLOAT3(1.f, 1.f, 1.f);
@@ -219,79 +143,33 @@ void cSystem::InitializeRenderItems()
     defaultMaterial.ao = 1.f;
     defaultMaterial.emissive = XMFLOAT3(0.f, 0.f, 0.f);
 
-    std::cout << "scene meshes:  " << sceneModel.meshes.size() << std::endl;
-    std::cout << "sphere meshes: " << sphereModel.meshes.size() << std::endl;
-    std::cout << "drawArguments: " << pMeshGeo->drawArguments.size() << std::endl;
-    std::cout << "materials:     " << m_materials.size() << std::endl;
-    std::cout << "textures:      " << m_textures.size() << std::endl;
-    std::cout << "cpuTextures:      " << sceneModel.cpuTextures.size() << std::endl;
-
-    assert(pMeshGeo->drawArguments.size() == sceneModel.meshes.size() + sphereModel.meshes.size());
-
-    auto AddRenderItems =
-        [&](const std::vector<cMeshGenerator::sMeshData>& meshes,
-            const std::vector<XMMATRIX>& worldMatrices,
-            size_t submeshBase,
-            const XMMATRIX& instanceOffset,
-            UINT& objCBIndex)
-        {
-            for (size_t i = 0; i < meshes.size(); ++i)
-            {
-                sRenderItem ri{};
-
-                ri.pGeometry = pMeshGeo;
-                ri.objCBIndex = objCBIndex++;
-
-                const UINT matIndex = meshes[i].materialId;
-                if (matIndex < m_materials.size())
-                    ri.pMaterial = &m_materials[matIndex];
-                else
-                    ri.pMaterial = &defaultMaterial;
-
-                const auto& submesh = pMeshGeo->drawArguments[submeshBase + i];
-                ri.indexCount = submesh.indexCount;
-                ri.startIndexLocation = submesh.startIndexLocation;
-                ri.baseVertexLocation = submesh.startVertexLocation;
-
-                XMMATRIX finalWorld = worldMatrices[i] * instanceOffset;
-                XMStoreFloat4x4(&ri.worldMatrix, finalWorld);
-
-                ri.numberOfFramesDirty = c_NumberOfFrameResources;
-
-                m_pScene->GetRenderItems().emplace_back(std::move(ri));
-            }
-        };
-
-    // ------------------------------------------------------------
-    // 4) RenderItems erzeugen
-    // ------------------------------------------------------------
     UINT objCBIndex = 0;
 
-    // scene.gltf: original
-    AddRenderItems(
-        sceneModel.meshes,
-        sceneModel.worldMatrices,
-        sceneSubmeshBase,
-        XMMatrixIdentity(),
-        objCBIndex);
+    for (size_t i = 0; i < meshes.size(); ++i)
+    {
+        sRenderItem ri{};
 
-    // scene.gltf: zweites Mal bei +10 auf X
-    AddRenderItems(
-        sceneModel.meshes,
-        sceneModel.worldMatrices,
-        sceneSubmeshBase,
-        XMMatrixTranslation(100.0f, 0.0f, 0.0f),
-        objCBIndex);
+        ri.pGeometry = pMeshGeo;
+        ri.objCBIndex = objCBIndex++;
 
-    // sphere.gltf: einmal bei +20 auf X
-    AddRenderItems(
-        sphereModel.meshes,
-        sphereModel.worldMatrices,
-        sphereSubmeshBase,
-        XMMatrixTranslation(50.0f, 0.0f, 0.0f),
-        objCBIndex);
+        const UINT matIndex = meshes[i].materialId;
+        if (matIndex < m_materials.size())
+            ri.pMaterial = &m_materials[matIndex];
+        else
+            ri.pMaterial = &defaultMaterial;
 
-    std::cout << "scene.gltf zweimal + sphere.gltf einmal erfolgreich eingebaut.\n";
+        const auto& submesh = pMeshGeo->drawArguments[i];
+        ri.indexCount = submesh.indexCount;
+        ri.startIndexLocation = submesh.startIndexLocation;
+        ri.baseVertexLocation = submesh.startVertexLocation;
+
+        XMStoreFloat4x4(&ri.worldMatrix, worldMatrices[i]);
+        ri.numberOfFramesDirty = c_NumberOfFrameResources;
+
+        m_pScene->GetRenderItems().emplace_back(std::move(ri));
+    }
+
+    std::cout << "city.gltf erfolgreich geladen.\n";
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
