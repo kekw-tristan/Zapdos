@@ -16,6 +16,7 @@
 #include "core/timer.h"
 #include "core/input.h"
 
+#include "cpuTexture.h"
 #include "directx12Util.h"
 #include "frameResource.h"
 #include "swapChainManager.h"
@@ -28,7 +29,6 @@
 #include "vertex.h"
 #include "light.h"
 #include "meshGeometry.h"
-#include "meshGenerator.h"
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -144,7 +144,7 @@ void cDirectX12::Finalize()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cDirectX12::InitializeMesh(cMeshGenerator::sMeshData& _rMeshData)
+void cDirectX12::InitializeMesh(sMeshData& _rMeshData)
 {
     sSubmeshGeometry subMesh;
 
@@ -599,66 +599,6 @@ void cDirectX12::InitializeFrameResources()
 
         cbvHandle.ptr += descriptorSize;
     }
-}
-
-// --------------------------------------------------------------------------------------------------------------------------
-
-void cDirectX12::UploadTexturesToGPU(std::vector<cTexture>& textures)
-{
-    ID3D12Device* pDevice = m_pDeviceManager->GetDevice();
-    ID3D12DescriptorHeap* pHeap = m_pBufferManager->GetCbvHeap();
-
-    const UINT descriptorSize = pDevice->GetDescriptorHandleIncrementSize(
-        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-    const UINT baseOffset = m_pBufferManager->GetTextureOffset();
-    const UINT numTextures = min((UINT)textures.size(), 7u);
-
-    cDirectX12Util::ThrowIfFailed(m_pCmdAlloc->Reset());
-    m_cmdContext.Reset(m_pCmdAlloc.Get());
-
-    ID3D12GraphicsCommandList* pCmdList = m_cmdContext.GetCommandList();
-
-    for (UINT i = 0; i < numTextures; ++i)
-    {
-        textures[i].UploadToGpu(pDevice, pCmdList);
-
-        m_cmdContext.Transition(
-            textures[i].GetResource(),
-            D3D12_RESOURCE_STATE_COPY_DEST,
-            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-        );
-    }
-
-    m_cmdContext.Close();
-
-    ID3D12CommandList* lists[] = { pCmdList };
-    const UINT64 fenceValue = m_graphicsQueue.Execute(lists, 1);
-    m_graphicsQueue.WaitCPU(fenceValue);
-
-    for (UINT i = 0; i < numTextures; ++i)
-    {
-        const UINT heapIndex = baseOffset + i;
-
-        D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = pHeap->GetCPUDescriptorHandleForHeapStart();
-        cpuHandle.ptr += static_cast<SIZE_T>(heapIndex) * descriptorSize;
-
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvDesc.Format = textures[i].GetResource()->GetDesc().Format;
-        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvDesc.Texture2D.MipLevels = textures[i].GetMipLevels();
-        srvDesc.Texture2D.MostDetailedMip = 0;
-        srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-        pDevice->CreateShaderResourceView(
-            textures[i].GetResource(),
-            &srvDesc,
-            cpuHandle
-        );
-    }
-
-    std::wcout << L"[UPLOAD COMPLETE]\n";
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

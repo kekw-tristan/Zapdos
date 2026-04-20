@@ -16,8 +16,10 @@
 #include "Graphics/renderItem.h"
 #include "graphics/vertex.h"
 #include "graphics/meshGeometry.h"
-#include "graphics/meshGenerator.h"
 #include "graphics/cpuTexture.h"
+
+#include "Scene/modelLoader.h"
+#include "Scene/model.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -84,35 +86,26 @@ void cSystem::Finalize()
 
 void cSystem::InitializeRenderItems()
 {
-    cMeshGenerator meshGenerator;
-
     m_materials.clear();
     m_textures.clear();
     m_pScene->GetRenderItems().clear();
 
-    std::vector<cMeshGenerator::sMeshData> meshes;
-    std::vector<sMaterial> materials;
-    std::vector<XMMATRIX> worldMatrices;
-    std::vector<cTexture> textures;
-    std::vector<cCpuTexture> cpuTextures;
-
     std::string path = "..\\Assets\\Objects\\scene.gltf";
 
-    meshGenerator.LoadModelFromGLTF(
-        path,
-        meshes,
-        materials,
-        worldMatrices,
-        textures,
-        m_pDirectX12->GetDevice(),
-        cpuTextures);
+    sModel model;
+
+    cModelLoader::LoadGLTFModel(path, model);
+
+    std::vector<sMeshData>& meshes = model.meshes;
+    std::vector<sMaterial>& materials = model.materials;
+    std::vector<XMMATRIX>& worldMatrices = model.worldMatrices;
+    std::vector<cCpuTexture>& cpuTextures = model.cpuTextures;
 
     std::cout << "----------------------------------------\n";
     std::cout << "GLTF LOAD DEBUG\n";
     std::cout << "meshes:        " << meshes.size() << "\n";
     std::cout << "materials:     " << materials.size() << "\n";
     std::cout << "worldMatrices: " << worldMatrices.size() << "\n";
-    std::cout << "textures:      " << textures.size() << "\n";
     std::cout << "cpuTextures:   " << cpuTextures.size() << "\n";
 
     assert(meshes.size() == worldMatrices.size());
@@ -125,7 +118,6 @@ void cSystem::InitializeRenderItems()
     }
 
     m_materials = std::move(materials);
-    m_textures = std::move(textures);
 
     for (size_t i = 0; i < meshes.size(); ++i)
     {

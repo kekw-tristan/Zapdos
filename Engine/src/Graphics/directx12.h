@@ -10,10 +10,10 @@
 #include <wrl.h>
 
 #include "graphics/material.h"
-#include "graphics/meshGenerator.h"
 #include "graphics/commandQueue.h"
 #include "graphics/commandContext.h"
 #include "Graphics/gpuTexture.h"
+#include "Graphics/meshData.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -55,7 +55,7 @@ class cDirectX12
 		
 	public:
 
-		void InitializeMesh(cMeshGenerator::sMeshData& _rMeshData);
+		void InitializeMesh(sMeshData& _rMeshData);
 		sMeshGeometry* InitializeGeometryBuffer(); 
 
 		void Update(XMMATRIX _view,  XMFLOAT3 _eyePos, std::vector<sRenderItem>* _renderItems, std::vector<sLightConstants>* _pLights);
@@ -63,7 +63,6 @@ class cDirectX12
 		float GetAspectRatio() const;
 		void CalculateFrameStats() const;
 		void OnResize();
-		void UploadTexturesToGPU(std::vector<cTexture>& textures);
 		void UploadCpuTexturesToGpu(std::vector<cCpuTexture>& _rCpuTextures);
 
 		sMeshGeometry* GetGeometry(); 

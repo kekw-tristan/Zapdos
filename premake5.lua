@@ -29,6 +29,7 @@ project "Engine"
     files {
         "Engine/src/**.h",
         "Engine/src/**.cpp",
+        "Assets/Shader/**.hlsl", 
         "External/DDSLoader/DDSTextureLoader12.cpp", 
     }
 
@@ -49,6 +50,7 @@ project "Engine"
         ["Graphics/*"]  = "Engine/src/Graphics/**",
         ["Scene/*"]     = "Engine/src/Scene/**",
         ["Shaders/*"]   = "Assets/Shader/**",
+        ["External"] = { "External/DDSLoader/DDSTextureLoader12.cpp" }
     }
 
     -- Exclude HLSL files from compilation
