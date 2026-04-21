@@ -50,7 +50,7 @@ class cDirectX12
 
 	public:
 
-		void Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights);
+		void Initialize(cWindow* _pWindow, cTimer* _pTimer);
 		void Finalize();
 		
 	public:
@@ -88,8 +88,6 @@ class cDirectX12
 
 	private:
 
-		unsigned int m_maxNumberOfRenderItems; 
-		unsigned int m_maxNumberOfLights; 
 		sMeshGeometry* m_pGeometry;
 		
 		XMFLOAT4X4 m_proj;

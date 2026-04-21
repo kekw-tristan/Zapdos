@@ -4,6 +4,7 @@
 
 #include "deviceManager.h"
 #include "directx12Util.h"
+#include "gfxConfig.h"
 #include "uploadBuffer.h"
 #include "directx12.h"
 
@@ -12,9 +13,6 @@
 cBufferManager::cBufferManager(cDeviceManager* _pDeviceManager, cSwapChainManager* _pSwapChainManager)
     : m_pDeviceManager(_pDeviceManager)
     , m_pSwapChainManager(_pSwapChainManager)
-    , m_maxNumberOfRenderItems(0)
-    , m_maxNumberOfLights(0)
-    , m_maxNumberOfTextures(512)
     , m_textureOffset(0)
 {
 }
@@ -27,11 +25,8 @@ cBufferManager::~cBufferManager()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cBufferManager::Initialize(unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights)
+void cBufferManager::Initialize()
 {
-    m_maxNumberOfRenderItems    = _maxNumberOfRenderItems;
-    m_maxNumberOfLights         = _maxNumberOfLights;
-
     InitializeDescriptorHeaps();
 }
 
@@ -57,8 +52,8 @@ void cBufferManager::InitializeDescriptorHeaps()
 
     heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    UINT descriptorsPerFrame = m_maxNumberOfRenderItems + 1 + 1; // obj CBVs + pass + lights
-    heapDesc.NumDescriptors = c_NumberOfFrameResources * descriptorsPerFrame + m_maxNumberOfTextures;
+    UINT descriptorsPerFrame = GFX_MAX_NUMBER_OF_RENDER_ITEMS + 1 + 1; // obj CBVs + pass + lights
+    heapDesc.NumDescriptors = c_NumberOfFrameResources * descriptorsPerFrame + GFX_MAX_NUMGER_OF_TEXTURES;
     heapDesc.NodeMask = 0;
 
     m_textureOffset = c_NumberOfFrameResources * descriptorsPerFrame;

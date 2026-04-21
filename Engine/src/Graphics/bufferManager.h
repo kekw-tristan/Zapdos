@@ -72,7 +72,7 @@ class cBufferManager
 
 	public:
 		
-		void Initialize(unsigned int _maxNumberOfRenderItems, unsigned int m_maxNumberOfLights);
+		void Initialize();
 
 	public:
 
@@ -87,10 +87,6 @@ class cBufferManager
 
 		cDeviceManager*		m_pDeviceManager;
 		cSwapChainManager*	m_pSwapChainManager;
-
-		unsigned int m_maxNumberOfRenderItems; 
-		unsigned int m_maxNumberOfLights; 
-		unsigned int m_maxNumberOfTextures;
 
 		int m_textureOffset;
 

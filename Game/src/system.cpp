@@ -37,7 +37,7 @@ void cSystem::Initialize()
     m_pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720, m_pTimer);
 
     m_pDirectX12 = new cDirectX12();
-    m_pDirectX12->Initialize(m_pWindow, m_pTimer, c_numberOfRenderItems, 1000);
+    m_pDirectX12->Initialize(m_pWindow, m_pTimer);
 
     m_pScene  = std::make_unique<cScene>();
     m_pCamera = std::make_unique<cCamera>();

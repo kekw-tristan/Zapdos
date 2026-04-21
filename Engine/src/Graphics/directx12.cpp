@@ -21,6 +21,7 @@
 #include "frameResource.h"
 #include "swapChainManager.h"
 #include "deviceManager.h"
+#include "gfxConfig.h"
 #include "gpuTexture.h"
 #include "pipelineManager.h"
 #include "bufferManager.h"
@@ -65,7 +66,7 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 // --------------------------------------------------------------------------------------------------------------------------
 // initializes all the directx12 components
 
-void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _maxNumberOfRenderItems, unsigned int _maxNumberOfLights)
+void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 {
     
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
@@ -88,8 +89,6 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _ma
    
     m_pWindow                   = _pWindow;
     m_pTimer                    = _pTimer;
-    m_maxNumberOfRenderItems    = _maxNumberOfRenderItems; 
-    m_maxNumberOfLights         = _maxNumberOfLights;
 
     m_pDeviceManager    = new cDeviceManager();
     m_pDeviceManager->Initialize();
@@ -113,7 +112,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer, unsigned int _ma
 
     
     m_pSwapChainManager ->Initialize();
-    m_pBufferManager    ->Initialize(_maxNumberOfRenderItems, _maxNumberOfLights);
+    m_pBufferManager    ->Initialize();
     m_pPipelineManager  ->Initialize(); 
     
     InitializeFrameResources();
@@ -297,17 +296,17 @@ void cDirectX12::Draw()
     UINT descriptorSize = m_pDeviceManager->GetDescriptorSizes().cbvSrvUav;
 
     // Update descriptors per frame to include render items, pass CBV, and lights SRV
-    UINT descriptorsPerFrame = m_maxNumberOfRenderItems + 1 + 1; // +1 for pass CBV, +1 for lights SRV
+    UINT descriptorsPerFrame = GFX_MAX_NUMBER_OF_RENDER_ITEMS + 1 + 1; // +1 for pass CBV, +1 for lights SRV
     UINT baseOffset = m_currentFrameResourceIndex * descriptorsPerFrame;
 
     // === Lights SRV (root param 2, t32) ===
-    UINT lightIndex = baseOffset + m_maxNumberOfRenderItems + 1;
+    UINT lightIndex = baseOffset + GFX_MAX_NUMBER_OF_RENDER_ITEMS + 1;
     CD3DX12_GPU_DESCRIPTOR_HANDLE lightSrvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
     lightSrvHandle.Offset(lightIndex, descriptorSize);
     m_cmdContext.SetGraphicsRootDescriptorTable(2, lightSrvHandle);
 
     // === Pass CBV (root param 1, b1) ===
-    UINT passIndex = baseOffset + m_maxNumberOfRenderItems;
+    UINT passIndex = baseOffset + GFX_MAX_NUMBER_OF_RENDER_ITEMS;
     CD3DX12_GPU_DESCRIPTOR_HANDLE passCbvHandle(pCbvHeap->GetGPUDescriptorHandleForHeapStart());
     passCbvHandle.Offset(passIndex, descriptorSize);
     m_cmdContext.SetGraphicsRootDescriptorTable(1, passCbvHandle);
@@ -463,7 +462,7 @@ void cDirectX12::UpdateObjectCB()
             }
 
             // Index safety
-            if (pItem.objCBIndex >= 0 && pItem.objCBIndex < (int)m_maxNumberOfRenderItems)
+            if (pItem.objCBIndex >= 0 && pItem.objCBIndex < GFX_MAX_NUMBER_OF_RENDER_ITEMS)
             {
                 currObjCB->CopyData(pItem.objCBIndex, objConstants);
             }
@@ -546,8 +545,8 @@ void cDirectX12::InitializeFrameResources()
             new sFrameResource(
                 pDevice,
                 1,                        // pass count
-                m_maxNumberOfRenderItems, // object count
-                m_maxNumberOfLights       // light count
+                GFX_MAX_NUMBER_OF_RENDER_ITEMS, // object count
+                GFX_MAX_NUMGER_OF_LIGHTS       // light count
             )
         );
     }
@@ -564,7 +563,7 @@ void cDirectX12::InitializeFrameResources()
         // === Object CBVs (b0) ===
         D3D12_GPU_VIRTUAL_ADDRESS objCBAddress = frameResource->pObjectCB->GetResource()->GetGPUVirtualAddress();
 
-        for (UINT objIndex = 0; objIndex < m_maxNumberOfRenderItems; objIndex++)
+        for (UINT objIndex = 0; objIndex < GFX_MAX_NUMBER_OF_RENDER_ITEMS; objIndex++)
         {
             D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
             cbvDesc.BufferLocation = objCBAddress + objIndex * objCBByteSize;
@@ -588,7 +587,7 @@ void cDirectX12::InitializeFrameResources()
         lightSrvDesc.ViewDimension              = D3D12_SRV_DIMENSION_BUFFER;
         lightSrvDesc.Shader4ComponentMapping    = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         lightSrvDesc.Buffer.FirstElement        = 0;
-        lightSrvDesc.Buffer.NumElements         = m_maxNumberOfLights; 
+        lightSrvDesc.Buffer.NumElements         = GFX_MAX_NUMBER_OF_RENDER_ITEMS; 
         lightSrvDesc.Buffer.StructureByteStride = sizeof(sLightConstants);
         lightSrvDesc.Buffer.Flags               = D3D12_BUFFER_SRV_FLAG_NONE;
 
@@ -612,7 +611,7 @@ void cDirectX12::UploadCpuTexturesToGpu(std::vector<cCpuTexture>& _rCpuTextures)
         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     const UINT baseOffset = m_pBufferManager->GetTextureOffset();
-    const UINT numTextures = (std::min)((UINT)_rCpuTextures.size(), 512u);
+    const UINT numTextures = (std::min)((UINT)_rCpuTextures.size(), (UINT)GFX_MAX_NUMGER_OF_TEXTURES);
 
     cDirectX12Util::ThrowIfFailed(m_pCmdAlloc->Reset());
     m_cmdContext.Reset(m_pCmdAlloc.Get());

@@ -19,8 +19,6 @@ class cWindow;
 class cDirectX12;
 class cTimer;
 
-constexpr int c_numberOfRenderItems = 10000;
-
 class cSystem
 {
     public:

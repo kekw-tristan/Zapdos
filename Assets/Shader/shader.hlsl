@@ -1,3 +1,5 @@
+#include "../../Engine/src/Graphics/gfxConfig.h"
+
 static const float PI = 3.14159265359f;
 
 // === Constant Buffers ===
@@ -48,7 +50,7 @@ struct sLight
 StructuredBuffer<sLight> gLights : register(t0);
 
 // t1 .. t128
-Texture2D textures[512] : register(t1);
+Texture2D textures[GFX_MAX_NUMGER_OF_TEXTURES] : register(t1);
 SamplerState samp : register(s0);
 
 // === Vertex Input / Output ===
