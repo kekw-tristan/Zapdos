@@ -19,13 +19,16 @@
 #include "cpuTexture.h"
 #include "directx12Util.h"
 #include "frameResource.h"
+#include "shaderManager.h"
 #include "swapChainManager.h"
 #include "deviceManager.h"
 #include "gfxConfig.h"
 #include "gpuTexture.h"
 #include "pipelineManager.h"
+#include "pipelineStateManager.h"
 #include "bufferManager.h"
 #include "renderItem.h"
+#include "rootSignatureManager.h"
 #include "uploadBuffer.h"
 #include "vertex.h"
 #include "light.h"
@@ -86,7 +89,6 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
         std::cerr << "D3D12 Debug Layer not available." << std::endl;
     }
     
-   
     m_pWindow                   = _pWindow;
     m_pTimer                    = _pTimer;
 
@@ -110,11 +112,20 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     m_pPipelineManager  = new cPipelineManager(m_pDeviceManager);
     m_pGeometry         = new sMeshGeometry;
 
+    m_pShaderManager        = new cShaderManager; 
+    m_pPipelineStateManager = new cPipelineStateManager; 
+    m_pRootSignatureManager = new cRootSignatureManager; 
     
     m_pSwapChainManager ->Initialize();
     m_pBufferManager    ->Initialize();
     m_pPipelineManager  ->Initialize(); 
+
+    m_pShaderManager->Load("vs", L"..\\Assets\\Shader\\shader.hlsl", "VS", "vs_5_1");
+    m_pShaderManager->Load("ps", L"..\\Assets\\Shader\\shader.hlsl", "PS", "ps_5_1");
     
+    m_pRootSignatureManager->Initialize(m_pDeviceManager->GetDevice());
+    m_pPipelineStateManager->Initialize(m_pDeviceManager->GetDevice(), m_pShaderManager, m_pRootSignatureManager);
+   
     InitializeFrameResources();
 }
 
@@ -139,6 +150,10 @@ void cDirectX12::Finalize()
     delete m_pSwapChainManager;
     delete m_pDeviceManager;
     delete m_pPipelineManager;
+
+    delete m_pShaderManager;
+    delete m_pPipelineStateManager;
+    delete m_pRootSignatureManager;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -229,7 +244,7 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
     WaitForCurrentFrameResourceIfInUse();
 
     // Reset command list & allocator
-    ID3D12PipelineState*        pPso                = m_pPipelineManager->GetPipelineStateObject();
+    ID3D12PipelineState*        pPso                = m_pPipelineStateManager->GetPipelineState("graphics");
     ID3D12CommandAllocator*     pDirectCmdListAlloc = m_pCurrentFrameResource->pCmdListAlloc.Get();
     ID3D12GraphicsCommandList*  pCommandList        = m_cmdContext.GetCommandList();
 
@@ -260,7 +275,7 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
 // clears backbuffer, depthstencil and presents the frame to the screen
 void cDirectX12::Draw()
 {
-    ID3D12PipelineState*    pPso                = m_pPipelineManager->GetPipelineStateObject();
+    ID3D12PipelineState*    pPso                = m_pPipelineStateManager->GetPipelineState("graphics");
     ID3D12RootSignature*    pRootSignature      = m_pPipelineManager->GetRootSignature();
     IDXGISwapChain4*        pSwapChain          = m_pSwapChainManager->GetSwapChain();
     D3D12_VIEWPORT&         rViewport           = m_pSwapChainManager->GetViewport();

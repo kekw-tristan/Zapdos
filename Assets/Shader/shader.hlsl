@@ -148,7 +148,6 @@ float4 PS(sVertexOut pin) : SV_Target
 
     float3 Lo = float3(0.0f, 0.0f, 0.0f);
 
-    [loop]
     for (int i = 0; i < gLightCount; ++i)
     {
         sLight light = gLights[i];

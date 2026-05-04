@@ -35,5 +35,7 @@ class cPipelineStateManager
 		cShaderManager*			m_pShaderManager;
 		cRootSignatureManager*	m_pRootSignatureManager;
 
+		std::vector<D3D12_INPUT_ELEMENT_DESC> m_InputLayouts;
+
 		std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> m_pipelineStateObjects;
 };

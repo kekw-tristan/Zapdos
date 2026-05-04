@@ -18,8 +18,10 @@ cRootSignatureManager::~cRootSignatureManager()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cRootSignatureManager::Initialize()
+void cRootSignatureManager::Initialize(ID3D12Device* _pDevice)
 {
+    m_pDevice = _pDevice; 
+
     CreateGraphicsRS();
     CreateMipGenRS();
 }

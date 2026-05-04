@@ -16,7 +16,7 @@ class cRootSignatureManager
 
 	public:
 
-		void Initialize();
+		void Initialize(ID3D12Device* _pDevice);
 
 		ID3D12RootSignature* GetRootSignature(const std::string& name);
 

@@ -33,6 +33,10 @@ class cDeviceManager;
 class cBufferManager;
 class cPipelineManager;
 
+class cRootSignatureManager;
+class cPipelineStateManager;
+class cShaderManager;
+
 template<typename T>
 class cUploadBuffer;
 
@@ -118,4 +122,8 @@ class cDirectX12
 		cCommandContext m_cmdContext; 
 
 		ComPtr<ID3D12CommandAllocator> m_pCmdAlloc;
+
+		cRootSignatureManager*	m_pRootSignatureManager; 
+		cPipelineStateManager*	m_pPipelineStateManager; 
+		cShaderManager*			m_pShaderManager; 
 };

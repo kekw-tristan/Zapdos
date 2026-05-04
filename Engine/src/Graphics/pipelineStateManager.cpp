@@ -11,6 +11,8 @@ cPipelineStateManager::cPipelineStateManager()
     : m_pDevice(nullptr)
     , m_pShaderManager(nullptr)
     , m_pRootSignatureManager(nullptr)
+    , m_InputLayouts()
+    , m_pipelineStateObjects()
 {
 }
 
@@ -43,6 +45,15 @@ ID3D12PipelineState* cPipelineStateManager::GetPipelineState(const std::string& 
 
 void cPipelineStateManager::CreateGraphicsPSO()
 {
+    m_InputLayouts =
+    {
+        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,   0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT,   0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TANGENT",  0, DXGI_FORMAT_R32G32B32A32_FLOAT,0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,      0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT,      0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+    };
+
     D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {};
     desc.pRootSignature = m_pRootSignatureManager->GetRootSignature("graphics");
 
@@ -62,6 +73,7 @@ void cPipelineStateManager::CreateGraphicsPSO()
     desc.RTVFormats[0]          = DXGI_FORMAT_R8G8B8A8_UNORM;
     desc.DSVFormat              = DXGI_FORMAT_D24_UNORM_S8_UINT;
     desc.SampleDesc.Count       = 1;
+    desc.InputLayout            = { m_InputLayouts.data(), static_cast<UINT>(m_InputLayouts.size()) };
 
     ComPtr<ID3D12PipelineState> pso;
     m_pDevice->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(&pso));
@@ -73,17 +85,17 @@ void cPipelineStateManager::CreateGraphicsPSO()
 
 void cPipelineStateManager::CreateMipGenPso()
 {
-    D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
-    desc.pRootSignature = m_pRootSignatureManager->GetRootSignature("mipgen");
-
-    auto cs = m_pShaderManager->GetShader("mipgen_cs");
-
-    desc.CS = { cs->GetBufferPointer(), cs->GetBufferSize() };
-
-    ComPtr<ID3D12PipelineState> pso;
-    m_pDevice->CreateComputePipelineState(&desc, IID_PPV_ARGS(&pso));
-
-    m_pipelineStateObjects["mipgen"] = pso;
+    //D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
+    //desc.pRootSignature = m_pRootSignatureManager->GetRootSignature("mipgen");
+    //
+    //auto cs = m_pShaderManager->GetShader("mipgen_cs");
+    //
+    //desc.CS = { cs->GetBufferPointer(), cs->GetBufferSize() };
+    //
+    //ComPtr<ID3D12PipelineState> pso;
+    //m_pDevice->CreateComputePipelineState(&desc, IID_PPV_ARGS(&pso));
+    //
+    //m_pipelineStateObjects["mipgen"] = pso;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
