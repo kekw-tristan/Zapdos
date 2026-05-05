@@ -24,7 +24,6 @@
 #include "deviceManager.h"
 #include "gfxConfig.h"
 #include "gpuTexture.h"
-#include "pipelineManager.h"
 #include "pipelineStateManager.h"
 #include "bufferManager.h"
 #include "renderItem.h"
@@ -35,8 +34,9 @@
 #include "meshGeometry.h"
 
 // --------------------------------------------------------------------------------------------------------------------------
-
-
+// Microsoft PIX Debug
+// --------------------------------------------------------------------------------------------------------------------------
+/*
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 {
     LPWSTR programFilesPath = nullptr;
@@ -65,18 +65,21 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
-
+*/
 // --------------------------------------------------------------------------------------------------------------------------
-// initializes all the directx12 components
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 {
-    
+    // ------------------------------------------------------
+    // Microsoft PIX Debug
+    // ------------------------------------------------------
+    /*
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
     {
         LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
     }
-    
+    */
+
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -109,7 +112,6 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 
     m_pSwapChainManager = new cSwapChainManager(m_pDeviceManager, m_pWindow, &m_graphicsQueue, &m_cmdContext);
     m_pBufferManager    = new cBufferManager(m_pDeviceManager, m_pSwapChainManager);
-    m_pPipelineManager  = new cPipelineManager(m_pDeviceManager);
     m_pGeometry         = new sMeshGeometry;
 
     m_pShaderManager        = new cShaderManager; 
@@ -118,7 +120,6 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     
     m_pSwapChainManager ->Initialize();
     m_pBufferManager    ->Initialize();
-    m_pPipelineManager  ->Initialize(); 
 
     m_pShaderManager->Load("vs", L"..\\Assets\\Shader\\shader.hlsl", "VS", "vs_5_1");
     m_pShaderManager->Load("ps", L"..\\Assets\\Shader\\shader.hlsl", "PS", "ps_5_1");
@@ -133,7 +134,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 
 void cDirectX12::Finalize()
 {
-    WaitForGPU();
+    m_graphicsQueue.Flush();
 
     for (auto* frameResource : m_frameResources)
     {
@@ -149,7 +150,6 @@ void cDirectX12::Finalize()
     delete m_pBufferManager;
     delete m_pSwapChainManager;
     delete m_pDeviceManager;
-    delete m_pPipelineManager;
 
     delete m_pShaderManager;
     delete m_pPipelineStateManager;
@@ -258,11 +258,6 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
         m_pWindow->SetHasResized(false);
     }
 
-    XMVECTOR eyePos = XMVectorSet(0.0f, 10.0f, -100.0f, 1.0f);
-    XMVECTOR target = XMVectorZero();
-    XMVECTOR up     = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-    XMMATRIX view = XMMatrixLookAtLH(eyePos, target, up);
     XMStoreFloat4x4(&m_view, _view);
 
     // === Upload data to GPU buffers ===
@@ -276,7 +271,7 @@ void cDirectX12::Update(XMMATRIX _view, XMFLOAT3 _eyePos, std::vector<sRenderIte
 void cDirectX12::Draw()
 {
     ID3D12PipelineState*    pPso                = m_pPipelineStateManager->GetPipelineState("graphics");
-    ID3D12RootSignature*    pRootSignature      = m_pPipelineManager->GetRootSignature();
+    ID3D12RootSignature*    pRootSignature      = m_pRootSignatureManager->GetRootSignature("graphics");
     IDXGISwapChain4*        pSwapChain          = m_pSwapChainManager->GetSwapChain();
     D3D12_VIEWPORT&         rViewport           = m_pSwapChainManager->GetViewport();
     ID3D12DescriptorHeap*   pCbvHeap            = m_pBufferManager->GetCbvHeap();
@@ -408,7 +403,7 @@ void cDirectX12::CalculateFrameStats() const
 
 void cDirectX12::OnResize()
 {
-    WaitForGPU();
+    m_graphicsQueue.Flush();
 
     m_pSwapChainManager->OnResize();
 
@@ -685,13 +680,6 @@ void cDirectX12::WaitForCurrentFrameResourceIfInUse()
     UINT64 gpuCompletedFence = m_graphicsQueue.GetCompletedValue();
 
     m_graphicsQueue.WaitCPU(m_pCurrentFrameResource->fence);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------
-
-void cDirectX12::WaitForGPU()
-{
-    m_graphicsQueue.Flush();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

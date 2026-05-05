@@ -83,7 +83,6 @@ class cDirectX12
 		void InitializeFrameResources();
 		
 		void WaitForCurrentFrameResourceIfInUse(); 
-		void WaitForGPU();
 
 	private:
 
@@ -103,7 +102,6 @@ class cDirectX12
 		cSwapChainManager*	m_pSwapChainManager;
 		cDeviceManager*		m_pDeviceManager;
 		cBufferManager*		m_pBufferManager;
-		cPipelineManager*	m_pPipelineManager;
 
 		std::vector<sFrameResource*>	m_frameResources;
 		std::vector<sRenderItem>*		m_pRenderItems;
