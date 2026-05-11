@@ -4,6 +4,7 @@
 #include <d3dx12.h>
 
 #include "cpuTexture.h"
+#include "directx12Util.h"
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -26,20 +27,23 @@ cGpuTexture::~cGpuTexture()
 
 void cGpuTexture::UploadToGpu(cCpuTexture& _rCpuTexture, ID3D12Device* _pDevice, ID3D12GraphicsCommandList* _pCmdList)
 {
-    const uint8_t* pData = _rCpuTexture.GetData().data();
-    DXGI_FORMAT format = _rCpuTexture.GetFormat();
-    int width = _rCpuTexture.GetWidth();
+    const uint8_t* pData  = _rCpuTexture.GetData().data();
+    DXGI_FORMAT    format = _rCpuTexture.GetFormat();
+
+    int width  = _rCpuTexture.GetWidth();
     int height = _rCpuTexture.GetHeight();
 
     D3D12_RESOURCE_DESC desc = {};
-    desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    desc.Width = width;
-    desc.Height = height;
-    desc.DepthOrArraySize = 1;
-    desc.MipLevels = 1;
-    desc.Format = format;
-    desc.SampleDesc.Count = 1;
-    desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+
+    desc.Dimension          = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    desc.Width              = width;
+    desc.Height             = height;
+    desc.DepthOrArraySize   = 1;
+    desc.MipLevels          = static_cast<UINT16>(cDirectX12Util::CalculateMipLevels(width, height));
+    desc.Format             = format;
+    desc.SampleDesc.Count   = 1;
+    desc.Layout             = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    desc.Flags              = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
     CD3DX12_HEAP_PROPERTIES defaultHeap(D3D12_HEAP_TYPE_DEFAULT);
 
@@ -92,13 +96,13 @@ void cGpuTexture::UploadToGpu(cCpuTexture& _rCpuTexture, ID3D12Device* _pDevice,
         &sub
     );
 
-    _pCmdList->ResourceBarrier(1,
-        &CD3DX12_RESOURCE_BARRIER::Transition(
-            m_pTexture.Get(),
-            D3D12_RESOURCE_STATE_COPY_DEST,
-            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-        )
-    );
+    //_pCmdList->ResourceBarrier(1,
+    //    &CD3DX12_RESOURCE_BARRIER::Transition(
+    //        m_pTexture.Get(),
+    //        D3D12_RESOURCE_STATE_COPY_DEST,
+    //        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+    //    )
+    //);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

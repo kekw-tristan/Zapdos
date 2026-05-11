@@ -123,6 +123,7 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
 
     m_pShaderManager->Load("vs", L"..\\Assets\\Shader\\shader.hlsl", "VS", "vs_5_1");
     m_pShaderManager->Load("ps", L"..\\Assets\\Shader\\shader.hlsl", "PS", "ps_5_1");
+    m_pShaderManager->Load("cs", L"..\\Assets\\Shader\\mipgen_cs.hlsl", "CS", "cs_5_1");
     
     m_pRootSignatureManager->Initialize(m_pDeviceManager->GetDevice());
     m_pPipelineStateManager->Initialize(m_pDeviceManager->GetDevice(), m_pShaderManager, m_pRootSignatureManager);
@@ -162,12 +163,12 @@ void cDirectX12::InitializeMesh(sMeshData& _rMeshData)
 {
     sSubmeshGeometry subMesh;
 
-    subMesh.indexCount              = _rMeshData.GetIndices16().size();
-    subMesh.startIndexLocation      = m_indices.size();
-    subMesh.startVertexLocation     = m_vertecis.size();
-    subMesh.materialId              = _rMeshData.materialId;
+    subMesh.indexCount = static_cast<uint32>(_rMeshData.indices32.size());
+    subMesh.startIndexLocation = static_cast<uint32>(m_indices.size());
+    subMesh.startVertexLocation = static_cast<uint32>(m_vertecis.size());
+    subMesh.materialId = _rMeshData.materialId;
 
-    for (auto v : _rMeshData.vertices)
+    for (const auto& v : _rMeshData.vertices)
     {
         sVertex vOut = {};
 
@@ -176,12 +177,15 @@ void cDirectX12::InitializeMesh(sMeshData& _rMeshData)
         vOut.tangentU = v.tangentU;
         vOut.texC = v.texC;
         vOut.texC2 = v.texC2;
+
         m_vertecis.push_back(vOut);
     }
 
-    
-    std::vector<uint16> meshIndices16 = _rMeshData.GetIndices16(); 
-    m_indices.insert(m_indices.end(), meshIndices16.begin(), meshIndices16.end());
+    m_indices.insert(
+        m_indices.end(),
+        _rMeshData.indices32.begin(),
+        _rMeshData.indices32.end()
+    );
 
     m_pGeometry->drawArguments.push_back(subMesh);
 }
@@ -191,7 +195,7 @@ void cDirectX12::InitializeMesh(sMeshData& _rMeshData)
 sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
 {
     const UINT vbByteSize = static_cast<UINT>(m_vertecis.size() * sizeof(sVertex));
-    const UINT ibByteSize = static_cast<UINT>(m_indices.size() * sizeof(uint16_t));
+    const UINT ibByteSize = static_cast<UINT>(m_indices.size() * sizeof(uint32_t));
 
     m_pGeometry->name = "shapeGeo";
 
@@ -219,7 +223,7 @@ sMeshGeometry* cDirectX12::InitializeGeometryBuffer()
 
     m_pGeometry->vertexByteStride       = sizeof(sVertex);
     m_pGeometry->vertexBufferByteSize   = vbByteSize;
-    m_pGeometry->indexFormat            = DXGI_FORMAT_R16_UINT;
+    m_pGeometry->indexFormat            = DXGI_FORMAT_R32_UINT;
     m_pGeometry->indexBufferByteSize    = ibByteSize;
 
     m_cmdContext.Close(); 
@@ -621,56 +625,238 @@ void cDirectX12::UploadCpuTexturesToGpu(std::vector<cCpuTexture>& _rCpuTextures)
         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     const UINT baseOffset = m_pBufferManager->GetTextureOffset();
-    const UINT numTextures = (std::min)((UINT)_rCpuTextures.size(), (UINT)GFX_MAX_NUMGER_OF_TEXTURES);
+    const UINT numTextures = (std::min)(
+        (UINT)_rCpuTextures.size(),
+        (UINT)GFX_MAX_NUMGER_OF_TEXTURES
+        );
+
+    // Beispiel: UAV-Bereich direkt nach den normalen Texture-SRVs.
+    // Besser wäre langfristig ein richtiger Descriptor Allocator.
+    const UINT maxMipLevelsPerTexture = 16;
+    const UINT mipUavBaseOffset = baseOffset + GFX_MAX_NUMGER_OF_TEXTURES;
 
     cDirectX12Util::ThrowIfFailed(m_pCmdAlloc->Reset());
     m_cmdContext.Reset(m_pCmdAlloc.Get());
 
     ID3D12GraphicsCommandList* pCmdList = m_cmdContext.GetCommandList();
 
+    ID3D12DescriptorHeap* heaps[] = { pHeap };
+    pCmdList->SetDescriptorHeaps(_countof(heaps), heaps);
+
     m_textures = std::vector<cGpuTexture>(_rCpuTextures.size());
 
     for (UINT i = 0; i < numTextures; ++i)
     {
+        // ---------------------------------------------------------
+        // 1. Texture hochladen, nur Mip 0
+        // ---------------------------------------------------------
         m_textures[i].UploadToGpu(_rCpuTextures[i], pDevice, pCmdList);
+
+        ID3D12Resource* pTexture = m_textures[i].GetResource();
+
+        const D3D12_RESOURCE_DESC texDesc = pTexture->GetDesc();
+        const UINT mipLevels = texDesc.MipLevels;
+
+        // ---------------------------------------------------------
+        // 2. SRV für komplette Texture erstellen
+        // ---------------------------------------------------------
+        const UINT heapIndex = baseOffset + i;
+
+        D3D12_CPU_DESCRIPTOR_HANDLE srvCpuHandle =
+            m_pBufferManager->GetCbvHeap()->GetCPUDescriptorHandleForHeapStart();
+
+        srvCpuHandle.ptr += static_cast<SIZE_T>(heapIndex) * descriptorSize;
+
+        D3D12_GPU_DESCRIPTOR_HANDLE srvGpuHandle =
+            m_pBufferManager->GetCbvHeap()->GetGPUDescriptorHandleForHeapStart();
+
+        srvGpuHandle.ptr += static_cast<UINT64>(heapIndex) * descriptorSize;
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+        srvDesc.Shader4ComponentMapping =
+            D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+        srvDesc.Format = texDesc.Format;
+        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MostDetailedMip = 0;
+
+        // Wichtig: nicht mehr nur 1
+        srvDesc.Texture2D.MipLevels = mipLevels;
+
+        pDevice->CreateShaderResourceView(
+            pTexture,
+            &srvDesc,
+            srvCpuHandle
+        );
+
+        // ---------------------------------------------------------
+        // 3. UAVs für Mip 1..n erstellen
+        // ---------------------------------------------------------
+        std::vector<D3D12_GPU_DESCRIPTOR_HANDLE> uavGpuHandles;
+        uavGpuHandles.resize(mipLevels);
+
+        const UINT maxMipLevelsPerTexture = 16;
+        const UINT mipUavBaseOffset =
+            baseOffset + GFX_MAX_NUMGER_OF_TEXTURES;
+
+        for (UINT mip = 1; mip < mipLevels; ++mip)
+        {
+            const UINT uavHeapIndex =
+                mipUavBaseOffset + i * maxMipLevelsPerTexture + mip;
+
+            D3D12_CPU_DESCRIPTOR_HANDLE uavCpuHandle =
+                m_pBufferManager->GetCbvHeap()->GetCPUDescriptorHandleForHeapStart();
+
+            uavCpuHandle.ptr +=
+                static_cast<SIZE_T>(uavHeapIndex) * descriptorSize;
+
+            D3D12_GPU_DESCRIPTOR_HANDLE uavGpuHandle =
+                m_pBufferManager->GetCbvHeap()->GetGPUDescriptorHandleForHeapStart();
+
+            uavGpuHandle.ptr +=
+                static_cast<UINT64>(uavHeapIndex) * descriptorSize;
+
+            D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+            uavDesc.Format = texDesc.Format;
+            uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+            uavDesc.Texture2D.MipSlice = mip;
+            uavDesc.Texture2D.PlaneSlice = 0;
+
+            pDevice->CreateUnorderedAccessView(
+                pTexture,
+                nullptr,
+                &uavDesc,
+                uavCpuHandle
+            );
+
+            uavGpuHandles[mip] = uavGpuHandle;
+        }
+
+        // ---------------------------------------------------------
+        // 4. Compute Shader für Mipmaps dispatchen
+        // ---------------------------------------------------------
+        GenerateMipmaps(
+            pCmdList,
+            pTexture,
+            srvGpuHandle,
+            uavGpuHandles
+        );
     }
 
     m_cmdContext.Close();
 
     ID3D12CommandList* lists[] = { pCmdList };
-    const UINT64 fenceValue = m_graphicsQueue.Execute(lists, 1);
-   
-
-    for (UINT i = 0; i < numTextures; ++i)
-    {
-        const UINT heapIndex = baseOffset + i;
-
-        D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle =
-            pHeap->GetCPUDescriptorHandleForHeapStart();
-        cpuHandle.ptr += static_cast<SIZE_T>(heapIndex) * descriptorSize;
-
-        D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-        srvDesc.Format = m_textures[i].GetResource()->GetDesc().Format;
-        srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-        srvDesc.Texture2D.MipLevels = 1;
-        srvDesc.Texture2D.MostDetailedMip = 0;
-
-        pDevice->CreateShaderResourceView(
-            m_textures[i].GetResource(),
-            &srvDesc,
-            cpuHandle
-        );
-    }
+    m_graphicsQueue.Execute(lists, 1);
 
     m_graphicsQueue.Flush();
 
-    for (auto gpuTexture : m_textures)
+    for (cGpuTexture& gpuTexture : m_textures)
     {
-        gpuTexture.ReleaseUploadHeap(); 
+        gpuTexture.ReleaseUploadHeap();
     }
 
     std::wcout << L"[UPLOAD COMPLETE]\n";
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cDirectX12::GenerateMipmaps(
+    ID3D12GraphicsCommandList* pCmdList,
+    ID3D12Resource* pTexture,
+    D3D12_GPU_DESCRIPTOR_HANDLE srvGpuHandle,
+    const std::vector<D3D12_GPU_DESCRIPTOR_HANDLE>& uavGpuHandles)
+{
+    const D3D12_RESOURCE_DESC desc = pTexture->GetDesc();
+    const UINT mipLevels = desc.MipLevels;
+
+    if (mipLevels <= 1)
+        return;
+
+    pCmdList->SetPipelineState(
+        m_pPipelineStateManager->GetPipelineState("mipgen")
+    );
+
+    pCmdList->SetComputeRootSignature(
+        m_pRootSignatureManager->GetRootSignature("mipgen")
+    );
+
+    // Mip 0: COPY_DEST -> NON_PIXEL_SHADER_RESOURCE
+    {
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            pTexture,
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+            0
+        );
+
+        pCmdList->ResourceBarrier(1, &barrier);
+    }
+
+    for (UINT mip = 1; mip < mipLevels; ++mip)
+    {
+        // Ziel-Mip: COPY_DEST -> UNORDERED_ACCESS
+        {
+            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+                pTexture,
+                D3D12_RESOURCE_STATE_COPY_DEST,
+                D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                mip
+            );
+
+            pCmdList->ResourceBarrier(1, &barrier);
+        }
+
+        pCmdList->SetComputeRootDescriptorTable(0, srvGpuHandle);
+        pCmdList->SetComputeRootDescriptorTable(1, uavGpuHandles[mip]);
+
+        // Root Constant: source mip
+        pCmdList->SetComputeRoot32BitConstant(
+            2,
+            mip - 1,
+            0
+        );
+
+        const UINT dstWidth =
+            std::max<UINT>(1, static_cast<UINT>(desc.Width >> mip));
+
+        const UINT dstHeight =
+            std::max<UINT>(1, desc.Height >> mip);
+
+        pCmdList->Dispatch(
+            (dstWidth + 7) / 8,
+            (dstHeight + 7) / 8,
+            1
+        );
+
+        // UAV writes müssen fertig sein, bevor diese Mip gelesen wird
+        auto uavBarrier = CD3DX12_RESOURCE_BARRIER::UAV(pTexture);
+        pCmdList->ResourceBarrier(1, &uavBarrier);
+
+        // Gerade erzeugte Mip wird Quelle für den nächsten Durchlauf
+        {
+            auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+                pTexture,
+                D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+                D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+                mip
+            );
+
+            pCmdList->ResourceBarrier(1, &barrier);
+        }
+    }
+
+    // Alle Mips final für normales Rendering lesbar machen
+    for (UINT mip = 0; mip < mipLevels; ++mip)
+    {
+        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+            pTexture,
+            D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            mip
+        );
+
+        pCmdList->ResourceBarrier(1, &barrier);
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

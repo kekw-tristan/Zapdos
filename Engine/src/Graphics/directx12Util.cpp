@@ -130,3 +130,22 @@ ComPtr<ID3DBlob> cDirectX12Util::CompileShader(const std::wstring& _rFilename,
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
+
+UINT cDirectX12Util::CalculateMipLevels(UINT _width, UINT _height)
+{
+    UINT mipLevels = 1; 
+
+    UINT width  = _width; 
+    UINT height = _height; 
+
+    while (width > 1 || height > 1)
+    {
+        width   = max(1u, width  / 2);
+        height  = max(1u, height / 2);
+
+        ++mipLevels; 
+    }
+    return mipLevels;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------

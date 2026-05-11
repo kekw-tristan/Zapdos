@@ -85,17 +85,17 @@ void cPipelineStateManager::CreateGraphicsPSO()
 
 void cPipelineStateManager::CreateMipGenPso()
 {
-    //D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
-    //desc.pRootSignature = m_pRootSignatureManager->GetRootSignature("mipgen");
-    //
-    //auto cs = m_pShaderManager->GetShader("mipgen_cs");
-    //
-    //desc.CS = { cs->GetBufferPointer(), cs->GetBufferSize() };
-    //
-    //ComPtr<ID3D12PipelineState> pso;
-    //m_pDevice->CreateComputePipelineState(&desc, IID_PPV_ARGS(&pso));
-    //
-    //m_pipelineStateObjects["mipgen"] = pso;
+    D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {};
+    desc.pRootSignature = m_pRootSignatureManager->GetRootSignature("mipgen");
+    
+    auto cs = m_pShaderManager->GetShader("cs");
+    
+    desc.CS = { cs->GetBufferPointer(), cs->GetBufferSize() };
+    
+    ComPtr<ID3D12PipelineState> pso;
+    m_pDevice->CreateComputePipelineState(&desc, IID_PPV_ARGS(&pso));
+    
+    m_pipelineStateObjects["mipgen"] = pso;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

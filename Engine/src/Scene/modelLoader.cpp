@@ -437,84 +437,77 @@ void cModelLoader::ExtractPrimitives(tinygltf::Model& model, int meshIndex, sMod
         // INDICES
         // =========================================================
 
-        if (primitive.indices >= 0)
-        {
-            const tinygltf::Accessor& accessor =
-                model.accessors[primitive.indices];
+		if (primitive.indices >= 0)
+		{
+			const tinygltf::Accessor& accessor =
+				model.accessors[primitive.indices];
 
-            const tinygltf::BufferView& view =
-                model.bufferViews[accessor.bufferView];
+			const tinygltf::BufferView& view =
+				model.bufferViews[accessor.bufferView];
 
-            const tinygltf::Buffer& buffer =
-                model.buffers[view.buffer];
+			const tinygltf::Buffer& buffer =
+				model.buffers[view.buffer];
 
-            const unsigned char* pData =
-                buffer.data.data() +
-                view.byteOffset +
-                accessor.byteOffset;
+			const unsigned char* pData =
+				buffer.data.data() +
+				view.byteOffset +
+				accessor.byteOffset;
 
-            const size_t indexCount =
-                static_cast<size_t>(accessor.count);
+			const size_t indexCount =
+				static_cast<size_t>(accessor.count);
 
-            // -----------------------------------------------------
-            // UINT16
-            // -----------------------------------------------------
+			meshData.indices32.resize(indexCount);
 
-            if (accessor.componentType ==
-                TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
-            {
-                const uint16_t* pIndices =
-                    reinterpret_cast<const uint16_t*>(pData);
+			// -----------------------------------------------------
+			// UINT16
+			// -----------------------------------------------------
+			if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+			{
+				const uint16_t* pIndices =
+					reinterpret_cast<const uint16_t*>(pData);
 
-                meshData.indices16.resize(indexCount);
+				for (size_t i = 0; i < indexCount; i += 3)
+				{
+					meshData.indices32[i + 0] =
+						static_cast<uint32_t>(pIndices[i + 0]);
 
-                for (size_t i = 0; i < indexCount; i += 3)
-                {
-                    meshData.indices16[i + 0] =
-                        pIndices[i + 0];
+					meshData.indices32[i + 1] =
+						static_cast<uint32_t>(pIndices[i + 2]);
 
-                    meshData.indices16[i + 1] =
-                        pIndices[i + 2];
+					meshData.indices32[i + 2] =
+						static_cast<uint32_t>(pIndices[i + 1]);
+				}
+			}
 
-                    meshData.indices16[i + 2] =
-                        pIndices[i + 1];
-                }
-            }
+			// -----------------------------------------------------
+			// UINT32
+			// -----------------------------------------------------
+			else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+			{
+				const uint32_t* pIndices =
+					reinterpret_cast<const uint32_t*>(pData);
 
-            // -----------------------------------------------------
-            // UINT32
-            // -----------------------------------------------------
+				for (size_t i = 0; i < indexCount; i += 3)
+				{
+					meshData.indices32[i + 0] = pIndices[i + 0];
+					meshData.indices32[i + 1] = pIndices[i + 2];
+					meshData.indices32[i + 2] = pIndices[i + 1];
+				}
+			}
+			else
+			{
+				throw std::runtime_error("Unsupported glTF index component type.");
+			}
 
-            else if (accessor.componentType ==
-                TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
-            {
-                const uint32_t* pIndices =
-                    reinterpret_cast<const uint32_t*>(pData);
+			// =========================================================
+			// MATERIAL
+			// =========================================================
 
-                meshData.indices32.resize(indexCount);
+			meshData.materialId =
+				primitive.material;
 
-                for (size_t i = 0; i < indexCount; i += 3)
-                {
-                    meshData.indices32[i + 0] =
-                        pIndices[i + 0];
-
-                    meshData.indices32[i + 1] =
-                        pIndices[i + 2];
-
-                    meshData.indices32[i + 2] =
-                        pIndices[i + 1];
-                }
-            }
-        }
-
-        // =========================================================
-        // MATERIAL
-        // =========================================================
-
-        meshData.materialId =
-            primitive.material;
-
-        rMeshes.push_back(std::move(meshData));
+			rMeshes.push_back(std::move(meshData));
+		}
     }
 }
 
@@ -659,7 +652,7 @@ uint32_t cModelLoader::GetOrCreateMaterialId(const tinygltf::Model& _rModel, int
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-void cModelLoader::CreateTexturesFromGltf(const tinygltf::Model& _rModel, sModel& _rOutModel)
+void cModelLoader::CreateTexturesFromGltf(tinygltf::Model& _rModel, sModel& _rOutModel)
 {
 	std::vector<cCpuTexture>& rTextures = _rOutModel.cpuTextures;
 

@@ -15,6 +15,7 @@ class cWindow
 
 		void Initialize(const wchar_t* _pTitle, const wchar_t* _className, int _width, int _height, cTimer* _pTimer);
 		void MessageHandling();
+		void SetConsoleCloseEnabled(bool _enabled);
 
 	public:
 

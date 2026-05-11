@@ -35,6 +35,7 @@ void cSystem::Initialize()
 
     m_pWindow = new cWindow();
     m_pWindow->Initialize(L"Zapdos", L"gameWindow", 1280, 720, m_pTimer);
+    m_pWindow->SetConsoleCloseEnabled(false);
 
     m_pDirectX12 = new cDirectX12();
     m_pDirectX12->Initialize(m_pWindow, m_pTimer);
@@ -77,6 +78,8 @@ void cSystem::Finalize()
 {
     std::cout << "Finalize\n";
 
+    m_pWindow->SetConsoleCloseEnabled(true);
+
     m_pDirectX12->Finalize();
 
     delete m_pWindow;
@@ -92,7 +95,7 @@ void cSystem::InitializeRenderItems()
     m_textures.clear();
     m_pScene->GetRenderItems().clear();
 
-    std::string path = "..\\Assets\\Objects\\scene.gltf";
+    std::string path = "..\\Assets\\Objects\\scene.glb";
 
     sModel model;
 

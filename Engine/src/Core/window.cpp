@@ -65,6 +65,27 @@ void cWindow::MessageHandling()
 
 // --------------------------------------------------------------------------------------------------------------------------
 
+void cWindow::SetConsoleCloseEnabled(bool _enabled)
+{
+	HWND consoleWnd = GetConsoleWindow();
+	if (!consoleWnd)
+		return;
+
+	HMENU sysMenu = GetSystemMenu(consoleWnd, FALSE);
+	if (!sysMenu)
+		return;
+
+	EnableMenuItem(
+		sysMenu,
+		SC_CLOSE,
+		MF_BYCOMMAND | (_enabled ? MF_ENABLED : MF_GRAYED)
+	);
+
+	DrawMenuBar(consoleWnd);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
 bool cWindow::GetIsRunning()
 {
 	return m_isRunning;

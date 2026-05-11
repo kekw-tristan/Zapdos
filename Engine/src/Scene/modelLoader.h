@@ -37,7 +37,7 @@ class cModelLoader
         static void ExtractPrimitives(tinygltf::Model& model, int meshIndex, sModel& _rOutModel);
         static sMaterial ExtractMaterialFromGLTF(const tinygltf::Model& model, int materialIndex);
         static uint32_t GetOrCreateMaterialId(const tinygltf::Model& _rModel, int _materialIndex, sModel& _rOutModel);
-        static void CreateTexturesFromGltf(const tinygltf::Model& _rModel, sModel& _rOutModel);
+        static void CreateTexturesFromGltf(tinygltf::Model& _rModel, sModel& _rOutModel);
         static void ProcessSceneIterative(tinygltf::Model& _rModel, const tinygltf::Scene& _rScene, sModel& _rOutModel);
 
     private:

@@ -2,6 +2,8 @@
 
 #include <d3dx12.h>
 
+#include "directx12Util.h"
+
 // --------------------------------------------------------------------------------------------------------------------------
 
 cRootSignatureManager::cRootSignatureManager()
@@ -38,7 +40,7 @@ ID3D12RootSignature* cRootSignatureManager::GetRootSignature(const std::string& 
 void cRootSignatureManager::CreateGraphicsRS()
 {
   
-    CD3DX12_ROOT_PARAMETER params[4];
+    CD3DX12_ROOT_PARAMETER params[4] = {};
 
     CD3DX12_DESCRIPTOR_RANGE cbv0;
     cbv0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
@@ -70,12 +72,12 @@ void cRootSignatureManager::CreateGraphicsRS()
     D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &err);
 
     ComPtr<ID3D12RootSignature> rs;
-    m_pDevice->CreateRootSignature(
+    cDirectX12Util::ThrowIfFailed(m_pDevice->CreateRootSignature(
         0,
         blob->GetBufferPointer(),
         blob->GetBufferSize(),
         IID_PPV_ARGS(&rs)
-    );
+    ));
 
     m_rootSignatures["graphics"] = rs;
 }
@@ -84,27 +86,74 @@ void cRootSignatureManager::CreateGraphicsRS()
 
 void cRootSignatureManager::CreateMipGenRS()
 {
-    CD3DX12_ROOT_PARAMETER params[2];
+    CD3DX12_DESCRIPTOR_RANGE ranges[2] = {};
 
-    params[0].InitAsShaderResourceView(0);   // t0
-    params[1].InitAsUnorderedAccessView(0);  // u0
+    ranges[0].Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+        1,
+        0
+    ); // t0
+
+    ranges[1].Init(
+        D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+        1,
+        0
+    ); // u0
+
+    CD3DX12_ROOT_PARAMETER params[3] = {};
+
+    params[0].InitAsDescriptorTable(
+        1,
+        &ranges[0]
+    ); // SRV table: t0
+
+    params[1].InitAsDescriptorTable(
+        1,
+        &ranges[1]
+    ); // UAV table: u0
+
+    params[2].InitAsConstants(
+        1,
+        0
+    ); // b0: source mip index
+
+    CD3DX12_STATIC_SAMPLER_DESC linearClampSampler(
+        0,                                  // s0
+        D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT,
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+        D3D12_TEXTURE_ADDRESS_MODE_CLAMP
+    );
 
     CD3DX12_ROOT_SIGNATURE_DESC desc(
-        2, params,
-        0, nullptr
+        3,
+        params,
+        1,
+        &linearClampSampler,
+        D3D12_ROOT_SIGNATURE_FLAG_NONE
     );
 
     ComPtr<ID3DBlob> blob;
     ComPtr<ID3DBlob> err;
 
-    D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &err);
+    cDirectX12Util::ThrowIfFailed(
+        D3D12SerializeRootSignature(
+            &desc,
+            D3D_ROOT_SIGNATURE_VERSION_1,
+            &blob,
+            &err
+        )
+    );
 
     ComPtr<ID3D12RootSignature> rs;
-    m_pDevice->CreateRootSignature(
-        0,
-        blob->GetBufferPointer(),
-        blob->GetBufferSize(),
-        IID_PPV_ARGS(&rs)
+
+    cDirectX12Util::ThrowIfFailed(
+        m_pDevice->CreateRootSignature(
+            0,
+            blob->GetBufferPointer(),
+            blob->GetBufferSize(),
+            IID_PPV_ARGS(&rs)
+        )
     );
 
     m_rootSignatures["mipgen"] = rs;

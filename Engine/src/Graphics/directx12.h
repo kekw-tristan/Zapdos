@@ -68,6 +68,7 @@ class cDirectX12
 		void CalculateFrameStats() const;
 		void OnResize();
 		void UploadCpuTexturesToGpu(std::vector<cCpuTexture>& _rCpuTextures);
+		void GenerateMipmaps(ID3D12GraphicsCommandList* pCmdList, ID3D12Resource* pTexture, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuHandle, const std::vector<D3D12_GPU_DESCRIPTOR_HANDLE>& uavGpuHandles);
 
 		sMeshGeometry* GetGeometry(); 
 		ID3D12Device* GetDevice(); 
@@ -114,7 +115,7 @@ class cDirectX12
 		std::unordered_map<std::string, sMeshGeometry*> m_geometries; 
 
 		std::vector<sVertex>		m_vertecis; 
-		std::vector<std::uint16_t>	m_indices;
+		std::vector<std::uint32_t>	m_indices;
 
 		cCommandQueue	m_graphicsQueue; 
 		cCommandContext m_cmdContext; 

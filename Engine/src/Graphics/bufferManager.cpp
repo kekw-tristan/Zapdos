@@ -53,7 +53,7 @@ void cBufferManager::InitializeDescriptorHeaps()
     heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     UINT descriptorsPerFrame = GFX_MAX_NUMBER_OF_RENDER_ITEMS + 1 + 1; // obj CBVs + pass + lights
-    heapDesc.NumDescriptors = c_NumberOfFrameResources * descriptorsPerFrame + GFX_MAX_NUMGER_OF_TEXTURES;
+    heapDesc.NumDescriptors = c_NumberOfFrameResources * descriptorsPerFrame + GFX_MAX_NUMGER_OF_TEXTURES + (GFX_MAX_NUMGER_OF_TEXTURES * 16);
     heapDesc.NodeMask = 0;
 
     m_textureOffset = c_NumberOfFrameResources * descriptorsPerFrame;
