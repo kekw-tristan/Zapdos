@@ -9,6 +9,7 @@ namespace tinygltf
 {
     class Model;
     class Image;
+    class Scene;
 }
 
 using namespace DirectX;
@@ -20,16 +21,26 @@ struct sModel;
 
 class cModelLoader
 {
-public:
-    static void LoadGLTFModel(std::string& _rFilePath, sModel& _rOutModel);
+    public:
+        static void LoadGLTFModel(std::string& _rFilePath, sModel& _rOutModel);
+    
+    private:
+    
+        struct sNodeJob
+        {
+            int nodeIndex;
+            XMMATRIX parentMatrix;
+        };
+    
+    private:
 
-private:
-    static void ProcessNode(tinygltf::Model& _rModel, int _nodeIndex, XMMATRIX _parentWorldMatrix, sModel& _rOutModel);
-    static void ExtractPrimitives(tinygltf::Model& model, int meshIndex, sModel& _rOutModel);
-    static sMaterial ExtractMaterialFromGLTF(const tinygltf::Model& model, int materialIndex);
-    static uint32_t GetOrCreateMaterialId(const tinygltf::Model& _rModel, int _materialIndex, sModel& _rOutModel);
-    static void CreateTexturesFromGltf(const tinygltf::Model& _rModel, sModel& _rOutModel);
+        static void ExtractPrimitives(tinygltf::Model& model, int meshIndex, sModel& _rOutModel);
+        static sMaterial ExtractMaterialFromGLTF(const tinygltf::Model& model, int materialIndex);
+        static uint32_t GetOrCreateMaterialId(const tinygltf::Model& _rModel, int _materialIndex, sModel& _rOutModel);
+        static void CreateTexturesFromGltf(const tinygltf::Model& _rModel, sModel& _rOutModel);
+        static void ProcessSceneIterative(tinygltf::Model& _rModel, const tinygltf::Scene& _rScene, sModel& _rOutModel);
 
-private:
-    static std::unordered_map<int, uint32_t> s_gltfMaterialToEngineMaterial;
+    private:
+
+        static std::unordered_map<int, uint32_t> s_gltfMaterialToEngineMaterial;
 };

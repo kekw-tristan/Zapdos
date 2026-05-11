@@ -45,6 +45,8 @@ void cSystem::Initialize()
 
     InitializeRenderItems();
     InitializeLights();
+
+    std::cout << "Initialize finished. time: " << m_pTimer->GetTotalTime() << "seconds \n";
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
