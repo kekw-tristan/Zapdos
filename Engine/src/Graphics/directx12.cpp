@@ -36,7 +36,7 @@
 // --------------------------------------------------------------------------------------------------------------------------
 // Microsoft PIX Debug
 // --------------------------------------------------------------------------------------------------------------------------
-/*
+
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 {
     LPWSTR programFilesPath = nullptr;
@@ -65,7 +65,7 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
-*/
+
 // --------------------------------------------------------------------------------------------------------------------------
 
 void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
@@ -73,12 +73,11 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     // ------------------------------------------------------
     // Microsoft PIX Debug
     // ------------------------------------------------------
-    /*
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
     {
         LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
     }
-    */
+    
 
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
@@ -459,11 +458,18 @@ void cDirectX12::UpdateObjectCB()
                 else
                     objConstants.baseColor = XMFLOAT4(1, 1, 1, 1);
 
-                objConstants.metallicFactor = std::isfinite(mat.metallic) ? mat.metallic : 0.f;
-                objConstants.roughnessFactor = std::isfinite(mat.roughness) ? mat.roughness : 0.5f;
-                objConstants.aoFactor = std::isfinite(mat.ao) ? mat.ao : 1.f;
-                objConstants.emissive = mat.emissive; // optional: check finite
-                objConstants.baseColorIndex = mat.baseColorIndex;
+                objConstants.metallicFactor         = std::isfinite(mat.metallic) ? mat.metallic : 0.f;
+                objConstants.roughnessFactor        = std::isfinite(mat.roughness) ? mat.roughness : 0.5f;
+                objConstants.aoFactor               = std::isfinite(mat.ao) ? mat.ao : 1.f;
+                objConstants.emissive               = mat.emissive;
+                objConstants.baseColorIndex         = mat.baseColorIndex;
+                objConstants.metallicRoughnessIndex = mat.metallicRoughnessIndex;
+                objConstants.normalIndex            = mat.normalIndex;
+                objConstants.occlusionIndex         = mat.occlusionIndex;
+                objConstants.emissiveIndex          = mat.emissiveIndex;
+                objConstants.normalScale            = mat.normalScale;
+                objConstants.occlusionStrength      = mat.occlusionStrength;
+
             }
             else
             {

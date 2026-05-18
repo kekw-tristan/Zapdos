@@ -23,25 +23,46 @@ struct sObjectConstants
 
 	// Material parameters
 	XMFLOAT4 baseColor;             // RGB = Albedo, A = Opacity
+	
 	float metallicFactor;           // 0 = dielectric, 1 = metal
 	float roughnessFactor;          // 0 = smooth, 1 = rough
 	float aoFactor;                 // Ambient occlusion factor (1 = full AO)
 	float padding;                  // padding
 
 	XMFLOAT3 emissive;              // Emissive RGB
-	int baseColorIndex;					// padding
+	int baseColorIndex;
+	
+	int metallicRoughnessIndex;
+	int normalIndex;
+	int occlusionIndex;
+	int emissiveIndex;
+
+	float normalScale;
+	float occlusionStrength;
+	int padding2;
+	int padding3;
 
 	sObjectConstants()
+		: world()
+		, worldInvTranspose()
+		, baseColor(1.0f, 1.0f, 1.0f, 1.0f)
+		, metallicFactor(0.0f)
+		, roughnessFactor(0.5f)
+		, aoFactor(1.0f)
+		, padding(0.0f)
+		, emissive(0.0f, 0.0f, 0.0f)
+		, baseColorIndex(-1)
+		, metallicRoughnessIndex(-1)
+		, normalIndex(-1)
+		, occlusionIndex(-1)
+		, emissiveIndex(-1)
+		, normalScale(1.0f)
+		, occlusionStrength(1.0f)
+		, padding2(0)
+		, padding3(0)
 	{
 		XMStoreFloat4x4(&world, XMMatrixIdentity());
 		XMStoreFloat4x4(&worldInvTranspose, XMMatrixIdentity());
-		baseColor = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-		metallicFactor = 0.0f;
-		roughnessFactor = 0.5f;
-		aoFactor = 1.0f;
-		emissive = XMFLOAT3(0.0f, 0.0f, 0.0f);
-		padding = 0.0f;
-		baseColorIndex = 0;
 	}
 };
 

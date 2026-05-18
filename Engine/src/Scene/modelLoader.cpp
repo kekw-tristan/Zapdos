@@ -517,13 +517,24 @@ sMaterial cModelLoader::ExtractMaterialFromGLTF(const tinygltf::Model& model, in
 {
 	sMaterial mat{};
 
+	// glTF PBR Defaults
 	mat.albedo = XMFLOAT3(1.0f, 1.0f, 1.0f);
 	mat.alpha = 1.0f;
-	mat.metallic = 0.0f;
+
+	mat.metallic = 1.0f;
 	mat.roughness = 1.0f;
 	mat.ao = 1.0f;
+
 	mat.emissive = XMFLOAT3(0.0f, 0.0f, 0.0f);
+
 	mat.baseColorIndex = -1;
+	mat.metallicRoughnessIndex = -1;
+	mat.normalIndex = -1;
+	mat.occlusionIndex = -1;
+	mat.emissiveIndex = -1;
+
+	mat.normalScale = 1.0f;
+	mat.occlusionStrength = 1.0f;
 
 	if (materialIndex < 0 || materialIndex >= static_cast<int>(model.materials.size()))
 		return mat;
@@ -543,80 +554,97 @@ sMaterial cModelLoader::ExtractMaterialFromGLTF(const tinygltf::Model& model, in
 			return imageIndex;
 		};
 
-	// 1) Normaler glTF metallic-roughness Pfad
-	const auto& pbr = gltfMat.pbrMetallicRoughness;
+	const tinygltf::PbrMetallicRoughness& pbr = gltfMat.pbrMetallicRoughness;
 
+	// ------------------------------------------------------------
+	// Base Color Factor
+	// ------------------------------------------------------------
 	if (pbr.baseColorFactor.size() == 4)
 	{
 		mat.albedo = XMFLOAT3(
 			static_cast<float>(pbr.baseColorFactor[0]),
 			static_cast<float>(pbr.baseColorFactor[1]),
-			static_cast<float>(pbr.baseColorFactor[2]));
+			static_cast<float>(pbr.baseColorFactor[2])
+		);
+
 		mat.alpha = static_cast<float>(pbr.baseColorFactor[3]);
 	}
 
+	// ------------------------------------------------------------
+	// Base Color Texture
+	// RGBA, meistens sRGB
+	// ------------------------------------------------------------
 	if (pbr.baseColorTexture.index >= 0)
 	{
 		mat.baseColorIndex = ResolveTextureToImageIndex(pbr.baseColorTexture.index);
 	}
 
+	// ------------------------------------------------------------
+	// Metallic / Roughness Factors
+	// ------------------------------------------------------------
 	mat.metallic = static_cast<float>(pbr.metallicFactor);
 	mat.roughness = static_cast<float>(pbr.roughnessFactor);
 
-	// 2) Fallback / override für KHR_materials_pbrSpecularGlossiness
-	auto extIt = gltfMat.extensions.find("KHR_materials_pbrSpecularGlossiness");
-	if (extIt != gltfMat.extensions.end())
+	// ------------------------------------------------------------
+	// Metallic-Roughness Texture
+	//
+	// glTF Packing:
+	// R = unused
+	// G = roughness
+	// B = metallic
+	// A = unused
+	// ------------------------------------------------------------
+	if (pbr.metallicRoughnessTexture.index >= 0)
 	{
-		const tinygltf::Value& ext = extIt->second;
-
-		// diffuseFactor
-		if (ext.Has("diffuseFactor"))
-		{
-			const tinygltf::Value& diffuseFactor = ext.Get("diffuseFactor");
-			if (diffuseFactor.IsArray() && diffuseFactor.ArrayLen() == 4)
-			{
-				mat.albedo = XMFLOAT3(
-					static_cast<float>(diffuseFactor.Get(0).GetNumberAsDouble()),
-					static_cast<float>(diffuseFactor.Get(1).GetNumberAsDouble()),
-					static_cast<float>(diffuseFactor.Get(2).GetNumberAsDouble()));
-				mat.alpha = static_cast<float>(diffuseFactor.Get(3).GetNumberAsDouble());
-			}
-		}
-
-		// diffuseTexture -> das ist für dich die BaseColor Texture
-		if (ext.Has("diffuseTexture"))
-		{
-			const tinygltf::Value& diffuseTexture = ext.Get("diffuseTexture");
-			if (diffuseTexture.IsObject() && diffuseTexture.Has("index"))
-			{
-				int gltfTextureIndex = diffuseTexture.Get("index").GetNumberAsInt();
-				mat.baseColorIndex = ResolveTextureToImageIndex(gltfTextureIndex);
-			}
-		}
-
-		// glossinessFactor -> roughness
-		if (ext.Has("glossinessFactor"))
-		{
-			const float glossiness = static_cast<float>(ext.Get("glossinessFactor").GetNumberAsDouble());
-			mat.roughness = 1.0f - glossiness;
-		}
-
-		// spec-gloss ist nicht metallic-roughness.
-		// Für deinen aktuellen Shader ist 0 als Näherung sinnvoller als 1.
-		mat.metallic = 0.0f;
+		mat.metallicRoughnessIndex =
+			ResolveTextureToImageIndex(pbr.metallicRoughnessTexture.index);
 	}
 
-	// Emissive
+	// ------------------------------------------------------------
+	// Normal Texture
+	// Tangent-Space Normal Map
+	// ------------------------------------------------------------
+	if (gltfMat.normalTexture.index >= 0)
+	{
+		mat.normalIndex = ResolveTextureToImageIndex(gltfMat.normalTexture.index);
+		mat.normalScale = static_cast<float>(gltfMat.normalTexture.scale);
+	}
+
+	// ------------------------------------------------------------
+	// Occlusion Texture
+	//
+	// glTF Packing:
+	// R = ambient occlusion
+	// ------------------------------------------------------------
+	if (gltfMat.occlusionTexture.index >= 0)
+	{
+		mat.occlusionIndex = ResolveTextureToImageIndex(gltfMat.occlusionTexture.index);
+		mat.occlusionStrength = static_cast<float>(gltfMat.occlusionTexture.strength);
+	}
+
+	// ------------------------------------------------------------
+	// Emissive Factor
+	// ------------------------------------------------------------
 	if (gltfMat.emissiveFactor.size() == 3)
 	{
 		mat.emissive = XMFLOAT3(
 			static_cast<float>(gltfMat.emissiveFactor[0]),
 			static_cast<float>(gltfMat.emissiveFactor[1]),
-			static_cast<float>(gltfMat.emissiveFactor[2]));
+			static_cast<float>(gltfMat.emissiveFactor[2])
+		);
 	}
+
+	// ------------------------------------------------------------
+	// Emissive Texture
+	// RGB, meistens sRGB
+	// ------------------------------------------------------------
+	if (gltfMat.emissiveTexture.index >= 0)
+	{
+		mat.emissiveIndex = ResolveTextureToImageIndex(gltfMat.emissiveTexture.index);
+	}
+
 	return mat;
 }
-
 // --------------------------------------------------------------------------------------------------------------------------
 
 uint32_t cModelLoader::GetOrCreateMaterialId(const tinygltf::Model& _rModel, int _materialIndex, sModel& _rOutModel)
