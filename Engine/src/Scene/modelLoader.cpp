@@ -170,6 +170,8 @@ void cModelLoader::LoadGLTFModel(std::string& _rFilePath, sModel& _rOutModel)
 		<< std::chrono::duration<double>(
 			textureEnd - textureStart).count()
 		<< " seconds\n";
+
+	CreateLightsFromGltf(model, _rOutModel);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -588,11 +590,6 @@ sMaterial cModelLoader::ExtractMaterialFromGLTF(const tinygltf::Model& model, in
 	// ------------------------------------------------------------
 	// Metallic-Roughness Texture
 	//
-	// glTF Packing:
-	// R = unused
-	// G = roughness
-	// B = metallic
-	// A = unused
 	// ------------------------------------------------------------
 	if (pbr.metallicRoughnessTexture.index >= 0)
 	{
@@ -602,7 +599,6 @@ sMaterial cModelLoader::ExtractMaterialFromGLTF(const tinygltf::Model& model, in
 
 	// ------------------------------------------------------------
 	// Normal Texture
-	// Tangent-Space Normal Map
 	// ------------------------------------------------------------
 	if (gltfMat.normalTexture.index >= 0)
 	{
@@ -612,9 +608,6 @@ sMaterial cModelLoader::ExtractMaterialFromGLTF(const tinygltf::Model& model, in
 
 	// ------------------------------------------------------------
 	// Occlusion Texture
-	//
-	// glTF Packing:
-	// R = ambient occlusion
 	// ------------------------------------------------------------
 	if (gltfMat.occlusionTexture.index >= 0)
 	{
@@ -636,12 +629,30 @@ sMaterial cModelLoader::ExtractMaterialFromGLTF(const tinygltf::Model& model, in
 
 	// ------------------------------------------------------------
 	// Emissive Texture
-	// RGB, meistens sRGB
 	// ------------------------------------------------------------
 	if (gltfMat.emissiveTexture.index >= 0)
 	{
 		mat.emissiveIndex = ResolveTextureToImageIndex(gltfMat.emissiveTexture.index);
 	}
+
+	mat.emissiveStrength = 1.0f;
+
+	auto emissiveStrengthIt =
+		gltfMat.extensions.find("KHR_materials_emissive_strength");
+
+	if (emissiveStrengthIt != gltfMat.extensions.end())
+	{
+		const tinygltf::Value& ext = emissiveStrengthIt->second;
+
+		if (ext.Has("emissiveStrength"))
+		{
+			mat.emissiveStrength =
+				static_cast<float>(
+					ext.Get("emissiveStrength").GetNumberAsDouble()
+					);
+		}
+	}
+
 
 	return mat;
 }
@@ -698,3 +709,285 @@ void cModelLoader::CreateTexturesFromGltf(tinygltf::Model& _rModel, sModel& _rOu
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
+
+XMMATRIX cModelLoader::GetNodeLocalMatrix(const tinygltf::Node& node)
+{
+	if (node.matrix.size() == 16)
+	{
+		// glTF speichert Matrizen column-major.
+		// Für DirectX row-vector convention: v' = v * M
+		return XMMatrixSet(
+			static_cast<float>(node.matrix[0]),
+			static_cast<float>(node.matrix[1]),
+			static_cast<float>(node.matrix[2]),
+			static_cast<float>(node.matrix[3]),
+
+			static_cast<float>(node.matrix[4]),
+			static_cast<float>(node.matrix[5]),
+			static_cast<float>(node.matrix[6]),
+			static_cast<float>(node.matrix[7]),
+
+			static_cast<float>(node.matrix[8]),
+			static_cast<float>(node.matrix[9]),
+			static_cast<float>(node.matrix[10]),
+			static_cast<float>(node.matrix[11]),
+
+			static_cast<float>(node.matrix[12]),
+			static_cast<float>(node.matrix[13]),
+			static_cast<float>(node.matrix[14]),
+			static_cast<float>(node.matrix[15])
+		);
+	}
+
+	XMVECTOR translation = XMVectorZero();
+	XMVECTOR rotation = XMQuaternionIdentity();
+	XMVECTOR scale = XMVectorSet(1.0f, 1.0f, 1.0f, 0.0f);
+
+	if (node.translation.size() == 3)
+	{
+		translation = XMVectorSet(
+			static_cast<float>(node.translation[0]),
+			static_cast<float>(node.translation[1]),
+			static_cast<float>(node.translation[2]),
+			0.0f
+		);
+	}
+
+	if (node.rotation.size() == 4)
+	{
+		// glTF Quaternion: x, y, z, w
+		rotation = XMVectorSet(
+			static_cast<float>(node.rotation[0]),
+			static_cast<float>(node.rotation[1]),
+			static_cast<float>(node.rotation[2]),
+			static_cast<float>(node.rotation[3])
+		);
+	}
+
+	if (node.scale.size() == 3)
+	{
+		scale = XMVectorSet(
+			static_cast<float>(node.scale[0]),
+			static_cast<float>(node.scale[1]),
+			static_cast<float>(node.scale[2]),
+			0.0f
+		);
+	}
+
+	return XMMatrixScalingFromVector(scale)
+		* XMMatrixRotationQuaternion(rotation)
+		* XMMatrixTranslationFromVector(translation);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+XMFLOAT3 cModelLoader::GetGltfLightColor(const tinygltf::Light& gltfLight)
+{
+	if (gltfLight.color.size() == 3)
+	{
+		return XMFLOAT3(
+			static_cast<float>(gltfLight.color[0]),
+			static_cast<float>(gltfLight.color[1]),
+			static_cast<float>(gltfLight.color[2])
+		);
+	}
+
+	return XMFLOAT3(1.0f, 1.0f, 1.0f);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+float cModelLoader::GetGltfLightRange(const tinygltf::Light& gltfLight)
+{
+	if (gltfLight.range > 0.0)
+		return static_cast<float>(gltfLight.range);
+
+	// glTF erlaubt undefined/infinite range.
+	// Dein Shader braucht aber ein endliches falloffEnd.
+	return 10.0f;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cModelLoader::GetGltfSpotConeCos(
+	const tinygltf::Light& gltfLight,
+	float& outInnerConeCos,
+	float& outOuterConeCos)
+{
+	// glTF Defaults:
+	// innerConeAngle = 0
+	// outerConeAngle = PI / 4
+	float innerConeAngle = static_cast<float>(gltfLight.spot.innerConeAngle);
+	float outerConeAngle = static_cast<float>(gltfLight.spot.outerConeAngle);
+
+	innerConeAngle = max(innerConeAngle, 0.0f);
+	outerConeAngle = max(outerConeAngle, 0.001f);
+
+	// inner muss kleiner als outer sein.
+	// Falls die Datei komische Werte hat, clampen wir defensiv.
+	innerConeAngle = min(innerConeAngle, outerConeAngle - 0.001f);
+
+	outInnerConeCos = std::cos(innerConeAngle);
+	outOuterConeCos = std::cos(outerConeAngle);
+
+	// cos(inner) muss größer sein als cos(outer),
+	// weil innerAngle kleiner ist als outerAngle.
+	if (outInnerConeCos < outOuterConeCos)
+		std::swap(outInnerConeCos, outOuterConeCos);
+}
+
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+void cModelLoader::CreateLightsFromGltf(tinygltf::Model& _rModel, sModel& _rOutModel)
+{
+	_rOutModel.lights.clear();
+
+	if (_rModel.lights.empty())
+		return;
+
+	auto ProcessNodeRecursive =
+		[&](auto&& self, int nodeIndex, const XMMATRIX& parentWorld) -> void
+		{
+			if (nodeIndex < 0 || nodeIndex >= static_cast<int>(_rModel.nodes.size()))
+				return;
+
+			const tinygltf::Node& node = _rModel.nodes[nodeIndex];
+
+			XMMATRIX local = GetNodeLocalMatrix(node);
+
+			// DirectX row-vector convention:
+			// childWorld = childLocal * parentWorld
+			XMMATRIX world = local * parentWorld;
+
+			if (node.light >= 0 && node.light < static_cast<int>(_rModel.lights.size()))
+			{
+				const tinygltf::Light& gltfLight = _rModel.lights[node.light];
+
+				sLightConstants outLight{};
+
+				outLight.strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
+				outLight.falloffStart = 0.0f;
+
+				outLight.direction = XMFLOAT3(0.0f, 0.0f, -1.0f);
+				outLight.falloffEnd = 10.0f;
+
+				outLight.position = XMFLOAT3(0.0f, 0.0f, 0.0f);
+				outLight.spotInnerConeCos = 1.0f;
+
+				outLight.type = 1;
+				outLight.spotOuterConeCos = std::cos(XM_PIDIV4);
+				outLight.padding = XMFLOAT2(0.0f, 0.0f);
+
+				// ------------------------------------------------------------
+				// Light Type
+				// glTF: "directional", "point", "spot"
+				// Shader: 0 = directional, 1 = point, 2 = spot
+				// ------------------------------------------------------------
+				if (gltfLight.type == "directional")
+				{
+					outLight.type = 0;
+				}
+				else if (gltfLight.type == "point")
+				{
+					outLight.type = 1;
+				}
+				else if (gltfLight.type == "spot")
+				{
+					outLight.type = 2;
+				}
+				else
+				{
+					return;
+				}
+
+				// ------------------------------------------------------------
+				// Color * Intensity
+				// ------------------------------------------------------------
+				const XMFLOAT3 color = GetGltfLightColor(gltfLight);
+				const float intensity = static_cast<float>(gltfLight.intensity);
+
+				outLight.strength = XMFLOAT3(
+					color.x * intensity,
+					color.y * intensity,
+					color.z * intensity
+				);
+
+				// ------------------------------------------------------------
+				// Position
+				// ------------------------------------------------------------
+				XMVECTOR positionW = XMVector3TransformCoord(
+					XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+					world
+				);
+
+				XMStoreFloat3(&outLight.position, positionW);
+
+				// ------------------------------------------------------------
+				// Direction
+				//
+				// KHR_lights_punctual:
+				// Directional und Spot Lights zeigen lokal in -Z-Richtung.
+				// ------------------------------------------------------------
+				XMVECTOR directionW = XMVector3TransformNormal(
+					XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f),
+					world
+				);
+
+				directionW = XMVector3Normalize(directionW);
+				XMStoreFloat3(&outLight.direction, directionW);
+
+				// ------------------------------------------------------------
+				// Range / Falloff
+				// ------------------------------------------------------------
+				outLight.falloffStart = 0.0f;
+				outLight.falloffEnd = GetGltfLightRange(gltfLight);
+
+				// ------------------------------------------------------------
+				// Spot Cone
+				// ------------------------------------------------------------
+				if (outLight.type == 2)
+				{
+					GetGltfSpotConeCos(
+						gltfLight,
+						outLight.spotInnerConeCos,
+						outLight.spotOuterConeCos
+					);
+				}
+
+				_rOutModel.lights.push_back(outLight);
+			}
+
+			for (int childIndex : node.children)
+			{
+				self(self, childIndex, world);
+			}
+		};
+
+	XMMATRIX identity = XMMatrixIdentity();
+
+	int sceneIndex = _rModel.defaultScene;
+
+	if (sceneIndex < 0 || sceneIndex >= static_cast<int>(_rModel.scenes.size()))
+	{
+		sceneIndex = _rModel.scenes.empty() ? -1 : 0;
+	}
+
+	if (sceneIndex >= 0)
+	{
+		const tinygltf::Scene& scene = _rModel.scenes[sceneIndex];
+
+		for (int rootNodeIndex : scene.nodes)
+		{
+			ProcessNodeRecursive(ProcessNodeRecursive, rootNodeIndex, identity);
+		}
+	}
+	else
+	{
+		// Fallback für Dateien ohne Scene.
+		for (int nodeIndex = 0; nodeIndex < static_cast<int>(_rModel.nodes.size()); ++nodeIndex)
+		{
+			ProcessNodeRecursive(ProcessNodeRecursive, nodeIndex, identity);
+		}
+	}
+}

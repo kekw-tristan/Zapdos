@@ -7,9 +7,11 @@
 
 namespace tinygltf
 {
-    class Model;
-    class Image;
-    class Scene;
+    struct Model;
+    struct Image;
+    struct Scene;
+    struct Node;
+    struct Light;
 }
 
 using namespace DirectX;
@@ -39,6 +41,13 @@ class cModelLoader
         static uint32_t GetOrCreateMaterialId(const tinygltf::Model& _rModel, int _materialIndex, sModel& _rOutModel);
         static void CreateTexturesFromGltf(tinygltf::Model& _rModel, sModel& _rOutModel);
         static void ProcessSceneIterative(tinygltf::Model& _rModel, const tinygltf::Scene& _rScene, sModel& _rOutModel);
+        static XMMATRIX GetNodeLocalMatrix(const tinygltf::Node& node);
+        static XMFLOAT3 GetGltfLightColor(const tinygltf::Light& gltfLight);
+        static float GetGltfLightRange(const tinygltf::Light& gltfLight);
+        static void GetGltfSpotConeCos(const tinygltf::Light& gltfLight, float& outInnerConeCos, float& outOuterConeCos);
+        static void CreateLightsFromGltf(tinygltf::Model& _rModel, sModel& _rOutModel); 
+
+
 
     private:
 

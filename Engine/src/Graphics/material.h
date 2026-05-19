@@ -14,7 +14,6 @@ struct sMaterial
     float ao;            // Ambient occlusion factor
 
     XMFLOAT3 emissive;   // Emissive color
-    
     int baseColorIndex;       
     int metallicRoughnessIndex;       
     int normalIndex;       
@@ -23,6 +22,7 @@ struct sMaterial
 
     float normalScale;
     float occlusionStrength;
+    float emissiveStrength;
 
     // Constructor with default values
     sMaterial()
@@ -32,13 +32,14 @@ struct sMaterial
         , roughness(0.5f)
         , ao(1.0f)
         , emissive(0.0f, 0.0f, 0.0f)
-        , baseColorIndex(0.0f)
-        , metallicRoughnessIndex(0.0f)
-        , normalIndex(0.0f)
-        , occlusionIndex(0.0f)
-        , emissiveIndex(0.0f)
+        , baseColorIndex(-1)
+        , metallicRoughnessIndex(-1)
+        , normalIndex(-1)
+        , occlusionIndex(-1)
+        , emissiveIndex(-1)
         , normalScale(0.0f)
         , occlusionStrength(0.0f)
+        , emissiveStrength(1.0f)
     {}
 };
 

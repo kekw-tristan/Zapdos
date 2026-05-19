@@ -105,6 +105,7 @@ void cSystem::InitializeRenderItems()
     std::vector<sMaterial>& materials = model.materials;
     std::vector<XMMATRIX>& worldMatrices = model.worldMatrices;
     std::vector<cCpuTexture>& cpuTextures = model.cpuTextures;
+    std::vector<sLightConstants>& lights = model.lights;
 
     std::cout << "----------------------------------------\n";
     std::cout << "GLTF LOAD DEBUG\n";
@@ -112,6 +113,7 @@ void cSystem::InitializeRenderItems()
     std::cout << "materials:     " << materials.size() << "\n";
     std::cout << "worldMatrices: " << worldMatrices.size() << "\n";
     std::cout << "cpuTextures:   " << cpuTextures.size() << "\n";
+    std::cout << "lights:        " << lights.size() << "\n";
 
     assert(meshes.size() == worldMatrices.size());
 
@@ -166,6 +168,11 @@ void cSystem::InitializeRenderItems()
         m_pScene->GetRenderItems().emplace_back(std::move(ri));
     }
 
+    for (sLightConstants light : lights)
+    {
+        m_pScene->GetLight().emplace_back(std::move(light));
+    }
+    
     std::cout << "city.gltf erfolgreich geladen.\n";
 }
 
@@ -174,31 +181,36 @@ void cSystem::InitializeRenderItems()
 void cSystem::InitializeLights()
 {
     auto& lights = m_pScene->GetLight();
+    lights.clear();
 
-    sLightConstants directionalLight{};
-    directionalLight.strength = XMFLOAT3(1, 1, 1);
-    directionalLight.direction = XMFLOAT3(1, -1, 1);
-    directionalLight.type = 0;
+    // Mondlicht / Nachtlicht
+    sLightConstants moonLight{};
 
-    lights.push_back(directionalLight);
+    moonLight.strength = XMFLOAT3(
+        0.08f,   // R
+        0.10f,   // G
+        0.16f    // B
+    );
 
-    const int pointLightCount = 0;
-    const float radius = 5.f;
-    const float yHeight = 2.f;
+    moonLight.direction = XMFLOAT3(
+        -0.35f,
+        -1.0f,
+        0.25f
+    );
 
-    for (int i = 0; i < pointLightCount; ++i)
-    {
-        sLightConstants light{};
-        float angle = XM_2PI * i / pointLightCount;
+    moonLight.falloffStart = 0.0f;
+    moonLight.falloffEnd = 0.0f;
 
-        light.position = XMFLOAT3(radius * cosf(angle), yHeight, radius * sinf(angle));
-        light.strength = XMFLOAT3(1, 1, 1);
-        light.falloffStart = 10.f;
-        light.falloffEnd = 50.f;
-        light.type = 1;
+    moonLight.position = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
-        lights.push_back(light);
-    }
+    moonLight.spotInnerConeCos = 1.0f;
+    moonLight.spotOuterConeCos = 0.0f;
+
+    moonLight.type = 0; // directional
+
+    moonLight.padding = XMFLOAT2(0.0f, 0.0f);
+
+    lights.push_back(moonLight);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------

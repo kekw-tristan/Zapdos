@@ -16,17 +16,17 @@ cbuffer cbPerObject : register(b0)
     float padding1;
 
     float3 gEmissive;
+    float gEmissiveStrength;
+    
     int gBaseColorIndex; // -1 = keine Texture
-
     int gMetallicRoughnessIndex;
     int gNormalIndex;
     int gOcclusionIndex;
+    
     int gEmissiveIndex;
-
     float gNormalScale;
     float gOcclusionStrength;
     int padding2;
-    int padding3;
 };
 
 cbuffer cbPass : register(b1)
@@ -59,10 +59,11 @@ struct sLight
     float falloffEnd;
 
     float3 position;
-    float spotPower;
+    float spotInnerConeCos;
 
-    int type; // 0=directional, 1=point, 2=spot
-    float3 padding;
+    int type;
+    float spotOuterConeCos;
+    float2 padding;
 };
 
 StructuredBuffer<sLight> gLights : register(t0);
@@ -238,7 +239,6 @@ float4 PS(sVertexOut pin) : SV_Target
     float roughness = saturate(gRoughness * metallicRoughnessTex.g);
     float metallic = saturate(gMetallic * metallicRoughnessTex.b);
 
-    // Avoid completely zero roughness.
     roughness = max(roughness, 0.04f);
 
     // ------------------------------------------------------------
@@ -246,7 +246,6 @@ float4 PS(sVertexOut pin) : SV_Target
     //
     // glTF Packing:
     // R = ambient occlusion
-    // strength: lerp between no AO and sampled AO
     // ------------------------------------------------------------
     float occlusionSample = SampleTextureByIndex(
         gOcclusionIndex,
@@ -259,7 +258,6 @@ float4 PS(sVertexOut pin) : SV_Target
 
     // ------------------------------------------------------------
     // Emissive
-    // glTF: emissive = emissiveFactor * emissiveTexture
     // ------------------------------------------------------------
     float3 emissiveTex = SampleTextureByIndex(
         gEmissiveIndex,
@@ -267,7 +265,7 @@ float4 PS(sVertexOut pin) : SV_Target
         float4(1.0f, 1.0f, 1.0f, 1.0f)
     ).rgb;
 
-    float3 emissive = gEmissive * emissiveTex;
+    float3 emissive = gEmissive * emissiveTex * gEmissiveStrength;
 
     // ------------------------------------------------------------
     // PBR Lighting
@@ -301,15 +299,21 @@ float4 PS(sVertexOut pin) : SV_Target
             L = lightVec / max(dist, 1e-5f);
 
             float falloffRange = max(light.falloffEnd - light.falloffStart, 0.001f);
-            attenuation = saturate(1.0f - saturate((dist - light.falloffStart) / falloffRange));
+            attenuation = saturate(1.0f - ((dist - light.falloffStart) / falloffRange));
             attenuation *= attenuation;
 
             if (light.type == 2)
             {
                 float3 spotDir = normalize(light.direction);
+
                 float spotCos = dot(-L, spotDir);
 
-                attenuation *= saturate(pow(spotCos, light.spotPower));
+                float spotAttenuation = saturate(
+                    (spotCos - light.spotOuterConeCos) /
+                    max(light.spotInnerConeCos - light.spotOuterConeCos, 1e-5f)
+                );
+
+                attenuation *= spotAttenuation * spotAttenuation;
             }
         }
 
@@ -339,8 +343,8 @@ float4 PS(sVertexOut pin) : SV_Target
         Lo += (diffuse + specular) * light.strength * attenuation * NdotL;
     }
 
-    // Simple ambient term.
-    float3 ambient = 0.03f * albedo * ao;
+    float3 ambientColor = float3(0.006f, 0.008f, 0.014f);
+    float3 ambient = ambientColor * albedo * ao;
 
     float3 color = ambient + Lo + emissive;
 

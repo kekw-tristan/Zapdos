@@ -36,7 +36,7 @@
 // --------------------------------------------------------------------------------------------------------------------------
 // Microsoft PIX Debug
 // --------------------------------------------------------------------------------------------------------------------------
-
+/*
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 {
     LPWSTR programFilesPath = nullptr;
@@ -65,6 +65,7 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
     return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
+*/
 
 // --------------------------------------------------------------------------------------------------------------------------
 
@@ -73,11 +74,12 @@ void cDirectX12::Initialize(cWindow* _pWindow, cTimer* _pTimer)
     // ------------------------------------------------------
     // Microsoft PIX Debug
     // ------------------------------------------------------
+    /*
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
     {
         LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
     }
-    
+    */
 
     // activate debug layer
     ComPtr<ID3D12Debug> debugController;
@@ -469,6 +471,7 @@ void cDirectX12::UpdateObjectCB()
                 objConstants.emissiveIndex          = mat.emissiveIndex;
                 objConstants.normalScale            = mat.normalScale;
                 objConstants.occlusionStrength      = mat.occlusionStrength;
+                objConstants.emissiveStrength       = mat.emissiveStrength;
 
             }
             else

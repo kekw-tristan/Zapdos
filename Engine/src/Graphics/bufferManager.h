@@ -29,18 +29,18 @@ struct sObjectConstants
 	float aoFactor;                 // Ambient occlusion factor (1 = full AO)
 	float padding;                  // padding
 
-	XMFLOAT3 emissive;              // Emissive RGB
-	int baseColorIndex;
+	XMFLOAT3	emissive;  // Emissive RGB
+	float		emissiveStrength;
 	
+	int baseColorIndex;
 	int metallicRoughnessIndex;
 	int normalIndex;
 	int occlusionIndex;
+	
 	int emissiveIndex;
-
 	float normalScale;
 	float occlusionStrength;
 	int padding2;
-	int padding3;
 
 	sObjectConstants()
 		: world()
@@ -51,6 +51,7 @@ struct sObjectConstants
 		, aoFactor(1.0f)
 		, padding(0.0f)
 		, emissive(0.0f, 0.0f, 0.0f)
+		, emissiveStrength(1.0f)
 		, baseColorIndex(-1)
 		, metallicRoughnessIndex(-1)
 		, normalIndex(-1)
@@ -59,7 +60,6 @@ struct sObjectConstants
 		, normalScale(1.0f)
 		, occlusionStrength(1.0f)
 		, padding2(0)
-		, padding3(0)
 	{
 		XMStoreFloat4x4(&world, XMMatrixIdentity());
 		XMStoreFloat4x4(&worldInvTranspose, XMMatrixIdentity());
