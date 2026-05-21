@@ -7,16 +7,16 @@
 
 namespace tinygltf
 {
-    struct Model;
+    class Model;
     struct Image;
     struct Scene;
-    struct Node;
+    class Node;
     struct Light;
 }
 
 using namespace DirectX;
 
-struct cCpuTexture;
+class cCpuTexture;
 struct sMaterial;
 struct sMeshData;
 struct sModel;

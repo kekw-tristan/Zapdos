@@ -526,10 +526,9 @@ void cDirectX12::UpdatePassCB()
     passConstants.invRenderTargetSize   = XMFLOAT2(1.0f / m_pWindow->GetWidth(), 1.0f / m_pWindow->GetHeight());
     passConstants.nearZ                 = 1.0f;
     passConstants.farZ                  = 1000.0f;
-    passConstants.totalTime             = m_pTimer->GetTotalTime();
-    passConstants.deltaTime             = m_pTimer->GetDeltaTime();
-
-    passConstants.lightCount            = m_pLights->size(); 
+    passConstants.totalTime             = static_cast<float> (m_pTimer->GetTotalTime());
+    passConstants.deltaTime             = static_cast<float> (m_pTimer->GetDeltaTime());
+    passConstants.lightCount            = static_cast<int>   (m_pLights->size());
 
     auto currPassCB = m_pCurrentFrameResource->pPassCB;
 

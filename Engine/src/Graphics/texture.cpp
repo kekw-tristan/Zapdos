@@ -37,7 +37,7 @@ void cTexture::LoadTexture(ID3D12Device* _pDevice)
 
     auto desc = m_pResource->GetDesc();
 
-    m_width     = desc.Width;
+    m_width = static_cast<int>(desc.Width);
     m_height    = desc.Height;
     m_mipLevels = desc.MipLevels;
 

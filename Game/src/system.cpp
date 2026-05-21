@@ -65,7 +65,7 @@ void cSystem::Run()
 
         m_pDirectX12->CalculateFrameStats();
 
-        float deltaTime = m_pTimer->GetDeltaTime();
+        float deltaTime = static_cast<float>(m_pTimer->GetDeltaTime());
         Update(deltaTime);
 
         m_pDirectX12->Draw();
@@ -101,11 +101,11 @@ void cSystem::InitializeRenderItems()
 
     cModelLoader::LoadGLTFModel(path, model);
 
-    std::vector<sMeshData>& meshes = model.meshes;
-    std::vector<sMaterial>& materials = model.materials;
-    std::vector<XMMATRIX>& worldMatrices = model.worldMatrices;
-    std::vector<cCpuTexture>& cpuTextures = model.cpuTextures;
-    std::vector<sLightConstants>& lights = model.lights;
+    std::vector<sMeshData>&         meshes          = model.meshes;
+    std::vector<sMaterial>&         materials       = model.materials;
+    std::vector<XMMATRIX>&          worldMatrices   = model.worldMatrices;
+    std::vector<cCpuTexture>&       cpuTextures     = model.cpuTextures;
+    std::vector<sLightConstants>&   lights          = model.lights;
 
     std::cout << "----------------------------------------\n";
     std::cout << "GLTF LOAD DEBUG\n";
