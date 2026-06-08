@@ -187,14 +187,14 @@ void cSystem::InitializeLights()
     sLightConstants moonLight{};
 
     moonLight.strength = XMFLOAT3(
-        0.08f,   // R
-        0.10f,   // G
-        0.16f    // B
+        2.08f,   // R
+        2.10f,   // G
+        2.16f    // B
     );
 
     moonLight.direction = XMFLOAT3(
-        -0.35f,
-        -1.0f,
+        1,
+        1,
         0.25f
     );
 

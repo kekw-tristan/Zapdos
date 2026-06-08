@@ -98,7 +98,8 @@ class cBufferManager
 	public:
 
 		ID3D12DescriptorHeap* GetCbvHeap() const;
-		int GetTextureOffset();
+		int GetTextureOffset() const;
+		int GetMipMapOffset()  const;
 
 	private:
 
@@ -110,6 +111,7 @@ class cBufferManager
 		cSwapChainManager*	m_pSwapChainManager;
 
 		int m_textureOffset;
+		int m_mipMapsOffset;
 
 		ComPtr<ID3D12DescriptorHeap> m_pCbvHeap;
 };

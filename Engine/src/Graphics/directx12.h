@@ -14,6 +14,7 @@
 #include "graphics/commandContext.h"
 #include "Graphics/gpuTexture.h"
 #include "Graphics/meshData.h"
+#include "textureManager.h"
 
 using namespace DirectX;
 using namespace Microsoft::WRL;
@@ -68,7 +69,6 @@ class cDirectX12
 		void CalculateFrameStats() const;
 		void OnResize();
 		void UploadCpuTexturesToGpu(std::vector<cCpuTexture>& _rCpuTextures);
-		void GenerateMipmaps(ID3D12GraphicsCommandList* pCmdList, ID3D12Resource* pTexture, D3D12_GPU_DESCRIPTOR_HANDLE srvGpuHandle, const std::vector<D3D12_GPU_DESCRIPTOR_HANDLE>& uavGpuHandles);
 
 		sMeshGeometry* GetGeometry(); 
 		ID3D12Device* GetDevice(); 
@@ -125,4 +125,6 @@ class cDirectX12
 		cRootSignatureManager*	m_pRootSignatureManager; 
 		cPipelineStateManager*	m_pPipelineStateManager; 
 		cShaderManager*			m_pShaderManager; 
+
+		cTextureManager m_textureManager; 
 };

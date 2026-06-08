@@ -14,6 +14,7 @@ cBufferManager::cBufferManager(cDeviceManager* _pDeviceManager, cSwapChainManage
     : m_pDeviceManager(_pDeviceManager)
     , m_pSwapChainManager(_pSwapChainManager)
     , m_textureOffset(0)
+    , m_mipMapsOffset(0)
 {
 }
 
@@ -39,9 +40,16 @@ ID3D12DescriptorHeap* cBufferManager::GetCbvHeap() const
 
 // --------------------------------------------------------------------------------------------------------------------------
 
-int cBufferManager::GetTextureOffset()
+int cBufferManager::GetTextureOffset() const
 {
     return m_textureOffset;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------
+
+int cBufferManager::GetMipMapOffset() const
+{
+    return m_mipMapsOffset;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------
@@ -53,10 +61,11 @@ void cBufferManager::InitializeDescriptorHeaps()
     heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     UINT descriptorsPerFrame = GFX_MAX_NUMBER_OF_RENDER_ITEMS + 1 + 1; // obj CBVs + pass + lights
-    heapDesc.NumDescriptors = c_NumberOfFrameResources * descriptorsPerFrame + GFX_MAX_NUMGER_OF_TEXTURES + (GFX_MAX_NUMGER_OF_TEXTURES * 16);
+    heapDesc.NumDescriptors = c_NumberOfFrameResources * descriptorsPerFrame + GFX_MAX_NUMGER_OF_TEXTURES + (GFX_MAX_NUMGER_OF_TEXTURES * GFX_MAX_MIP_MAPS_PER_TEXTURE);
     heapDesc.NodeMask = 0;
 
     m_textureOffset = c_NumberOfFrameResources * descriptorsPerFrame;
+    m_mipMapsOffset = m_textureOffset + GFX_MAX_NUMGER_OF_TEXTURES;
 
     cDirectX12Util::ThrowIfFailed(m_pDeviceManager->GetDevice()->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_pCbvHeap)));
 }
